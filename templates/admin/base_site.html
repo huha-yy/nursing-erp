@@ -1,0 +1,52 @@
+{% extends "admin/base_site.html" %}
+
+{% block extrastyle %}
+    {{ block.super }}
+    <style>
+        /* 导入 / 导出 / 添加按钮 — 同一行横向排列 */
+        .object-tools {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: wrap !important;
+            align-items: center !important;
+            gap: 8px !important;
+        }
+
+        .object-tools > * {
+            flex-shrink: 0;
+            margin-left: 0 !important;
+        }
+
+        /* 导入/导出 — 灰色文字按钮 */
+        .object-tools a.import_link,
+        .object-tools a.export_link {
+            display: inline-flex !important;
+            align-items: center;
+            height: 36px;
+            padding: 0 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #374151;
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .object-tools a.import_link:hover,
+        .object-tools a.export_link:hover {
+            background: #e5e7eb;
+        }
+
+        /* 蓝色加号 — 变长方形文字按钮 */
+        .object-tools .addlink {
+            width: auto !important;
+            min-width: 36px !important;
+            height: 36px !important;
+            padding: 0 14px !important;
+            border-radius: 6px !important;
+            margin: 0 !important;
+        }
+    </style>
+{% endblock %}

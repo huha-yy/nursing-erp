@@ -1,0 +1,37 @@
+services:
+  nursing-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: nursing_erp
+      POSTGRES_USER: nursing
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - nursing_db_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - dato_proxy_net
+
+  nursing-erp:
+    build: ..
+    environment:
+      DB_HOST: nursing-db
+      DB_PORT: "5432"
+      DB_NAME: nursing_erp
+      DB_USER: nursing
+      DB_PASSWORD: ${DB_PASSWORD}
+      SECRET_KEY: ${SECRET_KEY}
+      ALLOWED_HOSTS: "nursing-erp,localhost,${DOMAIN:-hz-sanfu.eldcare.cn}"
+      DEBUG: "false"
+    ports:
+      - "8080:8080"
+    depends_on:
+      - nursing-db
+    networks:
+      - dato_proxy_net
+
+volumes:
+  nursing_db_data:
+
+networks:
+  dato_proxy_net:
+    external: true

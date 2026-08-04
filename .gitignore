@@ -1,0 +1,27 @@
+# Django
+__pycache__/
+*.pyc
+*.pyo
+*.sqlite3
+staticfiles/
+
+# Virtual environment
+.venv/
+
+# Environment
+infra/.env
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backup
+backups/
+
+# pytest
+.pytest_cache/

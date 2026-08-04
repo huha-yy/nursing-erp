@@ -1,0 +1,3 @@
+-- Nursing ERP initial seed data
+-- This file is idempotent — safe to run on every boot.
+-- Django manages the schema via migrations; this file only seeds data.

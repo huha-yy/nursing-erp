@@ -1,0 +1,12 @@
+{% extends "admin/import_export/change_list.html" %}
+
+{# 把导入/导出按钮从 tab 栏移走，放到 object-tools 区与添加按钮同一行 #}
+{% block actions-items %}{% endblock %}
+
+{% block object-tools-items %}
+    {% if has_add_permission %}
+        {{ block.super }}
+    {% endif %}
+    {% include "admin/import_export/change_list_import_item.html" %}
+    {% include "admin/import_export/change_list_export_item.html" %}
+{% endblock %}
