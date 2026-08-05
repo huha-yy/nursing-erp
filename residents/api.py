@@ -1,12 +1,32 @@
 from typing import List, Optional
-from datetime import date
+from datetime import date, datetime
 
-from ninja import Router, Query
+from ninja import Router, Query, Schema
 from ninja.pagination import paginate, PageNumberPagination
 
 from .models import Resident, NursingLog, HealthRecord, MedicationRecord
 
 router = Router(tags=["老人照护"])
+
+
+# ---- Schemas ----
+
+class NursingLogIn(Schema):
+    resident_id: int
+    category: str  # feeding/hygiene/toilet/turning/medicine/vital_signs/rehab/other
+    detail: str = ""
+    staff_name: str = ""
+    log_date: date | None = None
+
+class HealthRecordIn(Schema):
+    resident_id: int
+    blood_pressure: str = ""
+    blood_sugar: float | None = None
+    heart_rate: int | None = None
+    weight: float | None = None
+    temperature: float | None = None
+    note: str = ""
+    record_date: date | None = None
 
 
 @router.get("/residents/", response=List[dict])
@@ -92,6 +112,39 @@ def list_resident_medications(request, resident_id: int):
         }
         for m in qs
     ]
+
+
+# ---- Write endpoints ----
+
+@router.post("/nursing-logs/", response=dict)
+def create_nursing_log(request, payload: NursingLogIn):
+    """创建护理日志 — Agent 通过对话写入"""
+    log_date = payload.log_date or date.today()
+    log = NursingLog.objects.create(
+        resident_id=payload.resident_id,
+        log_date=log_date,
+        category=payload.category,
+        detail=payload.detail,
+        staff_name=payload.staff_name,
+    )
+    return {"id": log.id, "status": "created", "log_date": str(log_date)}
+
+
+@router.post("/health-records/", response=dict)
+def create_health_record(request, payload: HealthRecordIn):
+    """创建健康记录 — Agent 通过对话写入"""
+    record_date = payload.record_date or date.today()
+    hr = HealthRecord.objects.create(
+        resident_id=payload.resident_id,
+        record_date=record_date,
+        blood_pressure=payload.blood_pressure,
+        blood_sugar=payload.blood_sugar,
+        heart_rate=payload.heart_rate,
+        weight=payload.weight,
+        temperature=payload.temperature,
+        note=payload.note,
+    )
+    return {"id": hr.id, "status": "created", "record_date": str(record_date)}
 
 
 def format_resident(r: Resident, detail: bool = False) -> dict:

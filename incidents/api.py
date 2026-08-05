@@ -1,11 +1,18 @@
 from typing import List, Optional
 
-from ninja import Router, Query
+from ninja import Router, Query, Schema
 from ninja.pagination import paginate, PageNumberPagination
 
 from .models import IncidentReport
 
 router = Router(tags=["异常上报"])
+
+
+class IncidentIn(Schema):
+    resident_id: int
+    category: str  # fall/illness/mood/refuse_eat/wander/skin/other
+    severity: str = "info"  # info/warning/danger
+    description: str = ""
 
 
 @router.get("/incidents/", response=List[dict])
@@ -38,3 +45,15 @@ def list_incidents(
         }
         for i in qs
     ]
+
+
+@router.post("/incidents/", response=dict)
+def create_incident(request, payload: IncidentIn):
+    """创建异常上报 — Agent 通过对话写入"""
+    incident = IncidentReport.objects.create(
+        resident_id=payload.resident_id,
+        category=payload.category,
+        severity=payload.severity,
+        description=payload.description,
+    )
+    return {"id": incident.id, "status": "created", "severity": payload.severity}

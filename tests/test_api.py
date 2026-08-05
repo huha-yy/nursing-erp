@@ -74,3 +74,84 @@ def test_list_schedules(client):
     data = resp.json()
     assert len(data["items"]) == 1
     assert data["items"][0]["shift"] == "白班"
+
+
+@pytest.mark.django_db
+def test_create_nursing_log_via_api(client):
+    """Agent 通过 POST /api/nursing-logs/ 写入护理日志"""
+    from residents.models import Resident, NursingLog
+
+    r = Resident.objects.create(
+        name="张国栋", building="1号楼", floor="1层", room="101",
+        care_level="自理", id_card="330100194801011234"
+    )
+
+    resp = client.post("/api/nursing-logs/", data={
+        "resident_id": r.id,
+        "category": "vital_signs",
+        "detail": "血压 135/85，正常",
+        "staff_name": "李芳",
+    }, content_type="application/json")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "created"
+    assert data["id"] > 0
+
+    # Verify it was actually created
+    log = NursingLog.objects.get(id=data["id"])
+    assert log.detail == "血压 135/85，正常"
+    assert log.resident_id == r.id
+
+
+@pytest.mark.django_db
+def test_create_incident_via_api(client):
+    """Agent 通过 POST /api/incidents/ 上报异常"""
+    from residents.models import Resident
+    from incidents.models import IncidentReport
+
+    r = Resident.objects.create(
+        name="张国栋", building="1号楼", floor="1层", room="101",
+        care_level="自理", id_card="330100194801011234"
+    )
+
+    resp = client.post("/api/incidents/", data={
+        "resident_id": r.id,
+        "category": "fall",
+        "severity": "danger",
+        "description": "老人在走廊摔倒，右膝擦伤",
+    }, content_type="application/json")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "created"
+
+    # Verify
+    incident = IncidentReport.objects.get(id=data["id"])
+    assert incident.severity == "danger"
+    assert incident.handled is False
+
+
+@pytest.mark.django_db
+def test_create_health_record_via_api(client):
+    """Agent 通过 POST /api/health-records/ 写入健康数据"""
+    from residents.models import Resident, HealthRecord
+
+    r = Resident.objects.create(
+        name="张国栋", building="1号楼", floor="1层", room="101",
+        care_level="自理", id_card="330100194801011234"
+    )
+
+    resp = client.post("/api/health-records/", data={
+        "resident_id": r.id,
+        "blood_pressure": "135/85",
+        "blood_sugar": 5.6,
+        "heart_rate": 72,
+    }, content_type="application/json")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "created"
+
+    hr = HealthRecord.objects.get(id=data["id"])
+    assert hr.blood_pressure == "135/85"
