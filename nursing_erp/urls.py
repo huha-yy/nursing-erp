@@ -2,6 +2,8 @@ from django.contrib import admin
 from django.urls import path
 from ninja import NinjaAPI
 
+from nursing_erp.views import kitchen_today, finance_monthly
+
 api = NinjaAPI(title="养老院管理系统 API", version="1.0.0")
 
 # Phase 1-A API routers
@@ -20,4 +22,6 @@ api.add_router("/", meals_router)
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", api.urls),
+    path("kitchen/", kitchen_today, name="kitchen_today"),
+    path("finance/", finance_monthly, name="finance_monthly"),
 ]
