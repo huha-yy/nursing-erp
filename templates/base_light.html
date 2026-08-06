@@ -1,87 +1,166 @@
-{% load static %}
-<!DOCTYPE html>
+{% load static %}<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="{{ page_title }}">
 <title>{{ page_title }} — 养老院管理系统</title>
 <link href="{% static 'unfold/fonts/inter/styles.css' %}" rel="stylesheet">
 <style>
-  :root {
-    --primary: #3b82f6; --primary-hover: #2563eb; --primary-light: #eff6ff;
-    --gray-50: #f9fafb; --gray-100: #f3f4f6; --gray-200: #e5e7eb;
-    --gray-400: #9ca3af; --gray-500: #6b7280; --gray-600: #4b5563;
-    --gray-700: #374151; --gray-800: #1f2937; --gray-900: #111827;
-    --radius: 10px; --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
-  }
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body {
-    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: var(--gray-50); color: var(--gray-800); min-height: 100vh; -webkit-font-smoothing: antialiased;
-  }
-  .topbar {
-    background: #fff; border-bottom: 1px solid var(--gray-200); padding: 0 20px;
-    display: flex; align-items: center; height: 52px; gap: 16px;
-    position: sticky; top: 0; z-index: 50;
-  }
-  .topbar .logo { font-size: 15px; font-weight: 700; color: var(--gray-900); letter-spacing: -.01em; }
-  .topbar .logo a { color: inherit; text-decoration: none; }
-  .topbar .nav-links { display: flex; gap: 4px; margin-left: auto; }
-  .topbar .nav-link {
-    padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 500;
-    color: var(--gray-600); text-decoration: none; transition: all .15s;
-  }
-  .topbar .nav-link:hover { background: var(--gray-100); color: var(--gray-900); }
-  .topbar .nav-link.active { background: var(--primary-light); color: var(--primary); }
-  .container { max-width: 860px; margin: 0 auto; padding: 24px 20px; }
-  .page-title { font-size: 20px; font-weight: 700; color: var(--gray-900); margin-bottom: 20px; }
-  .card {
-    background: #fff; border: 1px solid var(--gray-200); border-radius: var(--radius);
-    padding: 20px; margin-bottom: 16px; box-shadow: var(--shadow);
-  }
-  .card-header { font-size: 15px; font-weight: 600; color: var(--gray-800); margin-bottom: 16px;
-    padding-bottom: 12px; border-bottom: 1px solid var(--gray-100); display: flex; align-items: center; gap: 8px; }
-  .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
-  .stat-box {
-    background: #fff; border: 1px solid var(--gray-200); border-radius: var(--radius);
-    padding: 16px; text-align: center; box-shadow: var(--shadow);
-  }
-  .stat-box .num { font-size: 28px; font-weight: 800; color: var(--primary); letter-spacing: -.02em; }
-  .stat-box .label { font-size: 12px; color: var(--gray-500); margin-top: 4px; font-weight: 500; }
-  .stat-box.warn .num { color: #ef4444; }
-  .stat-box.accent .num { color: #8b5cf6; }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  th { text-align: left; padding: 10px 12px; border-bottom: 2px solid var(--gray-200); color: var(--gray-500);
-    font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
-  td { padding: 10px 12px; border-bottom: 1px solid var(--gray-100); }
-  tr:last-child td { border-bottom: none; }
-  .badge { display: inline-block; padding: 3px 10px; border-radius: 100px; font-size: 12px; font-weight: 600; }
-  .badge-success { background: #d1fae5; color: #065f46; }
-  .badge-warn { background: #fef3c7; color: #92400e; }
-  .badge-danger { background: #fee2e2; color: #991b1b; }
-  .badge-neutral { background: var(--gray-100); color: var(--gray-600); }
-  .empty-state { text-align: center; padding: 40px; color: var(--gray-400); font-size: 14px; }
-  .empty-state .icon { font-size: 40px; margin-bottom: 8px; }
-  @media (max-width: 600px) {
-    .container { padding: 16px 12px; }
-    .topbar { padding: 0 12px; }
-    .topbar .nav-link { font-size: 12px; padding: 4px 8px; }
-    .stats-row { grid-template-columns: repeat(2, 1fr); }
-  }
+:root{
+  --p:#3b82f6;--ph:#2563eb;--pl:#eff6ff;--g50:#f9fafb;--g100:#f3f4f6;--g200:#e5e7eb;
+  --g400:#9ca3af;--g500:#6b7280;--g600:#4b5563;--g700:#374151;--g800:#1f2937;--g900:#111827;
+  --r:10px;--sh:0 1px 3px rgba(0,0,0,.05),0 1px 2px rgba(0,0,0,.04);
+  --sh-h:0 4px 12px rgba(0,0,0,.08),0 2px 4px rgba(0,0,0,.04);
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  background:var(--g50);color:var(--g800);min-height:100vh;-webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+}
+/* ── Topbar ── */
+.topbar{
+  background:rgba(255,255,255,.85);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--g200);padding:0 20px;display:flex;align-items:center;height:52px;gap:16px;
+  position:sticky;top:0;z-index:50;
+}
+.topbar .logo{font-size:15px;font-weight:700;color:var(--g900);letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
+.topbar .logo a{color:inherit;text-decoration:none}
+.topbar .logo .dot{width:8px;height:8px;border-radius:50%;background:var(--p)}
+.topbar .navs{display:flex;gap:2px;margin-left:auto}
+.topbar .navs a{
+  padding:6px 12px;border-radius:6px;font-size:13px;font-weight:500;color:var(--g600);
+  text-decoration:none;transition:all .15s
+}
+.topbar .navs a:hover{background:var(--g100);color:var(--g900)}
+.topbar .navs a.on{background:var(--pl);color:var(--p)}
+/* ── Layout ── */
+.container{max-width:880px;margin:0 auto;padding:28px 20px}
+.page-title{font-size:22px;font-weight:700;color:var(--g900);margin-bottom:24px;letter-spacing:-.01em;display:flex;align-items:center;gap:12px}
+.page-title .sub{font-size:14px;font-weight:400;color:var(--g500);margin-left:auto}
+/* ── Card ── */
+.card{
+  background:#fff;border:1px solid var(--g200);border-radius:var(--r);
+  padding:20px;margin-bottom:16px;box-shadow:var(--sh);transition:box-shadow .2s
+}
+.card:hover{box-shadow:var(--sh-h)}
+.card-head{
+  font-size:15px;font-weight:600;color:var(--g800);margin-bottom:16px;
+  padding-bottom:12px;border-bottom:1px solid var(--g100);display:flex;align-items:center;gap:8px
+}
+.card-head .count{
+  margin-left:auto;font-size:22px;font-weight:800;color:var(--p)
+}
+.card-head .count span{font-size:13px;font-weight:400;color:var(--g500)}
+/* ── Stats ── */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px}
+.stat{
+  background:#fff;border:1px solid var(--g200);border-radius:var(--r);padding:18px 16px;
+  text-align:center;box-shadow:var(--sh);position:relative;overflow:hidden;transition:box-shadow .2s
+}
+.stat:hover{box-shadow:var(--sh-h)}
+.stat::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--p);border-radius:3px}
+.stat .num{font-size:28px;font-weight:800;letter-spacing:-.02em;color:var(--g900);margin:4px 0 2px}
+.stat .lbl{font-size:12px;color:var(--g500);font-weight:500}
+.stat.warn::before{background:#ef4444}.stat.warn .num{color:#ef4444}
+.stat.ok::before{background:#10b981}.stat.ok .num{color:#10b981}
+.stat.purple::before{background:#8b5cf6}.stat.purple .num{color:#8b5cf6}
+/* ── Table ── */
+table{width:100%;border-collapse:collapse;font-size:14px}
+thead th{
+  text-align:left;padding:10px 12px;border-bottom:2px solid var(--g200);color:var(--g500);
+  font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em
+}
+tbody td{padding:11px 12px;border-bottom:1px solid var(--g100)}
+tbody tr{transition:background .1s}
+tbody tr:hover{background:var(--g50)}
+tbody tr:last-child td{border-bottom:none}
+/* ── Badge ── */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:100px;font-size:12px;font-weight:600;line-height:1.4}
+.badge-ok{background:#d1fae5;color:#065f46}
+.badge-warn{background:#fef3c7;color:#92400e}
+.badge-err{background:#fee2e2;color:#991b1b}
+.badge-dim{background:var(--g100);color:var(--g600)}
+/* ── Input ── */
+.inp{
+  width:100%;padding:12px 14px;font-size:15px;border:2px solid var(--g200);border-radius:8px;
+  font-family:inherit;background:var(--g50);transition:all .15s;outline:none
+}
+.inp:focus{border-color:var(--p);background:#fff;box-shadow:0 0 0 3px rgba(59,130,246,.1)}
+/* ── Button ── */
+.btn{
+  padding:14px;font-size:14px;font-weight:600;border:2px solid var(--g200);border-radius:8px;
+  background:#fff;cursor:pointer;font-family:inherit;transition:all .15s;text-align:center
+}
+.btn:hover{border-color:var(--p);color:var(--p)}
+.btn.sel{border-color:var(--p);background:var(--pl);color:var(--p);box-shadow:0 0 0 3px rgba(59,130,246,.08)}
+.btn-submit{
+  width:100%;padding:15px;font-size:16px;font-weight:700;color:#fff;background:var(--p);
+  border:none;border-radius:var(--r);cursor:pointer;font-family:inherit;transition:all .15s
+}
+.btn-submit:hover:not(:disabled){background:var(--ph);box-shadow:0 4px 12px rgba(59,130,246,.3)}
+.btn-submit:disabled{background:var(--g400);cursor:not-allowed;transform:none}
+.btn-submit:active:not(:disabled){transform:scale(.98)}
+/* ── Toast ── */
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:12px 24px;
+  border-radius:8px;color:#fff;font-weight:600;font-size:14px;z-index:200;opacity:0;
+  transition:opacity .3s,transform .3s;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,.15)
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
+/* ── Empty ── */
+.empty{padding:48px 20px;text-align:center;color:var(--g400)}
+.empty .ico{font-size:44px;margin-bottom:10px}
+.empty p{font-size:14px}
+/* ── Resident card ── */
+.res-card{
+  background:#fff;border:2px solid var(--g200);border-radius:var(--r);padding:14px 16px;
+  cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:12px
+}
+.res-card:hover{border-color:#93c5fd}
+.res-card.sel{border-color:var(--p);background:var(--pl);box-shadow:0 0 0 3px rgba(59,130,246,.08)}
+.res-card .avatar{
+  width:40px;height:40px;border-radius:50%;background:var(--g100);
+  display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;
+  color:var(--g600);flex-shrink:0;transition:all .15s
+}
+.res-card.sel .avatar{background:var(--p);color:#fff}
+.res-card .info{flex:1;min-width:0}
+.res-card .info .n{font-size:15px;font-weight:600}
+.res-card .info .m{font-size:12px;color:var(--g500);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.res-card.sel .info .n{color:var(--p)}
+.res-card .check{width:22px;height:22px;border-radius:50%;border:2px solid var(--g200);flex-shrink:0;transition:all .15s;display:flex;align-items:center;justify-content:center}
+.res-card.sel .check{background:var(--p);border-color:var(--p)}
+.res-card.sel .check::after{content:'✓';color:#fff;font-size:12px;font-weight:700}
+/* ── Menu preview ── */
+.menu-preview{font-size:13px;color:var(--g600);margin-bottom:14px;padding:10px 14px;background:var(--g50);border-radius:6px;line-height:1.6}
+/* ── Responsive ── */
+@media(max-width:640px){
+  .container{padding:16px 12px}
+  .topbar{padding:0 12px}
+  .topbar .navs a{font-size:12px;padding:4px 8px}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .page-title{font-size:18px}
+  .btn{font-size:13px;padding:12px 4px}
+}
 </style>
 </head>
 <body>
 <div class="topbar">
-  <div class="logo"><a href="/admin/">养老院管理系统</a></div>
-  <div class="nav-links">
-    <a href="/quick-log/" class="nav-link {% block nav_quick %}{% endblock %}">快速记录</a>
-    <a href="/kitchen/" class="nav-link {% block nav_kitchen %}{% endblock %}">食堂看板</a>
-    <a href="/finance/" class="nav-link {% block nav_finance %}{% endblock %}">财务月结</a>
-    <a href="/admin/" class="nav-link">管理后台</a>
+  <div class="logo"><span class="dot"></span><a href="/admin/">养老院管理系统</a></div>
+  <div class="navs">
+    <a href="/quick-log/" class="{% block nav_quick %}{% endblock %}">📝 记录</a>
+    <a href="/kitchen/" class="{% block nav_kitchen %}{% endblock %}">🍽️ 食堂</a>
+    <a href="/finance/" class="{% block nav_finance %}{% endblock %}">💰 财务</a>
+    <a href="/admin/">⚙️ 管理</a>
   </div>
 </div>
 {% block content %}{% endblock %}
+<div class="toast" id="toast"></div>
+<script>
+function toast(m,c){var t=document.getElementById('toast');t.textContent=m;t.style.background=c||'var(--g800)';t.className='toast show';setTimeout(function(){t.className='toast'},2000)}
+</script>
 </body>
 </html>
