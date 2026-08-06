@@ -104,6 +104,9 @@ UNFOLD = {
     "SITE_HEADER": "养老院综合管理平台",
     "SITE_URL": "/",
     "SITE_SYMBOL": "home",
+    "TABS": [
+        {"title": "AI 院长助手", "link": "https://hz-sanfu.eldcare.cn:9443/chat/"},
+    ],
     "COLORS": {
         "primary": {
             "50": "239 246 255",
@@ -153,6 +156,8 @@ UNFOLD = {
                 {"title": "点餐订单", "icon": "restaurant", "link": "/admin/meals/mealorder/"},
                 {"title": "改退餐记录", "icon": "change_circle", "link": "/admin/meals/mealmodificationlog/"},
                 {"title": "餐费月结", "icon": "payments", "link": "/admin/meals/mealfinance/"},
+                {"title": "食堂看板", "icon": "soup_kitchen", "link": "/kitchen/"},
+                {"title": "财务月结", "icon": "account_balance", "link": "/finance/"},
             ]},
             {"title": "⚙️ 系统管理", "collapsible": True, "items": [
                 {"title": "用户账号", "icon": "manage_accounts", "link": "/admin/auth/user/"},
