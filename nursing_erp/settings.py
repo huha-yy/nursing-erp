@@ -125,6 +125,7 @@ UNFOLD = {
         "navigation": [
             {"title": "🤖 AI 院长助手", "collapsible": True, "items": [
                 {"title": "打开 AI Chat", "icon": "smart_toy", "link": "https://hz-sanfu.eldcare.cn:9443/chat/"},
+                {"title": "快速记录", "icon": "edit_note", "link": "/quick-log/"},
             ]},
             {"title": "👴 老人照护", "collapsible": True, "items": [
                 {"title": "老人档案", "icon": "person", "link": "/admin/residents/resident/"},

@@ -67,3 +67,8 @@ def finance_monthly(request):
         "paid_count": sum(1 for r in records if r.paid),
     }
     return render(request, "finance_monthly.html", context)
+
+
+def quick_log(request):
+    """护理员快速录入 — 手机端极简页面"""
+    return render(request, "quick_log.html")

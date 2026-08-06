@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.urls import path
 from ninja import NinjaAPI
 
-from nursing_erp.views import kitchen_today, finance_monthly
+from nursing_erp.views import kitchen_today, finance_monthly, quick_log
 
 api = NinjaAPI(title="养老院管理系统 API", version="1.0.0")
 
@@ -24,4 +24,5 @@ urlpatterns = [
     path("api/", api.urls),
     path("kitchen/", kitchen_today, name="kitchen_today"),
     path("finance/", finance_monthly, name="finance_monthly"),
+    path("quick-log/", quick_log, name="quick_log"),
 ]
