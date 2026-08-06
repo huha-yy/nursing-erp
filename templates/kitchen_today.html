@@ -1,73 +1,71 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>食堂今日看板 — {{ today }}</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #333; }
-  .header { background: #3b82f6; color: #fff; padding: 16px 20px; text-align: center; }
-  .header h1 { font-size: 20px; }
-  .header .date { font-size: 14px; opacity: 0.85; margin-top: 4px; }
-  .container { max-width: 800px; margin: 0 auto; padding: 16px; }
-  .summary-bar { display: flex; gap: 10px; margin-bottom: 16px; }
-  .stat { flex: 1; background: #fff; border-radius: 8px; padding: 14px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-  .stat .num { font-size: 28px; font-weight: 700; color: #3b82f6; }
-  .stat .label { font-size: 12px; color: #888; margin-top: 4px; }
-  .stat.warn .num { color: #ef4444; }
-  .card { background: #fff; border-radius: 8px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-  .card h2 { font-size: 16px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 2px solid #3b82f6; }
-  .card .menu-text { font-size: 14px; color: #666; margin-bottom: 10px; }
-  .card .count { font-size: 24px; font-weight: 700; color: #3b82f6; margin-bottom: 8px; }
-  .special-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
-  .special-row:last-child { border-bottom: none; }
-  .special-row .name { font-weight: 600; }
-  .special-row .req { color: #ef4444; }
-  .footer { text-align: center; color: #aaa; font-size: 12px; padding: 20px; }
-</style>
-</head>
-<body>
-<div class="header">
-  <h1>🍽️ 食堂今日看板</h1>
-  <div class="date">{{ today }}</div>
-</div>
+{% extends "base_light.html" %}
+{% block nav_kitchen %}active{% endblock %}
 
+{% block content %}
 <div class="container">
-  <div class="summary-bar">
-    <div class="stat">
+  <div class="page-title" style="display:flex;align-items:center;gap:10px;">
+    <span>🍽️</span> 食堂今日看板
+    <span style="font-size:14px;font-weight:400;color:var(--gray-500);margin-left:auto;">{{ today }}</span>
+  </div>
+
+  <!-- 统计 -->
+  <div class="stats-row">
+    <div class="stat-box">
       <div class="num">{{ total_orders }}</div>
       <div class="label">总点餐数</div>
     </div>
-    <div class="stat warn">
+    <div class="stat-box warn">
       <div class="num">{{ cancel_count }}</div>
       <div class="label">退餐</div>
     </div>
-    <div class="stat">
+    <div class="stat-box accent">
       <div class="num">{{ effective_orders }}</div>
       <div class="label">实际备餐</div>
     </div>
   </div>
 
+  <!-- 三餐 -->
   {% for meal in meal_data %}
   <div class="card">
-    <h2>{{ meal.emoji }} {{ meal.key }}</h2>
-    <div class="menu-text">
-      📋 {% if meal.menu %}{{ meal.menu.menu_items }}{% else %}暂无菜单{% endif %}
+    <div class="card-header">
+      {{ meal.emoji }} {{ meal.key }}
+      <span style="margin-left:auto;font-size:20px;font-weight:800;color:var(--primary);">
+        {{ meal.orders|length }}
+        <span style="font-size:13px;font-weight:400;color:var(--gray-500);">份</span>
+      </span>
     </div>
-    <div class="count">{{ meal.orders|length }} 份</div>
-    {% for o in meal.orders %}
-      {% if o.special_requests %}
-      <div class="special-row">
-        <span class="name">{{ o.resident.name }}({{ o.resident.room }})</span>
-        <span class="req">⚠️ {{ o.special_requests }}</span>
-      </div>
-      {% endif %}
-    {% endfor %}
+
+    {% if meal.menu %}
+    <div style="font-size:14px;color:var(--gray-600);margin-bottom:12px;padding:8px 12px;
+                background:var(--gray-50);border-radius:6px;">
+      📋 {{ meal.menu.menu_items }}
+    </div>
+    {% endif %}
+
+    {% if meal.orders %}
+    <table>
+      <thead><tr><th>老人</th><th>房间</th><th>菜品</th><th>特殊需求</th></tr></thead>
+      <tbody>
+      {% for o in meal.orders %}
+      <tr>
+        <td style="font-weight:600;">{{ o.resident.name }}</td>
+        <td>{{ o.resident.room }}</td>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ o.menu_choice }}</td>
+        <td>
+          {% if o.special_requests %}
+          <span class="badge badge-warn">⚠️ {{ o.special_requests }}</span>
+          {% else %}
+          <span style="color:var(--gray-400);">—</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state" style="padding:20px;">暂无点餐</div>
+    {% endif %}
   </div>
   {% endfor %}
 </div>
-
-<div class="footer">养老院综合管理平台 · 食堂看板</div>
-</body>
-</html>
+{% endblock %}
