@@ -123,7 +123,9 @@ UNFOLD = {
         "show_search": True,
         "show_all_applications": False,
         "navigation": [
-            {"title": "🤖 AI 院长助手", "icon": "smart_toy", "link": "https://hz-sanfu.eldcare.cn:9443/chat/"},
+            {"title": "🤖 AI 院长助手", "collapsible": True, "items": [
+                {"title": "打开 AI Chat", "icon": "smart_toy", "link": "https://hz-sanfu.eldcare.cn:9443/chat/"},
+            ]},
             {"title": "👴 老人照护", "collapsible": True, "items": [
                 {"title": "老人档案", "icon": "person", "link": "/admin/residents/resident/"},
                 {"title": "护理日志", "icon": "edit_note", "link": "/admin/residents/nursinglog/"},
