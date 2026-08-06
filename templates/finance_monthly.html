@@ -1,40 +1,26 @@
-{% extends "base_light.html" %}
-{% block nav_finance %}on{% endblock %}
+{% extends "base_light.html" %}{% block nav_finance %}on{% endblock %}
 
 {% block content %}
-<div class="container">
-  <div class="page-title">
-    💰 餐费月结
-    <span class="sub">{{ month }}</span>
-  </div>
+<div class="wrap">
+  <div class="title">💰 餐费月结<span class="sub">{{ month }}</span></div>
 
   <div class="stats">
     <div class="stat"><div class="num">{{ resident_count }}</div><div class="lbl">就餐人数</div></div>
-    <div class="stat"><div class="num">¥{{ total_amount|floatformat:0 }}</div><div class="lbl">应收总额</div></div>
-    <div class="stat ok"><div class="num">¥{{ total_paid|floatformat:0 }}</div><div class="lbl">已缴纳</div></div>
-    <div class="stat warn"><div class="num">¥{{ total_unpaid|floatformat:0 }}</div><div class="lbl">待缴纳</div></div>
+    <div class="stat"><div class="num" style="font-size:24px">¥{{ total_amount|floatformat:0 }}</div><div class="lbl">应收总额</div></div>
+    <div class="stat"><div class="num" style="font-size:24px">¥{{ total_paid|floatformat:0 }}</div><div class="lbl">已缴纳</div></div>
+    <div class="stat -warn"><div class="num" style="font-size:24px">¥{{ total_unpaid|floatformat:0 }}</div><div class="lbl">待缴纳</div></div>
   </div>
 
-  <div class="card">
+  <div class="c">
     {% if records %}
-    <table>
-      <thead><tr><th>老人</th><th>点餐</th><th>退餐</th><th>净量</th><th>金额</th><th>状态</th></tr></thead>
-      <tbody>
-      {% for r in records %}
-      <tr>
-        <td style="font-weight:600">{{ r.resident.name }}</td>
-        <td>{{ r.total_meals }}</td>
-        <td>{{ r.cancelled }}</td>
-        <td>{{ r.total_meals|add:r.cancelled|default:r.total_meals }}</td>
-        <td style="font-weight:700;font-variant-numeric:tabular-nums">¥{{ r.amount|floatformat:0 }}</td>
-        <td>{% if r.paid %}<span class="badge badge-ok">✓ 已缴</span>{% else %}<span class="badge badge-err">✗ 待缴</span>{% endif %}</td>
-      </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <div class="empty"><div class="ico">📭</div><p>该月暂无餐费数据</p></div>
-    {% endif %}
+    <table><thead><tr><th>老人</th><th>点餐</th><th>退餐</th><th>净量</th><th>金额</th><th>状态</th></tr></thead><tbody>
+    {% for r in records %}
+    <tr><td style="font-weight:600">{{ r.resident.name }}</td><td>{{ r.total_meals }}</td><td>{{ r.cancelled }}</td>
+      <td>{{ r.total_meals|add:r.cancelled|default:r.total_meals }}</td>
+      <td style="font-weight:700">¥{{ r.amount|floatformat:0 }}</td>
+      <td>{% if r.paid %}<span class="b b-ok">已缴</span>{% else %}<span class="b b-err">待缴</span>{% endif %}</td></tr>
+    {% endfor %}</tbody></table>
+    {% else %}<div class="empty"><div class="ic">📭</div><p>该月暂无餐费数据</p></div>{% endif %}
   </div>
 </div>
 {% endblock %}

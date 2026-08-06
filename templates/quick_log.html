@@ -1,101 +1,54 @@
-{% extends "base_light.html" %}
-{% block nav_quick %}on{% endblock %}
+{% extends "base_light.html" %}{% block nav_quick %}on{% endblock %}
 
 {% block content %}
-<div class="container">
-  <div class="page-title">
-    📝 快速记录
-    <span class="sub" id="selHint">选择老人后开始记录</span>
+<div class="wrap">
+  <div class="title">📝 快速记录<span class="sub" id="hint">选择老人后开始记录</span></div>
+
+  <input class="inp" type="text" id="q" placeholder="搜索老人姓名..." autocomplete="off" autofocus>
+  <div id="list" style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+    <div class="empty"><div class="ic">🔍</div><p>输入姓名搜索老人</p></div>
   </div>
 
-  <input class="inp" type="text" id="searchInput" placeholder="🔍 输入老人姓名搜索..." autocomplete="off" autofocus>
-
-  <div id="residentList" style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
-    <div class="empty"><div class="ico">🔍</div><p>输入姓名搜索老人</p></div>
-  </div>
-
-  <div id="actionArea" style="display:none;margin-top:24px">
-    <div class="card">
-      <div class="card-head">选择护理类型</div>
-      <div id="catGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px"></div>
+  <div id="act" style="display:none;margin-top:24px">
+    <div class="c"><div class="c-h">选择护理类型</div>
+      <div id="cats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px"></div>
     </div>
-    <div class="card">
-      <textarea class="inp" id="detailInput" placeholder="备注（选填）：血压值、进食量、异常情况…" style="min-height:60px;resize:vertical"></textarea>
+    <div class="c">
+      <textarea class="inp" id="det" placeholder="备注（选填）：血压值、进食量、异常情况…" style="min-height:56px;resize:vertical"></textarea>
     </div>
-    <button class="btn-submit" id="submitBtn" disabled onclick="submitLog()">提交记录</button>
+    <button class="submit" id="go" disabled onclick="submitLog()">提交记录</button>
   </div>
 </div>
 
 <script>
 var sr=null,sc=null;
-var CATS=[{k:'feeding',l:'喂饭',e:'🍚'},{k:'hygiene',l:'洗漱',e:'🛁'},{k:'toilet',l:'如厕',e:'🚽'},
-  {k:'turning',l:'翻身',e:'🔄'},{k:'medicine',l:'服药',e:'💊'},{k:'vital_signs',l:'测体征',e:'🩺'},
-  {k:'rehab',l:'康复',e:'🏃'},{k:'other',l:'其他',e:'📋'}];
-
-// Init category buttons
-var g=document.getElementById('catGrid');
-CATS.forEach(function(c){
-  var b=document.createElement('button');
-  b.className='btn';b.textContent=c.e+' '+c.l;
-  b.onclick=function(){
-    document.querySelectorAll('#catGrid .btn').forEach(function(x){x.classList.remove('sel')});
-    b.classList.add('sel');sc=c.k;document.getElementById('submitBtn').disabled=false;
-  };
-  g.appendChild(b);
+[{k:'feeding',l:'喂饭',e:'🍚'},{k:'hygiene',l:'洗漱',e:'🛁'},{k:'toilet',l:'如厕',e:'🚽'},{k:'turning',l:'翻身',e:'🔄'},{k:'medicine',l:'服药',e:'💊'},{k:'vital_signs',l:'体征',e:'🩺'},{k:'rehab',l:'康复',e:'🏃'},{k:'other',l:'其他',e:'📋'}].forEach(function(c){
+  var b=document.createElement('button');b.className='btn';b.textContent=c.e+' '+c.l;
+  b.onclick=function(){document.querySelectorAll('#cats .btn').forEach(function(x){x.classList.remove('sel')});b.classList.add('sel');sc=c.k;document.getElementById('go').disabled=false;};
+  document.getElementById('cats').appendChild(b);
 });
-
-// Search
-var timer;
-document.getElementById('searchInput').addEventListener('input',function(){
-  clearTimeout(timer);var q=this.value.trim();
-  if(!q){document.getElementById('residentList').innerHTML='<div class="empty"><div class="ico">🔍</div><p>输入姓名搜索老人</p></div>';return;}
-  document.getElementById('residentList').innerHTML='<div class="empty"><p>搜索中…</p></div>';
-  timer=setTimeout(function(){search(q)},250);
+var t;document.getElementById('q').addEventListener('input',function(){
+  clearTimeout(t);var q=this.value.trim();if(!q){document.getElementById('list').innerHTML='<div class="empty"><div class="ic">🔍</div><p>输入姓名搜索老人</p></div>';return}
+  document.getElementById('list').innerHTML='<div class="empty"><p>搜索中…</p></div>';t=setTimeout(function(){search(q)},250);
 });
-
 function search(q){
   fetch('/api/residents/?search='+encodeURIComponent(q)+'&limit=20').then(function(r){return r.json()}).then(function(d){
-    var items=d.items||d,list=document.getElementById('residentList');
-    if(!items.length){list.innerHTML='<div class="empty"><div class="ico">😕</div><p>未找到匹配的老人</p></div>';return;}
-    list.innerHTML=items.map(function(r){
-      return '<div class="res-card" data-id="'+r.id+'" onclick="sel('+r.id+',\''+r.name+'\',\''+r.room+'\',\''+r.care_level+'\',\''+(r.diagnosis||'')+'\')">'+
-        '<div class="avatar">'+r.name.charAt(0)+'</div>'+
-        '<div class="info"><div class="n">'+r.name+' · '+r.room+'室</div>'+
-        '<div class="m">'+r.care_level+' | '+(r.diagnosis||'无特殊病史')+' | '+r.building+r.floor+'</div></div>'+
-        '<div class="check"></div></div>';
-    }).join('');
+    var items=d.items||d,l=document.getElementById('list');if(!items.length){l.innerHTML='<div class="empty"><div class="ic">😕</div><p>未找到匹配的老人</p></div>';return}
+    l.innerHTML=items.map(function(r){return'<div class="rc" data-id="'+r.id+'" onclick="sel('+r.id+',\''+r.name+'\',\''+r.room+'\')">'+
+      '<div class="av">'+r.name.charAt(0)+'</div><div class="inf"><div class="n">'+r.name+' · '+r.room+'室</div>'+
+      '<div class="m">'+r.care_level+' | '+(r.diagnosis||'无特殊病史')+' | '+r.building+r.floor+'</div></div><div class="ck"></div></div>'}).join('');
   });
 }
-
-function sel(id,name,room,cl,diag){
-  sr={id:id,name:name,room:room,careLevel:cl,diagnosis:diag};
-  document.querySelectorAll('.res-card').forEach(function(c){c.classList.remove('sel')});
-  document.querySelector('[data-id="'+id+'"]').classList.add('sel');
-  document.getElementById('selHint').textContent='已选：'+name+' · '+room+'室';
-  document.getElementById('actionArea').style.display='block';
-  document.getElementById('actionArea').scrollIntoView({behavior:'smooth',block:'center'});
+function sel(id,name,room){sr={id:id,name:name,room:room};
+  document.querySelectorAll('.rc').forEach(function(c){c.classList.remove('sel')});document.querySelector('[data-id="'+id+'"]').classList.add('sel');
+  document.getElementById('hint').textContent='已选：'+name+' · '+room+'室';document.getElementById('act').style.display='block';
+  document.getElementById('act').scrollIntoView({behavior:'smooth',block:'center'});
 }
-
-function submitLog(){
-  if(!sr||!sc)return;var b=document.getElementById('submitBtn');
-  b.disabled=true;b.textContent='提交中…';
-  fetch('/api/nursing-logs/',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({resident_id:sr.id,category:sc,detail:document.getElementById('detailInput').value,staff_name:''})})
-    .then(function(r){return r.json()}).then(function(d){
-      if(d.status==='created'){toast('✅ 记录成功 — '+sr.name+' · '+CATS.find(function(c){return c.k===sc}).l,'#10b981');reset()}
-      else{toast('提交失败，请重试','#ef4444')}
-    }).catch(function(){toast('网络错误，请重试','#ef4444')})
-    .finally(function(){b.disabled=false;b.textContent='提交记录'});
+function submitLog(){if(!sr||!sc)return;var b=document.getElementById('go');b.disabled=true;b.textContent='提交中…';
+  fetch('/api/nursing-logs/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({resident_id:sr.id,category:sc,detail:document.getElementById('det').value,staff_name:''})})
+  .then(function(r){return r.json()}).then(function(d){if(d.status==='created'){toast('✅ 已记录 — '+sr.name,'var(--green)');rst()}else{toast('提交失败','var(--red)')}})
+  .catch(function(){toast('网络错误','var(--red)')}).finally(function(){b.disabled=false;b.textContent='提交记录'});
 }
-
-function reset(){
-  sr=null;sc=null;
-  document.getElementById('searchInput').value='';
-  document.getElementById('detailInput').value='';
-  document.getElementById('selHint').textContent='选择老人后开始记录';
-  document.getElementById('residentList').innerHTML='<div class="empty"><div class="ico">🔍</div><p>输入姓名搜索老人</p></div>';
-  document.getElementById('actionArea').style.display='none';
-  document.querySelectorAll('#catGrid .btn').forEach(function(b){b.classList.remove('sel')});
-}
+function rst(){sr=null;sc=null;document.getElementById('q').value='';document.getElementById('det').value='';document.getElementById('hint').textContent='选择老人后开始记录';document.getElementById('list').innerHTML='<div class="empty"><div class="ic">🔍</div><p>输入姓名搜索老人</p></div>';document.getElementById('act').style.display='none';document.querySelectorAll('#cats .btn').forEach(function(b){b.classList.remove('sel')});}
 </script>
 {% endblock %}
