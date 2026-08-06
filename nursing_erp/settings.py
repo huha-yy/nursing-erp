@@ -105,7 +105,7 @@ UNFOLD = {
     "SITE_URL": "/",
     "SITE_SYMBOL": "home",
     "TABS": [
-        {"title": "AI 院长助手", "link": "https://hz-sanfu.eldcare.cn:9443/chat/"},
+        {"items": [{"title": "AI 院长助手", "link": "https://hz-sanfu.eldcare.cn:9443/chat/"}]},
     ],
     "COLORS": {
         "primary": {
