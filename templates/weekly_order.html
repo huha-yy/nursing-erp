@@ -1,0 +1,97 @@
+{% extends "base_light.html" %}{% block nav_quick %}{% endblock %}
+
+{% block content %}
+<div class="wrap">
+  <div class="title">📅 周选点餐<span class="sub" id="hint">选择老人后开始点餐</span></div>
+
+  <input class="inp" type="text" id="q" placeholder="搜索老人姓名..." autocomplete="off" autofocus>
+  <div id="list" style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+    <div class="empty"><div class="ic">🔍</div><p>输入姓名搜索老人</p></div>
+  </div>
+
+  <div id="act" style="display:none;margin-top:20px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
+      <span style="font-weight:600;font-size:15px">📆 选餐周:</span>
+      <input type="date" class="inp" id="weekStart" style="width:auto;padding:8px 12px">
+      <span class="sub" style="margin-left:auto" id="status"></span>
+    </div>
+    <div id="week"></div>
+    <button class="submit" id="go" disabled onclick="submitAll()">📋 提交整周点餐</button>
+  </div>
+</div>
+
+<script>
+var sr=null, choices={};
+function init(){var d=new Date();d.setDate(d.getDate()-d.getDay()+1);document.getElementById('weekStart').value=d.toISOString().slice(0,10)}
+init();document.getElementById('weekStart').addEventListener('change',function(){if(sr)loadMenu()});
+
+var t;document.getElementById('q').addEventListener('input',function(){
+  clearTimeout(t);var q=this.value.trim();if(!q){document.getElementById('list').innerHTML='<div class="empty"><div class="ic">🔍</div><p>输入姓名搜索老人</p></div>';return}
+  document.getElementById('list').innerHTML='<div class="empty"><p>搜索中…</p></div>';t=setTimeout(function(){search(q)},250);
+});
+function search(q){
+  fetch('/api/residents/?search='+encodeURIComponent(q)+'&limit=20').then(function(r){return r.json()}).then(function(d){
+    var items=d.items||d,l=document.getElementById('list');if(!items.length){l.innerHTML='<div class="empty"><div class="ic">😕</div><p>未找到匹配的老人</p></div>';return}
+    l.innerHTML=items.map(function(r){return'<div class="rc" data-id="'+r.id+'" onclick="sel('+r.id+',\''+r.name+'\',\''+r.room+'\')">'+
+      '<div class="av">'+r.name.charAt(0)+'</div><div class="inf"><div class="n">'+r.name+' · '+r.room+'室</div>'+
+      '<div class="m">'+r.care_level+' | '+r.building+r.floor+'</div></div><div class="ck"></div></div>'}).join('');
+  });
+}
+function sel(id,name,room){sr={id:id,name:name,room:room};
+  document.querySelectorAll('.rc').forEach(function(c){c.classList.remove('sel')});document.querySelector('[data-id="'+id+'"]').classList.add('sel');
+  document.getElementById('hint').textContent='已选：'+name+' · '+room+'室';document.getElementById('act').style.display='block';loadMenu();
+}
+function loadMenu(){
+  var ws=document.getElementById('weekStart').value;document.getElementById('week').innerHTML='<div class="empty"><p>加载菜单中…</p></div>';
+  fetch('/api/week-menu/?week_start='+ws).then(function(r){return r.json()}).then(function(data){
+    if(!data.length){document.getElementById('week').innerHTML='<div class="empty"><div class="ic">📭</div><p>该周暂无菜单，请先在管理后台录入</p></div>';return}
+    var days=['周一','周二','周三','周四','周五','周六','周日'],meals=['早餐','午餐','晚餐'],html='';
+    days.forEach(function(day){
+      var dayItems=data.filter(function(m){return m.day===day});
+      if(!dayItems.length)return;
+      html+='<div class="c"><div class="c-h">📆 '+day+'</div>';
+      meals.forEach(function(mt){
+        var menu=dayItems.find(function(m){return m.meal_type===mt});
+        if(!menu)return;
+        html+='<div style="margin-bottom:14px"><div style="font-size:13px;font-weight:600;color:var(--ink3);margin-bottom:6px">'+mt+'</div>';
+        html+='<div style="display:flex;flex-wrap:wrap;gap:6px">';
+        menu.dishes.forEach(function(dish){
+          var key=day+'_'+mt+'_'+dish.id;
+          html+='<label style="display:inline-flex;align-items:center;gap:4px;padding:7px 12px;border:1px solid var(--line);border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;transition:all .12s;user-select:none" id="lbl_'+key+'">'+
+            '<input type="checkbox" value="'+dish.id+'" onchange="tog(\''+dish.id+'\',\''+day+'\',\''+mt+'\')" style="accent-color:var(--blue)"> '+dish.name+
+            '</label>';
+          html+='</div></div>';
+        });
+      });
+      html+='</div>';
+    });
+    document.getElementById('week').innerHTML=html;document.getElementById('go').disabled=false;choices={};
+    document.getElementById('status').textContent=data.length+' 餐已配置';
+  });
+}
+function tog(dishId,day,mt){
+  var k=day+'|'+mt,el=document.getElementById('lbl_'+day+'_'+mt+'_'+dishId);
+  if(!choices[k])choices[k]=[];
+  if(el.querySelector('input').checked){choices[k].push(parseInt(dishId));el.style.borderColor='var(--blue)';el.style.background='var(--blue2)'}
+  else{choices[k]=choices[k].filter(function(id){return id!==parseInt(dishId)});el.style.borderColor='var(--line)';el.style.background='transparent'}
+}
+function submitAll(){
+  if(!sr){return}var b=document.getElementById('go'),ws=document.getElementById('weekStart').value;
+  var days=['周一','周二','周三','周四','周五','周六','周日'],meals=['早餐','午餐','晚餐'],payload=[];
+  var d=new Date(ws);days.forEach(function(day,i){
+    meals.forEach(function(mt){
+      var k=day+'|'+mt,dishIds=choices[k]||[];
+      if(dishIds.length>0){
+        var date=new Date(d);date.setDate(date.getDate()+i);
+        payload.push({resident_id:sr.id,date:date.toISOString().slice(0,10),meal_type:mt,dish_ids:dishIds,special_requests:'',ordered_by:''});
+      }
+    });
+  });
+  if(!payload.length){toast('请至少选择一餐','var(--red)');return}
+  b.disabled=true;b.textContent='提交中…';
+  fetch('/api/meal-orders/batch/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+    .then(function(r){return r.json()}).then(function(d){if(d.status==='created'){toast('✅ 已为 '+sr.name+' 提交整周点餐 · '+d.count+' 餐','var(--green)')}else{toast('提交失败','var(--red)')}})
+    .catch(function(){toast('网络错误','var(--red)')}).finally(function(){b.disabled=false;b.textContent='📋 提交整周点餐'});
+}
+</script>
+{% endblock %}

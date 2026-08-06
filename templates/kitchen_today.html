@@ -13,12 +13,16 @@
   {% for meal in meal_data %}
   <div class="c">
     <div class="c-h">{{ meal.emoji }} {{ meal.key }}<div class="cnt">{{ meal.orders|length }}<span> 份</span></div></div>
-    {% if meal.menu %}<div class="menut">📋 {{ meal.menu.menu_items }}</div>{% endif %}
+    {% if meal.menu %}
+    <div class="menut">📋 {% for d in meal.menu.dishes.all %}{{ d.name }}{% if not forloop.last %}、{% endif %}{% endfor %}</div>
+    {% endif %}
     {% if meal.orders %}
     <table><thead><tr><th>老人</th><th>房间</th><th style="width:40%">菜品</th><th>需求</th></tr></thead><tbody>
     {% for o in meal.orders %}
     <tr><td style="font-weight:600">{{ o.resident.name }}</td><td>{{ o.resident.room }}</td>
-      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ o.menu_choice }}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+        {% for d in o.dishes.all %}{{ d.name }}{% if not forloop.last %}、{% endif %}{% endfor %}
+      </td>
       <td>{% if o.special_requests %}<span class="b b-warn">{{ o.special_requests }}</span>{% else %}<span class="b b-dim">—</span>{% endif %}</td></tr>
     {% endfor %}</tbody></table>
     {% else %}<div class="empty"><p>暂无点餐</p></div>{% endif %}

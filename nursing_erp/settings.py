@@ -126,6 +126,7 @@ UNFOLD = {
             {"title": "🤖 AI 院长助手", "collapsible": True, "items": [
                 {"title": "打开 AI Chat", "icon": "smart_toy", "link": "https://hz-sanfu.eldcare.cn:9443/chat/"},
                 {"title": "快速记录", "icon": "edit_note", "link": "/quick-log/"},
+                {"title": "周选点餐", "icon": "calendar_month", "link": "/weekly-order/"},
             ]},
             {"title": "👴 老人照护", "collapsible": True, "items": [
                 {"title": "老人档案", "icon": "person", "link": "/admin/residents/resident/"},
@@ -153,7 +154,8 @@ UNFOLD = {
                 {"title": "异常记录", "icon": "warning", "link": "/admin/incidents/incidentreport/"},
             ]},
             {"title": "🍽️ 点餐送餐", "collapsible": True, "items": [
-                {"title": "每日菜单", "icon": "menu_book", "link": "/admin/meals/mealplan/"},
+                {"title": "菜品库", "icon": "menu_book", "link": "/admin/meals/dish/"},
+                {"title": "周菜单", "icon": "event_note", "link": "/admin/meals/weekmenu/"},
                 {"title": "点餐订单", "icon": "restaurant", "link": "/admin/meals/mealorder/"},
                 {"title": "改退餐记录", "icon": "change_circle", "link": "/admin/meals/mealmodificationlog/"},
                 {"title": "餐费月结", "icon": "payments", "link": "/admin/meals/mealfinance/"},

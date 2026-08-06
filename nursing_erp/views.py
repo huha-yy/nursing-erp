@@ -1,49 +1,45 @@
-"""轻量专用页面 — 食堂看板 / 财务月结
+"""轻量专用页面 — 食堂看板 / 财务月结 / 周选点餐"""
 
-这些页面面向非管理角色：
-- /kitchen/   食堂：今日点餐汇总，不需要登录
-- /finance/   财务：月度餐费对账
-"""
-
-from datetime import date
+from datetime import date, timedelta
 
 from django.shortcuts import render
 
-from meals.models import MealOrder, MealPlan, MealFinance
+from meals.models import MealOrder, WeekMenu, MealFinance
 
 
 def kitchen_today(request):
-    """食堂今日看板 — 显示三餐点餐数量和特殊需求"""
+    """食堂今日看板"""
     today = date.today()
-    orders = MealOrder.objects.filter(date=today).select_related("resident")
+    orders = MealOrder.objects.filter(date=today).select_related("resident").prefetch_related("dishes")
 
-    # 按餐次统计
     breakfast = orders.filter(meal_type="早餐")
     lunch = orders.filter(meal_type="午餐")
     dinner = orders.filter(meal_type="晚餐")
 
-    # 今日菜单
-    menus = MealPlan.objects.filter(date=today)
+    week_menu = WeekMenu.objects.filter(
+        week_start__lte=today, week_start__gte=today - timedelta(days=7)
+    ).prefetch_related("dishes")
 
-    # 按餐次组织数据，方便模板遍历
     meal_data = [
-        {"key": "早餐", "emoji": "🌅", "orders": breakfast, "menu": menus.filter(meal_type="早餐").first()},
-        {"key": "午餐", "emoji": "☀️", "orders": lunch, "menu": menus.filter(meal_type="午餐").first()},
-        {"key": "晚餐", "emoji": "🌙", "orders": dinner, "menu": menus.filter(meal_type="晚餐").first()},
+        {"key": "早餐", "emoji": "🌅", "orders": breakfast,
+         "menu": week_menu.filter(day=_day_of_week(today), meal_type="早餐").first()},
+        {"key": "午餐", "emoji": "☀️", "orders": lunch,
+         "menu": week_menu.filter(day=_day_of_week(today), meal_type="午餐").first()},
+        {"key": "晚餐", "emoji": "🌙", "orders": dinner,
+         "menu": week_menu.filter(day=_day_of_week(today), meal_type="晚餐").first()},
     ]
 
     total_orders = orders.count()
     cancel_count = orders.filter(status="cancelled").count()
     effective = total_orders - cancel_count
 
-    context = {
+    return render(request, "kitchen_today.html", {
         "today": today,
         "meal_data": meal_data,
         "total_orders": total_orders,
         "cancel_count": cancel_count,
         "effective_orders": effective,
-    }
-    return render(request, "kitchen_today.html", context)
+    })
 
 
 def finance_monthly(request):
@@ -57,7 +53,7 @@ def finance_monthly(request):
     total_paid = sum(r.amount for r in records if r.paid)
     total_unpaid = total_amount - total_paid
 
-    context = {
+    return render(request, "finance_monthly.html", {
         "month": month_param,
         "records": records,
         "total_amount": total_amount,
@@ -65,10 +61,20 @@ def finance_monthly(request):
         "total_unpaid": total_unpaid,
         "resident_count": records.count(),
         "paid_count": sum(1 for r in records if r.paid),
-    }
-    return render(request, "finance_monthly.html", context)
+    })
 
 
 def quick_log(request):
-    """护理员快速录入 — 手机端极简页面"""
+    """护理员快速录入"""
     return render(request, "quick_log.html")
+
+
+def weekly_order(request):
+    """周五周选点餐 — 护理员帮老人选下周菜品"""
+    return render(request, "weekly_order.html")
+
+
+def _day_of_week(d):
+    """date → 周一/周二/..."""
+    days = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+    return days[d.weekday()]
