@@ -123,26 +123,26 @@ UNFOLD = {
         "show_search": True,
         "show_all_applications": False,
         "navigation": [
-            {"title": "🤖 AI 院长助手", "collapsible": True, "items": [
+            {"title": "AI 院长助手", "icon": "smart_toy", "collapsible": True, "items": [
                 {"title": "打开 AI Chat", "icon": "smart_toy", "link": "https://hz-sanfu.eldcare.cn:9443/chat/"},
                 {"title": "快速记录", "icon": "edit_note", "link": "/quick-log/"},
                 {"title": "周选点餐", "icon": "calendar_month", "link": "/weekly-order/"},
             ]},
-            {"title": "👴 老人照护", "collapsible": True, "items": [
+            {"title": "老人照护", "icon": "elderly", "collapsible": True, "items": [
                 {"title": "老人档案", "icon": "person", "link": "/admin/residents/resident/"},
                 {"title": "护理日志", "icon": "edit_note", "link": "/admin/residents/nursinglog/"},
                 {"title": "健康记录", "icon": "monitor_heart", "link": "/admin/residents/healthrecord/"},
                 {"title": "用药记录", "icon": "medication", "link": "/admin/residents/medicationrecord/"},
                 {"title": "作息记录", "icon": "bedtime", "link": "/admin/residents/residentroutine/"},
             ]},
-            {"title": "👥 人员管理", "collapsible": True, "items": [
+            {"title": "人员管理", "icon": "groups", "collapsible": True, "items": [
                 {"title": "员工档案", "icon": "badge", "link": "/admin/staff/employee/"},
                 {"title": "排班表", "icon": "calendar_month", "link": "/admin/staff/schedule/"},
                 {"title": "考勤记录", "icon": "fingerprint", "link": "/admin/staff/attendance/"},
                 {"title": "任务派发", "icon": "assignment", "link": "/admin/staff/task/"},
                 {"title": "绩效考核", "icon": "trending_up", "link": "/admin/staff/performance/"},
             ]},
-            {"title": "🏠 院内事务", "collapsible": True, "items": [
+            {"title": "院内事务", "icon": "domain", "collapsible": True, "items": [
                 {"title": "库存管理", "icon": "inventory", "link": "/admin/operations/inventoryitem/"},
                 {"title": "入库记录", "icon": "add_shopping_cart", "link": "/admin/operations/stockin/"},
                 {"title": "领用记录", "icon": "remove_shopping_cart", "link": "/admin/operations/stockout/"},
@@ -150,10 +150,10 @@ UNFOLD = {
                 {"title": "卫生巡检", "icon": "cleaning_services", "link": "/admin/operations/inspection/"},
                 {"title": "审批流程", "icon": "approval", "link": "/admin/operations/approval/"},
             ]},
-            {"title": "🚨 异常上报", "collapsible": True, "items": [
+            {"title": "异常上报", "icon": "warning", "collapsible": True, "items": [
                 {"title": "异常记录", "icon": "warning", "link": "/admin/incidents/incidentreport/"},
             ]},
-            {"title": "🍽️ 点餐送餐", "collapsible": True, "items": [
+            {"title": "点餐送餐", "icon": "restaurant", "collapsible": True, "items": [
                 {"title": "菜品库", "icon": "menu_book", "link": "/admin/meals/dish/"},
                 {"title": "周菜单", "icon": "event_note", "link": "/admin/meals/weekmenu/"},
                 {"title": "点餐订单", "icon": "restaurant", "link": "/admin/meals/mealorder/"},
@@ -162,7 +162,7 @@ UNFOLD = {
                 {"title": "食堂看板", "icon": "soup_kitchen", "link": "/kitchen/"},
                 {"title": "财务月结", "icon": "account_balance", "link": "/finance/"},
             ]},
-            {"title": "⚙️ 系统管理", "collapsible": True, "items": [
+            {"title": "系统管理", "icon": "settings", "collapsible": True, "items": [
                 {"title": "用户账号", "icon": "manage_accounts", "link": "/admin/auth/user/"},
                 {"title": "用户组", "icon": "group", "link": "/admin/auth/group/"},
             ]},
