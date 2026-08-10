@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.utils.html import format_html
 from unfold.admin import ModelAdmin
 from import_export.admin import ImportExportModelAdmin
 from nursing_erp.admin_mixins import BuildingScopeMixin
@@ -9,18 +10,24 @@ from .models import Resident, NursingLog, HealthRecord, MedicationRecord, Reside
 @admin.register(Resident)
 class ResidentAdmin(BuildingScopeMixin, ModelAdmin, ImportExportModelAdmin):
     building_field = "building"
-    list_display = ["name", "gender", "age", "building", "floor", "room",
+    list_display = ["photo_preview", "name", "gender", "age", "building", "floor", "room",
                     "care_level", "contact_name", "contact_phone"]
     list_filter = ["building", "floor", "care_level", "gender"]
     search_fields = ["name", "id_card", "diagnosis"]
     list_per_page = 30
     fieldsets = (
-        ("基本信息", {"fields": ("name", "gender", "age", "id_card")}),
+        ("基本信息", {"fields": ("name", "gender", "age", "id_card", "photo")}),
         ("入住信息", {"fields": ("building", "floor", "room", "admission_date")}),
         ("健康档案", {"fields": ("care_level", "diagnosis", "allergies")}),
         ("家属信息", {"fields": ("contact_name", "contact_phone")}),
         ("其他", {"fields": ("notes",)}),
     )
+
+    @admin.display(description="照片")
+    def photo_preview(self, obj):
+        if obj.photo:
+            return format_html('<img src="{}" style="width:40px;height:40px;border-radius:50%;object-fit:cover">', obj.photo.url)
+        return "-"
 
 
 @admin.register(NursingLog)

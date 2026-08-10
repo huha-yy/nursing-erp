@@ -29,6 +29,7 @@ class Resident(models.Model):
     contact_name = models.CharField(max_length=30, blank=True, verbose_name="紧急联系人")
     contact_phone = models.CharField(max_length=15, blank=True, verbose_name="联系电话")
     notes = models.TextField(blank=True, verbose_name="备注")
+    photo = models.ImageField(upload_to="residents/", blank=True, verbose_name="老人照片")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="建档时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
