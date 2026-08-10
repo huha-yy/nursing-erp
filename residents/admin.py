@@ -1,5 +1,5 @@
 from django.contrib import admin
-from django.utils.html import format_html
+from django.utils.html import format_html, mark_safe
 from unfold.admin import ModelAdmin
 from import_export.admin import ImportExportModelAdmin
 from nursing_erp.admin_mixins import BuildingScopeMixin
@@ -28,7 +28,7 @@ class ResidentAdmin(BuildingScopeMixin, ModelAdmin, ImportExportModelAdmin):
         if obj.photo:
             img = format_html('<img src="{}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:8px">', obj.photo.url)
         else:
-            img = format_html('<span style="display:inline-block;width:32px;height:32px;border-radius:50%;background:#e5e7eb;vertical-align:middle;margin-right:8px"></span>')
+            img = mark_safe('<span style="display:inline-block;width:32px;height:32px;border-radius:50%;background:#e5e7eb;vertical-align:middle;margin-right:8px"></span>')
         return format_html('{}{}', img, obj.name)
 
 
