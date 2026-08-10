@@ -28,7 +28,7 @@ class ResidentAdmin(BuildingScopeMixin, ModelAdmin, ImportExportModelAdmin):
         if obj.photo:
             img = format_html('<img src="{}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:8px">', obj.photo.url)
         else:
-            img = '<span style="display:inline-block;width:32px;height:32px;border-radius:50%;background:var(--gray-200);vertical-align:middle;margin-right:8px"></span>'
+            img = format_html('<span style="display:inline-block;width:32px;height:32px;border-radius:50%;background:#e5e7eb;vertical-align:middle;margin-right:8px"></span>')
         return format_html('{}{}', img, obj.name)
 
 
