@@ -10,7 +10,7 @@ from .models import Resident, NursingLog, HealthRecord, MedicationRecord, Reside
 @admin.register(Resident)
 class ResidentAdmin(BuildingScopeMixin, ModelAdmin, ImportExportModelAdmin):
     building_field = "building"
-    list_display = ["photo_preview", "name", "gender", "age", "building", "floor", "room",
+    list_display = ["name_with_photo", "gender", "age", "building", "floor", "room",
                     "care_level", "contact_name", "contact_phone"]
     list_filter = ["building", "floor", "care_level", "gender"]
     search_fields = ["name", "id_card", "diagnosis"]
@@ -23,11 +23,13 @@ class ResidentAdmin(BuildingScopeMixin, ModelAdmin, ImportExportModelAdmin):
         ("其他", {"fields": ("notes",)}),
     )
 
-    @admin.display(description="照片")
-    def photo_preview(self, obj):
+    @admin.display(description="姓名")
+    def name_with_photo(self, obj):
         if obj.photo:
-            return format_html('<img src="{}" style="width:40px;height:40px;border-radius:50%;object-fit:cover">', obj.photo.url)
-        return "-"
+            img = format_html('<img src="{}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:8px">', obj.photo.url)
+        else:
+            img = '<span style="display:inline-block;width:32px;height:32px;border-radius:50%;background:var(--gray-200);vertical-align:middle;margin-right:8px"></span>'
+        return format_html('{}{}', img, obj.name)
 
 
 @admin.register(NursingLog)
