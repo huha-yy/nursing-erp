@@ -1,5 +1,4 @@
 from django.contrib import admin
-from django.utils.html import format_html, mark_safe
 from unfold.admin import ModelAdmin
 from import_export.admin import ImportExportModelAdmin
 from nursing_erp.admin_mixins import BuildingScopeMixin
@@ -10,7 +9,7 @@ from .models import Resident, NursingLog, HealthRecord, MedicationRecord, Reside
 @admin.register(Resident)
 class ResidentAdmin(BuildingScopeMixin, ModelAdmin, ImportExportModelAdmin):
     building_field = "building"
-    list_display = ["name_with_photo", "gender", "age", "building", "floor", "room",
+    list_display = ["name", "gender", "age", "building", "floor", "room",
                     "care_level", "contact_name", "contact_phone"]
     list_filter = ["building", "floor", "care_level", "gender"]
     search_fields = ["name", "id_card", "diagnosis"]
@@ -22,14 +21,6 @@ class ResidentAdmin(BuildingScopeMixin, ModelAdmin, ImportExportModelAdmin):
         ("家属信息", {"fields": ("contact_name", "contact_phone")}),
         ("其他", {"fields": ("notes",)}),
     )
-
-    @admin.display(description="姓名")
-    def name_with_photo(self, obj):
-        if obj.photo:
-            img = format_html('<img src="{}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:8px">', obj.photo.url)
-        else:
-            img = mark_safe('<span style="display:inline-block;width:32px;height:32px;border-radius:50%;background:#e5e7eb;vertical-align:middle;margin-right:8px"></span>')
-        return format_html('{}{}', img, obj.name)
 
 
 @admin.register(NursingLog)
