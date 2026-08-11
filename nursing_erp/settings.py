@@ -127,7 +127,7 @@ UNFOLD = {
         "show_all_applications": False,
         "navigation": [
             {"title": "AI 院长助手", "icon": "smart_toy", "collapsible": True, "items": [
-                {"title": "打开 AI Chat", "icon": "smart_toy", "link": "https://hz-sanfu.eldcare.cn:9443/chat/"},
+                {"title": "打开 AI Chat", "icon": "smart_toy", "link": "https://hz-sanfu.eldcare.cn/chat/"},
                 {"title": "快速记录", "icon": "edit_note", "link": "/quick-log/"},
                 {"title": "周选点餐", "icon": "calendar_month", "link": "/weekly-order/"},
             ]},
