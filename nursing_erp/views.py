@@ -74,6 +74,11 @@ def weekly_order(request):
     return render(request, "weekly_order.html")
 
 
+def menu_ocr_page(request):
+    """食堂菜单 OCR 录入 — 拍照自动识别菜品"""
+    return render(request, "menu_ocr.html")
+
+
 def _day_of_week(d):
     """date → 周一/周二/..."""
     days = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]

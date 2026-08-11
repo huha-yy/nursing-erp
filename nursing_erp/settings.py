@@ -159,6 +159,7 @@ UNFOLD = {
             {"title": "点餐送餐", "icon": "restaurant", "collapsible": True, "items": [
                 {"title": "菜品库", "icon": "menu_book", "link": "/admin/meals/dish/"},
                 {"title": "周菜单", "icon": "event_note", "link": "/admin/meals/weekmenu/"},
+                {"title": "菜单 OCR", "icon": "photo_camera", "link": "/menu-ocr/"},
                 {"title": "点餐订单", "icon": "restaurant", "link": "/admin/meals/mealorder/"},
                 {"title": "改退餐记录", "icon": "change_circle", "link": "/admin/meals/mealmodificationlog/"},
                 {"title": "餐费月结", "icon": "payments", "link": "/admin/meals/mealfinance/"},

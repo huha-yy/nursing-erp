@@ -1,5 +1,6 @@
 from typing import List, Optional
-from datetime import date
+from datetime import date, timedelta
+import base64, os, re
 
 from ninja import Router, Query, Schema
 from ninja.pagination import paginate, PageNumberPagination
@@ -157,3 +158,80 @@ def _format_order(o: MealOrder) -> dict:
         "status_display": o.get_status_display(),
         "ordered_by": o.ordered_by,
     }
+
+
+# ---- OCR: menu photo → dish matching ----
+
+class MenuOcrIn(Schema):
+    image: str  # base64
+
+class MenuOcrOut(Schema):
+    text: str
+    matches: list[dict]  # [{line, suggestions: [{id, name, score}]}]
+
+
+@router.post("/menu-ocr/", response=dict)
+def menu_ocr(request, payload: MenuOcrIn):
+    """识别菜单照片 → 匹配菜品库"""
+    ocr_text = ""
+    try:
+        import httpx
+        ocr_url = os.environ.get("DL_OCR_URL", "http://192.168.10.247:18080")
+        ocr_token = os.environ.get("DL_OCR_API_TOKEN", "")
+        headers = {"Authorization": f"Bearer {ocr_token}"} if ocr_token else {}
+        r = httpx.post(f"{ocr_url}/v1/ocr", json={"image": payload.image},
+                       headers=headers, timeout=120)
+        if r.status_code == 200:
+            ocr_text = r.json().get("text", "").strip()
+    except Exception:
+        pass
+
+    # Match each line against Dish library
+    dishes = list(Dish.objects.filter(is_available=True).values("id", "name", "category"))
+    matches = []
+    for line in ocr_text.split("\n"):
+        line = line.strip()
+        if len(line) < 2:
+            continue
+        # Skip common non-dish lines
+        if re.match(r'^(周一|周二|周三|周四|周五|周六|周日|早餐|午餐|晚餐|星期|菜谱|菜单|[0-9./\-]+)$', line):
+            matches.append({"line": line, "suggestions": []})
+            continue
+        suggestions = []
+        for d in dishes:
+            score = _fuzzy_match(line, d["name"])
+            if score > 0.3:
+                suggestions.append({"id": d["id"], "name": d["name"],
+                                    "category": d["category"], "score": round(score, 2)})
+        suggestions.sort(key=lambda x: x["score"], reverse=True)
+        matches.append({"line": line, "suggestions": suggestions[:5]})
+
+    return {"text": ocr_text, "matches": matches, "dish_count": len(dishes)}
+
+
+@router.post("/menu-ocr/batch-create/", response=dict)
+def menu_ocr_batch_create(request, payload: list[dict]):
+    """根据 OCR 匹配结果批量创建周菜单"""
+    created = 0
+    for item in payload:
+        dish_ids = item.get("dish_ids", [])
+        day = item.get("day", "")
+        meal_type = item.get("meal_type", "")
+        week_start = item.get("week_start", "")
+        if not dish_ids or not day or not meal_type or not week_start:
+            continue
+        menu, _ = WeekMenu.objects.get_or_create(
+            week_start=week_start, day=day, meal_type=meal_type)
+        menu.dishes.set(dish_ids)
+        created += 1
+    return {"status": "created", "count": created}
+
+
+def _fuzzy_match(text: str, target: str) -> float:
+    """Simple fuzzy match score between text and target dish name."""
+    if target in text:
+        return 0.95
+    # Character overlap score
+    t_chars = set(text)
+    overlap = sum(1 for c in target if c in t_chars)
+    return overlap / max(len(target), 1)
