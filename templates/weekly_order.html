@@ -4,11 +4,17 @@
 <div class="wrap">
   <div class="title">
     <span class="material-symbols-outlined">calendar_month</span> 周选点餐
-    <span class="sub" id="hint">选择老人后开始点餐</span></div>
+    <span class="sub" id="hint">选择老人后开始点餐</span>
+    <span id="hintToggle" style="display:none;cursor:pointer;color:var(--blue);font-size:13px;margin-left:8px" onclick="document.getElementById('hintToggle').style.display='none';document.getElementById('searchArea').style.display='block';document.getElementById('hint').style.display='inline'">← 更换老人</span></div>
 
+  <div id="searchArea">
+
+  <div id="searchArea">
   <input class="inp" type="text" id="q" placeholder="搜索老人姓名..." autocomplete="off" autofocus>
   <div id="list" style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
     <div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">search</span></div><p>输入姓名搜索老人</p></div>
+  </div>
+
   </div>
 
   <div id="act" style="display:none;margin-top:20px">
@@ -65,7 +71,10 @@ function renderResidents(all){
 }
 function sel(id,name,room){sr={id:id,name:name,room:room};
   document.querySelectorAll('.rc').forEach(function(c){c.classList.remove('sel')});document.querySelector('[data-id="'+id+'"]').classList.add('sel');
-  document.getElementById('hint').textContent='已选：'+name+' · '+room+'室';document.getElementById('act').style.display='block';loadMenu();
+  document.getElementById('hint').textContent='已选：'+name+' · '+room+'室';
+  document.getElementById('hintToggle').style.display='inline';
+  document.getElementById('searchArea').style.display='none';
+  document.getElementById('act').style.display='block';loadMenu();
 }
 function loadMenu(){
   var ws=document.getElementById('weekStart').value;document.getElementById('week').innerHTML='<div class="empty"><p>加载菜单中…</p></div>';
