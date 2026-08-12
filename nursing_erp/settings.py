@@ -96,6 +96,10 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
+# External OCR service (Baidu Unlimited-OCR via dl-ocr)
+os.environ.setdefault("DL_OCR_URL", "http://192.168.10.247:18080")
+os.environ.setdefault("DL_OCR_API_TOKEN", "a100bafdf0fcc9fc7d1df2f25797cb003c0cf059321de5c2204e45094872ade8")
+
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
