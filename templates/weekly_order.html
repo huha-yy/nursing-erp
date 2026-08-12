@@ -86,29 +86,52 @@ function loadMenu(){
   document.getElementById('week').innerHTML='<div class="empty"><p>加载菜单中…</p></div>';
   fetch('/api/week-menu/?week_start='+ws).then(function(r){return r.json()}).then(function(data){
     if(!data.length){document.getElementById('week').innerHTML='<div class="empty"><div class="ic"><span class="material-symbols-outlined">inbox</span></div><p>该周暂无菜单，请先在管理后台录入</p></div>';return}
-    var days=['周一','周二','周三','周四','周五','周六','周日'],meals=['早餐','午餐','晚餐'],html='';
-    days.forEach(function(day){
-      var dayItems=data.filter(function(m){return m.day===day});
-      if(!dayItems.length)return;
-      html+='<div class="c"><div class="c-h"><span class="material-symbols-outlined">calendar_month</span> '+day+'</div>';
-      meals.forEach(function(mt){
-        var menu=dayItems.find(function(m){return m.meal_type===mt});
-        if(!menu)return;
-        html+='<div style="margin-bottom:14px"><div style="font-size:13px;font-weight:600;color:var(--ink3);margin-bottom:6px">'+mt+'</div>';
-        html+='<div style="display:flex;flex-wrap:wrap;gap:6px">';
-        menu.dishes.forEach(function(dish){
-          var key=day+'_'+mt+'_'+dish.id;
-          html+='<label style="display:inline-flex;align-items:center;gap:4px;padding:7px 12px;border:1px solid var(--line);border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;transition:all .12s;user-select:none" id="lbl_'+key+'">'+
-            '<input type="checkbox" value="'+dish.id+'" onchange="tog(\''+dish.id+'\',\''+day+'\',\''+mt+'\')" style="accent-color:var(--blue)"> '+dish.name+
-            '</label>';
-          html+='</div></div>';
-        });
-      });
-      html+='</div>';
-    });
-    document.getElementById('week').innerHTML=html;document.getElementById('go').disabled=false;choices={};
+    window._weekData = data;
+    window._currentDay = '周一';
+    renderDay('周一');
     document.getElementById('status').textContent=data.length+' 餐已配置';
   });
+}
+
+function renderDay(day){
+  var data = window._weekData; window._currentDay = day;
+  var days=['周一','周二','周三','周四','周五','周六','周日'],meals=['早餐','午餐','晚餐'];
+  var dayItems=data.filter(function(m){return m.day===day});
+
+  // Day tabs
+  var html='<div style="display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap">';
+  days.forEach(function(d){
+    var active = d===day;
+    html+='<button class="btn'+(active?' sel':'')+'" style="padding:8px 14px;font-size:13px;min-width:48px" onclick="renderDay(\''+d+'\')">'+d+'</button>';
+  });
+  html+='</div>';
+
+  if(!dayItems.length){
+    html+='<div class="empty" style="padding:28px"><p>'+day+'暂无菜单配置</p></div>';
+  } else {
+    dayItems.forEach(function(m){
+      html+='<div class="c"><div class="c-h"><span class="material-symbols-outlined">restaurant</span> '+m.meal_type+'</div>';
+      html+='<div style="display:flex;flex-wrap:wrap;gap:6px">';
+      m.dishes.forEach(function(dish){
+        var key=m.day+'_'+m.meal_type+'_'+dish.id;
+        html+='<label style="display:inline-flex;align-items:center;gap:4px;padding:7px 12px;border:1px solid var(--line);border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;transition:all .12s;user-select:none" id="lbl_'+key+'">'+
+          '<input type="checkbox" value="'+dish.id+'" onchange="tog(\''+dish.id+'\',\''+m.day+'\',\''+m.meal_type+'\')" style="accent-color:var(--blue)"> '+dish.name+
+          '</label>';
+      });
+      html+='</div></div>';
+    });
+  }
+
+  // Bottom nav: prev/next
+  var idx = days.indexOf(day);
+  html+='<div style="display:flex;justify-content:space-between;margin-top:16px">';
+  html+='<button class="btn" style="padding:8px 14px;font-size:13px"'+(idx<=0?' disabled':'')+' onclick="renderDay(\''+days[idx-1]+'\')">← '+ (idx>0?days[idx-1]:'') +'</button>';
+  html+='<button class="btn" style="padding:8px 14px;font-size:13px"'+(idx>=6?' disabled':'')+' onclick="renderDay(\''+days[idx+1]+'\')">'+ (idx<6?days[idx+1]:'') +' →</button>';
+  html+='</div>';
+
+  document.getElementById('week').innerHTML=html;document.getElementById('go').disabled=false;
+  choices={};
+}
 }
 function tog(dishId,day,mt){
   var k=day+'|'+mt,el=document.getElementById('lbl_'+day+'_'+mt+'_'+dishId);
