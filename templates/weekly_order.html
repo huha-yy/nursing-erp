@@ -189,11 +189,11 @@ function submitAll(){
       }
     });
   });
-  if(!payload.length){toast('请至少选择一餐','var(--red)');return}
+  if(!payload.length){toast('请至少选择一餐','#e05555');return}
   b.disabled=true;b.textContent='提交中…';
   fetch('/api/meal-orders/batch/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
-    .then(function(r){return r.json()}).then(function(d){if(d.status==='created'){toast('<span class="material-symbols-outlined">check_circle</span> 已为 '+sr.name+' 提交整周点餐 · '+d.count+' 餐','var(--green)')}else{toast('提交失败','var(--red)')}})
-    .catch(function(){toast('网络错误','var(--red)')}).finally(function(){b.disabled=false;b.textContent='<span class="material-symbols-outlined">description</span> 提交整周点餐'});
+    .then(function(r){return r.json()}).then(function(d){if(d.status==='created'){toast('<span class="material-symbols-outlined">check_circle</span> 已为 '+sr.name+' 提交整周点餐 · '+d.count+' 餐','#3ca07a');choices={};document.getElementById('week').innerHTML='';renderDay(window._currentDay);updateSummary()}else{toast('提交失败','#e05555')}})
+    .catch(function(){toast('网络错误','#e05555')}).finally(function(){b.disabled=false;b.textContent='<span class="material-symbols-outlined">description</span> 提交整周点餐'});
 }
 </script>
 {% endblock %}
