@@ -132,7 +132,6 @@ function renderDay(day){
   document.getElementById('week').innerHTML=html;document.getElementById('go').disabled=false;
   choices={};
 }
-}
 function tog(dishId,day,mt){
   var k=day+'|'+mt,el=document.getElementById('lbl_'+day+'_'+mt+'_'+dishId);
   if(!choices[k])choices[k]=[];
