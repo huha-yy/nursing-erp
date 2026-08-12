@@ -82,7 +82,7 @@ function sel(id,name,room){sr={id:id,name:name,room:room};
 }
 function loadMenu(){
   var friday=document.getElementById('weekStart').value;
-  var d=new Date(friday);d.setDate(d.getDate()-4);var ws=d.toISOString().slice(0,10);
+  var d=new Date(friday);d.setDate(d.getDate()+3);var ws=d.toISOString().slice(0,10);
   document.getElementById('week').innerHTML='<div class="empty"><p>加载菜单中…</p></div>';
   fetch('/api/week-menu/?week_start='+ws).then(function(r){return r.json()}).then(function(data){
     if(!data.length){document.getElementById('week').innerHTML='<div class="empty"><div class="ic"><span class="material-symbols-outlined">inbox</span></div><p>该周暂无菜单，请先在管理后台录入</p></div>';return}
@@ -119,7 +119,8 @@ function tog(dishId,day,mt){
 function submitAll(){
   if(!sr){return}var b=document.getElementById('go'),ws=document.getElementById('weekStart').value;
   var days=['周一','周二','周三','周四','周五','周六','周日'],meals=['早餐','午餐','晚餐'],payload=[];
-  var d=new Date(ws);days.forEach(function(day,i){
+  var d=new Date(ws);d.setDate(d.getDate()+3); // Friday → next Monday
+  days.forEach(function(day,i){
     meals.forEach(function(mt){
       var k=day+'|'+mt,dishIds=choices[k]||[];
       if(dishIds.length>0){
