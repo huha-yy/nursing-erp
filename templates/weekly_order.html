@@ -23,21 +23,32 @@
 </div>
 
 <script>
-var sr=null, choices={};
-function init(){var d=new Date();d.setDate(d.getDate()-d.getDay()+1);document.getElementById('weekStart').value=d.toISOString().slice(0,10)}
+var sr=null, choices={}, allResidents=[];
+function init(){var d=new Date();d.setDate(d.getDate()-d.getDay()+1);document.getElementById('weekStart').value=d.toISOString().slice(0,10);loadAllResidents()}
 init();document.getElementById('weekStart').addEventListener('change',function(){if(sr)loadMenu()});
 
-var t;document.getElementById('q').addEventListener('input',function(){
-  clearTimeout(t);var q=this.value.trim();if(!q){document.getElementById('list').innerHTML='<div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:inherit">search</span></div><p>输入姓名搜索老人</p></div>';return}
-  document.getElementById('list').innerHTML='<div class="empty"><p>搜索中…</p></div>';t=setTimeout(function(){search(q)},250);
-});
-function search(q){
-  fetch('/api/residents/?search='+encodeURIComponent(q)+'&limit=20').then(function(r){return r.json()}).then(function(d){
-    var items=d.items||d,l=document.getElementById('list');if(!items.length){l.innerHTML='<div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:inherit">sentiment_dissatisfied</span></div><p>未找到匹配的老人</p></div>';return}
-    l.innerHTML=items.map(function(r){return'<div class="rc" data-id="'+r.id+'" onclick="sel('+r.id+',\''+r.name+'\',\''+r.room+'\')">'+
-      '<div class="av">'+r.name.charAt(0)+'</div><div class="inf"><div class="n">'+r.name+' · '+r.room+'室</div>'+
-      '<div class="m">'+r.care_level+' | '+r.building+r.floor+'</div></div><div class="ck"></div></div>'}).join('');
+function loadAllResidents(){
+  fetch('/api/residents/?limit=200').then(function(r){return r.json()}).then(function(d){
+    allResidents = d.items || d;
+    renderResidents(allResidents);
   });
+}
+
+var t;document.getElementById('q').addEventListener('input',function(){
+  clearTimeout(t);var q=this.value.trim().toLowerCase();
+  t=setTimeout(function(){
+    if(!q){renderResidents(allResidents);return}
+    var filtered=allResidents.filter(function(r){return r.name.indexOf(q)>=0||r.building.indexOf(q)>=0||(r.diagnosis||'').indexOf(q)>=0});
+    renderResidents(filtered);
+  },150);
+});
+
+function renderResidents(items){
+  var l=document.getElementById('list');
+  if(!items.length){l.innerHTML='<div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">sentiment_dissatisfied</span></div><p>未找到匹配的老人</p></div>';return}
+  l.innerHTML=items.map(function(r){return'<div class="rc" data-id="'+r.id+'" onclick="sel('+r.id+',\''+r.name+'\',\''+r.room+'\')">'+
+    '<div class="av">'+r.name.charAt(0)+'</div><div class="inf"><div class="n">'+r.name+' · '+r.room+'室</div>'+
+    '<div class="m">'+r.care_level+' | '+r.building+r.floor+'</div></div><div class="ck"></div></div>'}).join('');
 }
 function sel(id,name,room){sr={id:id,name:name,room:room};
   document.querySelectorAll('.rc').forEach(function(c){c.classList.remove('sel')});document.querySelector('[data-id="'+id+'"]').classList.add('sel');
