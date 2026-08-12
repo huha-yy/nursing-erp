@@ -2,21 +2,23 @@
 
 {% block content %}
 <div class="wrap">
-  <div class="title">📅 周选点餐<span class="sub" id="hint">选择老人后开始点餐</span></div>
+  <div class="title">
+    <span class="material-symbols-outlined">calendar_month</span> 周选点餐
+    <span class="sub" id="hint">选择老人后开始点餐</span></div>
 
   <input class="inp" type="text" id="q" placeholder="搜索老人姓名..." autocomplete="off" autofocus>
   <div id="list" style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
-    <div class="empty"><div class="ic">🔍</div><p>输入姓名搜索老人</p></div>
+    <div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">search</span></div><p>输入姓名搜索老人</p></div>
   </div>
 
   <div id="act" style="display:none;margin-top:20px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
-      <span style="font-weight:600;font-size:15px">📆 选餐周:</span>
+      <span style="font-weight:600;font-size:15px"><span class="material-symbols-outlined">calendar_month</span> 选餐周:</span>
       <input type="date" class="inp" id="weekStart" style="width:auto;padding:8px 12px">
       <span class="sub" style="margin-left:auto" id="status"></span>
     </div>
     <div id="week"></div>
-    <button class="submit" id="go" disabled onclick="submitAll()">📋 提交整周点餐</button>
+    <button class="submit" id="go" disabled onclick="submitAll()"><span class="material-symbols-outlined">description</span> 提交整周点餐</button>
   </div>
 </div>
 
@@ -26,12 +28,12 @@ function init(){var d=new Date();d.setDate(d.getDate()-d.getDay()+1);document.ge
 init();document.getElementById('weekStart').addEventListener('change',function(){if(sr)loadMenu()});
 
 var t;document.getElementById('q').addEventListener('input',function(){
-  clearTimeout(t);var q=this.value.trim();if(!q){document.getElementById('list').innerHTML='<div class="empty"><div class="ic">🔍</div><p>输入姓名搜索老人</p></div>';return}
+  clearTimeout(t);var q=this.value.trim();if(!q){document.getElementById('list').innerHTML='<div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:inherit">search</span></div><p>输入姓名搜索老人</p></div>';return}
   document.getElementById('list').innerHTML='<div class="empty"><p>搜索中…</p></div>';t=setTimeout(function(){search(q)},250);
 });
 function search(q){
   fetch('/api/residents/?search='+encodeURIComponent(q)+'&limit=20').then(function(r){return r.json()}).then(function(d){
-    var items=d.items||d,l=document.getElementById('list');if(!items.length){l.innerHTML='<div class="empty"><div class="ic">😕</div><p>未找到匹配的老人</p></div>';return}
+    var items=d.items||d,l=document.getElementById('list');if(!items.length){l.innerHTML='<div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:inherit">sentiment_dissatisfied</span></div><p>未找到匹配的老人</p></div>';return}
     l.innerHTML=items.map(function(r){return'<div class="rc" data-id="'+r.id+'" onclick="sel('+r.id+',\''+r.name+'\',\''+r.room+'\')">'+
       '<div class="av">'+r.name.charAt(0)+'</div><div class="inf"><div class="n">'+r.name+' · '+r.room+'室</div>'+
       '<div class="m">'+r.care_level+' | '+r.building+r.floor+'</div></div><div class="ck"></div></div>'}).join('');
@@ -44,12 +46,12 @@ function sel(id,name,room){sr={id:id,name:name,room:room};
 function loadMenu(){
   var ws=document.getElementById('weekStart').value;document.getElementById('week').innerHTML='<div class="empty"><p>加载菜单中…</p></div>';
   fetch('/api/week-menu/?week_start='+ws).then(function(r){return r.json()}).then(function(data){
-    if(!data.length){document.getElementById('week').innerHTML='<div class="empty"><div class="ic">📭</div><p>该周暂无菜单，请先在管理后台录入</p></div>';return}
+    if(!data.length){document.getElementById('week').innerHTML='<div class="empty"><div class="ic"><span class="material-symbols-outlined">inbox</span></div><p>该周暂无菜单，请先在管理后台录入</p></div>';return}
     var days=['周一','周二','周三','周四','周五','周六','周日'],meals=['早餐','午餐','晚餐'],html='';
     days.forEach(function(day){
       var dayItems=data.filter(function(m){return m.day===day});
       if(!dayItems.length)return;
-      html+='<div class="c"><div class="c-h">📆 '+day+'</div>';
+      html+='<div class="c"><div class="c-h"><span class="material-symbols-outlined">calendar_month</span> '+day+'</div>';
       meals.forEach(function(mt){
         var menu=dayItems.find(function(m){return m.meal_type===mt});
         if(!menu)return;
@@ -90,8 +92,8 @@ function submitAll(){
   if(!payload.length){toast('请至少选择一餐','var(--red)');return}
   b.disabled=true;b.textContent='提交中…';
   fetch('/api/meal-orders/batch/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
-    .then(function(r){return r.json()}).then(function(d){if(d.status==='created'){toast('✅ 已为 '+sr.name+' 提交整周点餐 · '+d.count+' 餐','var(--green)')}else{toast('提交失败','var(--red)')}})
-    .catch(function(){toast('网络错误','var(--red)')}).finally(function(){b.disabled=false;b.textContent='📋 提交整周点餐'});
+    .then(function(r){return r.json()}).then(function(d){if(d.status==='created'){toast('<span class="material-symbols-outlined">check_circle</span> 已为 '+sr.name+' 提交整周点餐 · '+d.count+' 餐','var(--green)')}else{toast('提交失败','var(--red)')}})
+    .catch(function(){toast('网络错误','var(--red)')}).finally(function(){b.disabled=false;b.textContent='<span class="material-symbols-outlined">description</span> 提交整周点餐'});
 }
 </script>
 {% endblock %}

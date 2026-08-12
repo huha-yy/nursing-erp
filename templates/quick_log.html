@@ -2,11 +2,14 @@
 
 {% block content %}
 <div class="wrap">
-  <div class="title">📝 快速记录<span class="sub" id="hint">选择老人后开始记录</span></div>
+  <div class="title">
+    <span class="material-symbols-outlined">edit_note</span> 快速记录
+    <span class="sub" id="hint">选择老人后开始记录</span>
+  </div>
 
   <input class="inp" type="text" id="q" placeholder="搜索老人姓名..." autocomplete="off" autofocus>
   <div id="list" style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
-    <div class="empty"><div class="ic">🔍</div><p>输入姓名搜索老人</p></div>
+    <div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">search</span></div><p>输入姓名搜索老人</p></div>
   </div>
 
   <div id="act" style="display:none;margin-top:24px">
@@ -22,18 +25,22 @@
 
 <script>
 var sr=null,sc=null;
-[{k:'feeding',l:'喂饭',e:'🍚'},{k:'hygiene',l:'洗漱',e:'🛁'},{k:'toilet',l:'如厕',e:'🚽'},{k:'turning',l:'翻身',e:'🔄'},{k:'medicine',l:'服药',e:'💊'},{k:'vital_signs',l:'体征',e:'🩺'},{k:'rehab',l:'康复',e:'🏃'},{k:'other',l:'其他',e:'📋'}].forEach(function(c){
-  var b=document.createElement('button');b.className='btn';b.textContent=c.e+' '+c.l;
+[{k:'feeding',l:'喂饭',i:'restaurant'},{k:'hygiene',l:'洗漱',i:'shower'},{k:'toilet',l:'如厕',i:'wc'},
+ {k:'turning',l:'翻身',i:'autorenew'},{k:'medicine',l:'服药',i:'medication'},
+ {k:'vital_signs',l:'体征',i:'monitor_heart'},{k:'rehab',l:'康复',i:'directions_run'},
+ {k:'other',l:'其他',i:'more_horiz'}].forEach(function(c){
+  var b=document.createElement('button');b.className='btn';
+  b.innerHTML='<span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px">'+c.i+'</span>'+c.l;
   b.onclick=function(){document.querySelectorAll('#cats .btn').forEach(function(x){x.classList.remove('sel')});b.classList.add('sel');sc=c.k;document.getElementById('go').disabled=false;};
   document.getElementById('cats').appendChild(b);
 });
 var t;document.getElementById('q').addEventListener('input',function(){
-  clearTimeout(t);var q=this.value.trim();if(!q){document.getElementById('list').innerHTML='<div class="empty"><div class="ic">🔍</div><p>输入姓名搜索老人</p></div>';return}
+  clearTimeout(t);var q=this.value.trim();if(!q){document.getElementById('list').innerHTML='<div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">search</span></div><p>输入姓名搜索老人</p></div>';return}
   document.getElementById('list').innerHTML='<div class="empty"><p>搜索中…</p></div>';t=setTimeout(function(){search(q)},250);
 });
 function search(q){
   fetch('/api/residents/?search='+encodeURIComponent(q)+'&limit=20').then(function(r){return r.json()}).then(function(d){
-    var items=d.items||d,l=document.getElementById('list');if(!items.length){l.innerHTML='<div class="empty"><div class="ic">😕</div><p>未找到匹配的老人</p></div>';return}
+    var items=d.items||d,l=document.getElementById('list');if(!items.length){l.innerHTML='<div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">sentiment_dissatisfied</span></div><p>未找到匹配的老人</p></div>';return}
     l.innerHTML=items.map(function(r){return'<div class="rc" data-id="'+r.id+'" onclick="sel('+r.id+',\''+r.name+'\',\''+r.room+'\')">'+
       '<div class="av">'+r.name.charAt(0)+'</div><div class="inf"><div class="n">'+r.name+' · '+r.room+'室</div>'+
       '<div class="m">'+r.care_level+' | '+(r.diagnosis||'无特殊病史')+' | '+r.building+r.floor+'</div></div><div class="ck"></div></div>'}).join('');
@@ -46,9 +53,9 @@ function sel(id,name,room){sr={id:id,name:name,room:room};
 }
 function submitLog(){if(!sr||!sc)return;var b=document.getElementById('go');b.disabled=true;b.textContent='提交中…';
   fetch('/api/nursing-logs/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({resident_id:sr.id,category:sc,detail:document.getElementById('det').value,staff_name:''})})
-  .then(function(r){return r.json()}).then(function(d){if(d.status==='created'){toast('✅ 已记录 — '+sr.name,'var(--green)');rst()}else{toast('提交失败','var(--red)')}})
+  .then(function(r){return r.json()}).then(function(d){if(d.status==='created'){toast('已记录 — '+sr.name,'var(--green)');rst()}else{toast('提交失败','var(--red)')}})
   .catch(function(){toast('网络错误','var(--red)')}).finally(function(){b.disabled=false;b.textContent='提交记录'});
 }
-function rst(){sr=null;sc=null;document.getElementById('q').value='';document.getElementById('det').value='';document.getElementById('hint').textContent='选择老人后开始记录';document.getElementById('list').innerHTML='<div class="empty"><div class="ic">🔍</div><p>输入姓名搜索老人</p></div>';document.getElementById('act').style.display='none';document.querySelectorAll('#cats .btn').forEach(function(b){b.classList.remove('sel')});}
+function rst(){sr=null;sc=null;document.getElementById('q').value='';document.getElementById('det').value='';document.getElementById('hint').textContent='选择老人后开始记录';document.getElementById('list').innerHTML='<div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">search</span></div><p>输入姓名搜索老人</p></div>';document.getElementById('act').style.display='none';document.querySelectorAll('#cats .btn').forEach(function(b){b.classList.remove('sel')});}
 </script>
 {% endblock %}

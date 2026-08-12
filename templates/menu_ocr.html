@@ -2,12 +2,12 @@
 
 {% block content %}
 <div class="wrap">
-  <div class="title">📷 菜单 OCR 录入<span class="sub">拍照自动识别菜品</span></div>
+  <div class="title"><span class="material-symbols-outlined">photo_camera</span> 菜单 OCR 录入<span class="sub">拍照自动识别菜品</span></div>
 
   <!-- Upload area -->
   <div class="c" style="text-align:center;padding:40px 20px;cursor:pointer" id="dropZone"
        onclick="document.getElementById('fileInput').click()">
-    <div style="font-size:48px;margin-bottom:12px" id="uploadIcon">📸</div>
+    <div style="font-size:48px;margin-bottom:12px" id="uploadIcon"><span class="material-symbols-outlined">add_a_photo</span></div>
     <div style="font-size:15px;font-weight:600" id="uploadHint">点击上传或粘贴菜单照片</div>
     <div style="font-size:12px;color:var(--ink3);margin-top:4px">支持 JPG/PNG，越清晰识别越准</div>
     <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFile(this.files[0])">
@@ -57,11 +57,11 @@ function ocr(b64){
 }
 
 function showResults(data){
-  document.getElementById('uploadIcon').textContent = '✅';
+  document.getElementById('uploadIcon').textContent = '<span class="material-symbols-outlined">check_circle</span>';
   document.getElementById('uploadHint').textContent = '识别完成！';
   document.getElementById('progress').textContent = '';
   if(!data.matches||!data.matches.length){
-    document.getElementById('results').innerHTML='<div class="c"><div class="empty"><div class="ic">😕</div><p>未识别到内容，请换张更清晰的照片</p></div></div>';
+    document.getElementById('results').innerHTML='<div class="c"><div class="empty"><div class="ic"><span class="material-symbols-outlined">sentiment_dissatisfied</span></div><p>未识别到内容，请换张更清晰的照片</p></div></div>';
     return;
   }
 
@@ -71,7 +71,7 @@ function showResults(data){
   var d=new Date();d.setDate(d.getDate()-d.getDay()+8);
   var ws=d.toISOString().slice(0,10);
 
-  var html='<div class="c"><div class="c-h">📆 周菜单配置</div>'+
+  var html='<div class="c"><div class="c-h"><span class="material-symbols-outlined">calendar_month</span> 周菜单配置</div>'+
     '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">'+
     '<span style="font-weight:600;font-size:14px">周起始:</span>'+
     '<input type="date" class="inp" id="weekStart" value="'+ws+'" style="width:auto;padding:8px 12px">'+
@@ -98,7 +98,7 @@ function showResults(data){
     html+='</div></div>';
   });
 
-  html+='<button class="submit" onclick="batchCreate()">📋 确认创建周菜单</button>';
+  html+='<button class="submit" onclick="batchCreate()"><span class="material-symbols-outlined">description</span> 确认创建周菜单</button>';
   document.getElementById('results').innerHTML=html;
   document.getElementById('results').style.display='block';
 }
@@ -123,7 +123,7 @@ function batchCreate(){
   if(!payload.length){toast('请至少为一个菜选择日期和餐次','var(--red)');return}
   fetch('/api/menu-ocr/batch-create/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
     .then(function(r){return r.json()}).then(function(d){
-      toast('✅ 已创建 '+d.count+' 条周菜单','var(--green)');
+      toast('<span class="material-symbols-outlined">check_circle</span> 已创建 '+d.count+' 条周菜单','var(--green)');
     }).catch(function(){toast('创建失败','var(--red)')});
 }
 </script>

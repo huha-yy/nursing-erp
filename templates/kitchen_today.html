@@ -2,7 +2,10 @@
 
 {% block content %}
 <div class="wrap">
-  <div class="title">🍽️ 食堂今日看板<span class="sub">{{ today }}</span></div>
+  <div class="title">
+    <span class="material-symbols-outlined">restaurant</span> 食堂今日看板
+    <span class="sub">{{ today }}</span>
+  </div>
 
   <div class="stats">
     <div class="stat"><div class="num">{{ total_orders }}</div><div class="lbl">总点餐数</div></div>
@@ -12,10 +15,19 @@
 
   {% for meal in meal_data %}
   <div class="c">
-    <div class="c-h">{{ meal.emoji }} {{ meal.key }}<div class="cnt">{{ meal.orders|length }}<span> 份</span></div></div>
+    <div class="c-h">
+      <span class="material-symbols-outlined" style="font-size:20px">{% if meal.key == '早餐' %}wb_sunny{% elif meal.key == '午餐' %}wb_sunny{% else %}bedtime{% endif %}</span>
+      {{ meal.key }}
+      <div class="cnt">{{ meal.orders|length }}<span> 份</span></div>
+    </div>
+
     {% if meal.menu %}
-    <div class="menut">📋 {% for d in meal.menu.dishes.all %}{{ d.name }}{% if not forloop.last %}、{% endif %}{% endfor %}</div>
+    <div class="menut">
+      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px">menu_book</span>
+      {% for d in meal.menu.dishes.all %}{{ d.name }}{% if not forloop.last %}、{% endif %}{% endfor %}
+    </div>
     {% endif %}
+
     {% if meal.orders %}
     <table><thead><tr><th>老人</th><th>房间</th><th style="width:40%">菜品</th><th>需求</th></tr></thead><tbody>
     {% for o in meal.orders %}

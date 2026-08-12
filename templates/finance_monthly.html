@@ -2,7 +2,10 @@
 
 {% block content %}
 <div class="wrap">
-  <div class="title">💰 餐费月结<span class="sub">{{ month }}</span></div>
+  <div class="title">
+    <span class="material-symbols-outlined">payments</span> 餐费月结
+    <span class="sub">{{ month }}</span>
+  </div>
 
   <div class="stats">
     <div class="stat"><div class="num">{{ resident_count }}</div><div class="lbl">就餐人数</div></div>
@@ -20,7 +23,7 @@
       <td style="font-weight:700">¥{{ r.amount|floatformat:0 }}</td>
       <td>{% if r.paid %}<span class="b b-ok">已缴</span>{% else %}<span class="b b-err">待缴</span>{% endif %}</td></tr>
     {% endfor %}</tbody></table>
-    {% else %}<div class="empty"><div class="ic">📭</div><p>该月暂无餐费数据</p></div>{% endif %}
+    {% else %}<div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">inbox</span></div><p>该月暂无餐费数据</p></div>{% endif %}
   </div>
 </div>
 {% endblock %}
