@@ -134,8 +134,9 @@ function renderDay(day){
       html+='<div style="display:flex;flex-wrap:wrap;gap:8px">';
       m.dishes.forEach(function(dish){
         var key=day+'_'+m.meal_type+'_'+dish.id;
-        html+='<label style="display:inline-flex;align-items:center;gap:5px;padding:8px 14px;border:2px solid var(--line);border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;transition:all .12s;user-select:none" id="lbl_'+key+'">'+
-          '<input type="checkbox" value="'+dish.id+'" onchange="tog(\''+dish.id+'\',\''+day+'\',\''+m.meal_type+'\')" style="accent-color:var(--blue);width:16px;height:16px"> '+dish.name+
+        var isChecked = choices[day+'|'+m.meal_type] && choices[day+'|'+m.meal_type].indexOf(dish.id) >= 0;
+        html+='<label style="display:inline-flex;align-items:center;gap:5px;padding:8px 14px;border:2px solid '+(isChecked?'var(--blue)':'var(--line)')+';background:'+(isChecked?'var(--blue2)':'transparent')+';border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;transition:all .12s;user-select:none" id="lbl_'+key+'">'+
+          '<input type="checkbox" value="'+dish.id+'" onchange="tog(\''+dish.id+'\',\''+day+'\',\''+m.meal_type+'\')" style="accent-color:var(--blue);width:16px;height:16px"'+(isChecked?' checked':'')+'> '+dish.name+
           '</label>';
       });
       html+='</div></div>';
@@ -155,11 +156,12 @@ function renderDay(day){
 }
 
 function tog(dishId,day,mt){
-  var k=day+'|'+mt,el=document.getElementById('lbl_'+day+'_'+mt+'_'+dishId);
+  var k=day+'|'+mt;
   if(!choices[k])choices[k]=[];
-  if(el.querySelector('input').checked){choices[k].push(parseInt(dishId));el.style.borderColor='var(--blue)';el.style.background='var(--blue2)'}
-  else{choices[k]=choices[k].filter(function(id){return id!==parseInt(dishId)});el.style.borderColor='var(--line)';el.style.background='transparent'}
-  renderDay(window._currentDay); // Re-render to update counts
+  var dishIdNum = parseInt(dishId);
+  var idx = choices[k].indexOf(dishIdNum);
+  if(idx < 0){choices[k].push(dishIdNum)}else{choices[k].splice(idx,1)}
+  renderDay(window._currentDay);
 }
 
 function updateSummary(){
