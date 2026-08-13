@@ -6,6 +6,15 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# 加载项目根目录 .env（KEY=VALUE 格式，gitignore，不提交）
+_env_file = BASE_DIR / ".env"
+if _env_file.exists():
+    for _line in _env_file.read_text(encoding="utf-8").splitlines():
+        _line = _line.strip()
+        if _line and not _line.startswith("#") and "=" in _line:
+            _key, _val = _line.split("=", 1)
+            os.environ.setdefault(_key.strip(), _val.strip())
+
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-insecure-change-me")
 DEBUG = os.environ.get("DEBUG", "false").lower() == "true"
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
@@ -97,8 +106,13 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # External OCR service (Baidu Unlimited-OCR via dl-ocr)
+# 敏感 token 在 .env 中，这里只放非敏感的默认 URL
 os.environ.setdefault("DL_OCR_URL", "http://192.168.10.247:18080")
-os.environ.setdefault("DL_OCR_API_TOKEN", "a100bafdf0fcc9fc7d1df2f25797cb003c0cf059321de5c2204e45094872ade8")
+
+# DeepSeek LLM (用于 OCR 结果的结构化与纠错)
+# API key 在 .env 中，这里只放非敏感的默认 URL 和模型名
+os.environ.setdefault("DEEPSEEK_BASE_URL", "https://api.deepseek.com/chat/completions")
+os.environ.setdefault("DEEPSEEK_MODEL", "deepseek-v4-flash")
 
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"

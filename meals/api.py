@@ -1,11 +1,12 @@
 from typing import List, Optional
 from datetime import date, timedelta
-import base64, os, re
+import base64, os, re, json
 
 from ninja import Router, Query, Schema
 from ninja.pagination import paginate, PageNumberPagination
 
 from .models import Dish, WeekMenu, MealOrder, MealFinance
+from nursing_erp.llm import chat as llm_chat
 
 router = Router(tags=["点餐送餐"])
 
@@ -165,54 +166,55 @@ def _format_order(o: MealOrder) -> dict:
 class MenuOcrIn(Schema):
     image: str  # base64
 
-class MenuOcrOut(Schema):
-    text: str
-    matches: list[dict]  # [{line, suggestions: [{id, name, score}]}]
-
 
 @router.post("/menu-ocr/", response=dict)
 def menu_ocr(request, payload: MenuOcrIn):
-    """识别菜单照片 → 匹配菜品库"""
-    ocr_text = ""
-    try:
-        import httpx
-        ocr_url = os.environ.get("DL_OCR_URL", "http://192.168.10.247:18080")
-        ocr_token = os.environ.get("DL_OCR_API_TOKEN", "")
-        headers = {"Authorization": f"Bearer {ocr_token}"} if ocr_token else {}
-        r = httpx.post(f"{ocr_url}/v1/ocr", json={"image": payload.image},
-                       headers=headers, timeout=120)
-        if r.status_code == 200:
-            ocr_text = r.json().get("text", "").strip()
-    except Exception:
-        pass
+    """识别菜单照片 → OCR 提取文字 → LLM 结构化纠错 → 匹配菜品库。
 
-    # Match each line against Dish library — use whole-word substring matching
-    # (dish names are complete words like "清蒸鲈鱼", "小米粥"), NOT char overlap.
-    dishes = list(Dish.objects.filter(is_available=True).values("id", "name", "category"))
-    matches = []
-    for line in ocr_text.split("\n"):
-        line = line.strip()
-        if len(line) < 2:
-            continue
-        # Skip common non-dish lines (day/meal headers, numbers, table markup)
-        if re.match(r'^(周一|周二|周三|周四|周五|周六|周日|早餐|午餐|晚餐|星期|菜谱|菜单|收货|名称|数量|单位|备注|[0-9./\-:：\s]+|<.*>)$', line):
-            matches.append({"line": line, "suggestions": []})
-            continue
-        suggestions = []
-        for d in dishes:
-            score = _dish_match(line, d["name"])
-            if score >= 0.6:  # only high-confidence whole-word matches
-                suggestions.append({"id": d["id"], "name": d["name"],
-                                    "category": d["category"], "score": round(score, 2)})
-        suggestions.sort(key=lambda x: x["score"], reverse=True)
-        matches.append({"line": line, "suggestions": suggestions[:8]})
+    返回结构化的每天每餐菜名列表（LLM 自动识别星期/餐次，并纠正错别字
+    对齐到菜品库标准名），而非逐行文字。
+    """
+    # 1. OCR 提取原始文字
+    ocr_text = _ocr_extract(payload.image)
+    if not ocr_text:
+        return {"error": "OCR 未识别到文字", "structured": {}, "unmatched": []}
 
-    return {"text": ocr_text, "matches": matches, "dish_count": len(dishes)}
+    # 2. LLM 结构化 + 纠错
+    dish_names = list(Dish.objects.filter(is_available=True).values_list("name", flat=True))
+    structured = _llm_structure_menu(ocr_text, dish_names)
+
+    # 3. 每个菜名匹配菜品库拿 dish_id
+    dishes_by_name = {d.name: d.id for d in Dish.objects.filter(is_available=True)}
+    result = {}
+    unmatched = []
+    for day, meals in structured.items():
+        result[day] = {}
+        for meal_type, names in meals.items():
+            result[day][meal_type] = []
+            for name in names:
+                name = name.strip()
+                if not name:
+                    continue
+                # 精确匹配菜品库
+                dish_id = dishes_by_name.get(name)
+                if dish_id:
+                    result[day][meal_type].append({"name": name, "dish_id": dish_id, "matched": True})
+                else:
+                    # 尝试整词容错匹配
+                    best_id, best_name = _find_best_dish(name, dishes_by_name)
+                    if best_id:
+                        result[day][meal_type].append({"name": best_name, "dish_id": best_id, "matched": True})
+                    else:
+                        result[day][meal_type].append({"name": name, "dish_id": None, "matched": False})
+                        unmatched.append(name)
+
+    return {"text": ocr_text, "structured": result, "unmatched": unmatched,
+            "dish_count": len(dishes_by_name)}
 
 
 @router.post("/menu-ocr/batch-create/", response=dict)
 def menu_ocr_batch_create(request, payload: list[dict]):
-    """根据 OCR 匹配结果批量创建周菜单"""
+    """根据结构化识别结果批量创建周菜单。"""
     created = 0
     for item in payload:
         dish_ids = item.get("dish_ids", [])
@@ -226,6 +228,102 @@ def menu_ocr_batch_create(request, payload: list[dict]):
         menu.dishes.set(dish_ids)
         created += 1
     return {"status": "created", "count": created}
+
+
+def _ocr_extract(image_b64: str) -> str:
+    """调用 Baidu Unlimited-OCR 提取图片文字。失败返回空字符串。"""
+    try:
+        import httpx
+        ocr_url = os.environ.get("DL_OCR_URL", "http://192.168.10.247:18080")
+        ocr_token = os.environ.get("DL_OCR_API_TOKEN", "")
+        headers = {"Authorization": f"Bearer {ocr_token}"} if ocr_token else {}
+        r = httpx.post(f"{ocr_url}/v1/ocr", json={"image": image_b64},
+                       headers=headers, timeout=120)
+        if r.status_code == 200:
+            return r.json().get("text", "").strip()
+    except Exception:
+        pass
+    return ""
+
+
+def _llm_structure_menu(ocr_text: str, dish_names: List[str]) -> dict:
+    """用 LLM 把 OCR 原始文字结构化，识别星期/餐次并纠错对齐菜品库。
+
+    返回 {周一: {早餐: [菜名...], ...}, ...}；LLM 失败时返回 {}。
+    """
+    days = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+    meals = ["早餐", "午餐", "晚餐"]
+
+    system_prompt = (
+        "你是养老院菜单数据整理助手。用户会给你一段 OCR 识别的菜单文字（可能包含错别字），"
+        "以及一份标准菜品清单。你的任务：\n"
+        "1. 识别菜单中的星期（周一~周日）和餐次（早餐/午餐/晚餐）结构\n"
+        "2. 把识别出的菜名纠正为标准菜品清单里的名字（OCR 错别字对齐，如'清蒸鲈渔'→'清蒸鲈鱼'）\n"
+        "3. 只输出 JSON，不要任何解释、不要 markdown 代码块标记\n\n"
+        "输出格式（严格 JSON）：\n"
+        '{"周一": {"早餐": ["菜名1", "菜名2"], "午餐": [...], "晚餐": [...]}, "周二": {...}}\n\n'
+        "规则：\n"
+        "- 菜名尽量用标准清单里的标准名，错别字要纠正\n"
+        "- 如果某菜名在清单里没有对应，保留原样\n"
+        "- 只输出识别到的星期和餐次，没有的不要输出\n"
+        "- 菜名用顿号或逗号分隔的，拆成多个元素"
+    )
+
+    user_prompt = (
+        f"OCR 识别文字：\n{ocr_text[:6000]}\n\n"
+        f"标准菜品清单（{len(dish_names)} 道）：\n" + "、".join(dish_names)
+    )
+
+    reply = llm_chat(system_prompt, user_prompt, temperature=0.1, max_tokens=2000)
+    if not reply:
+        return {}
+
+    # 解析 LLM 输出，容忍 markdown 代码块和多余字符
+    try:
+        cleaned = reply.strip()
+        if cleaned.startswith("```"):
+            cleaned = re.sub(r'^```(?:json)?\s*', '', cleaned)
+            cleaned = re.sub(r'\s*```$', '', cleaned)
+        data = json.loads(cleaned)
+    except Exception:
+        # 尝试提取第一个 {...} 块
+        m = re.search(r'\{.*\}', reply, re.DOTALL)
+        if not m:
+            return {}
+        try:
+            data = json.loads(m.group(0))
+        except Exception:
+            return {}
+
+    # 只保留合法的星期和餐次，值转成字符串列表
+    result = {}
+    if isinstance(data, dict):
+        for day, day_meals in data.items():
+            if day not in days:
+                continue
+            result[day] = {}
+            if isinstance(day_meals, dict):
+                for meal, names in day_meals.items():
+                    if meal not in meals:
+                        continue
+                    if isinstance(names, list):
+                        result[day][meal] = [str(n) for n in names]
+                    elif isinstance(names, str):
+                        result[day][meal] = [names]
+    return result
+
+
+def _find_best_dish(name: str, dishes_by_name: dict) -> tuple:
+    """容错匹配：菜名整词匹配失败时，用最长公共子串找最接近的菜品。"""
+    best_id, best_name, best_score = None, None, 0.0
+    for dname, did in dishes_by_name.items():
+        score = _dish_match(name, dname)
+        if score > best_score:
+            best_score = score
+            best_id, best_name = did, dname
+    if best_score >= 0.7:
+        return best_id, best_name
+    return None, None
 
 
 def _dish_match(line: str, dish_name: str) -> float:
