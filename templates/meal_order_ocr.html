@@ -107,8 +107,11 @@ function handleFiles(files){
       loaded++;
       if(loaded===list.length){
         fetch('/api/meal-order-ocr/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({images:base64s})})
-          .then(function(r){return r.json()}).then(showResults)
-          .catch(function(){document.getElementById('progress').textContent='识别失败，请重试'});
+          .then(function(r){
+            if(!r.ok){ return r.text().then(function(t){ throw new Error('HTTP '+r.status+': '+t.slice(0,200)); }); }
+            return r.json();
+          }).then(showResults)
+          .catch(function(err){document.getElementById('progress').textContent='识别失败：'+err.message});
       }
     };
     reader.readAsDataURL(file);
