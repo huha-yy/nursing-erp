@@ -79,6 +79,11 @@ def menu_ocr_page(request):
     return render(request, "menu_ocr.html")
 
 
+def meal_order_ocr_page(request):
+    """老人点餐 OCR 录入 — 选老人 + 拍照自动识别点餐单"""
+    return render(request, "meal_order_ocr.html")
+
+
 def _day_of_week(d):
     """date → 周一/周二/..."""
     days = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]

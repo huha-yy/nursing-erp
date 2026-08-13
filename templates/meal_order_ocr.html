@@ -1,0 +1,192 @@
+{% extends "base_light.html" %}{% block nav_weekly %}{% endblock %}
+
+{% block content %}
+<div class="wrap">
+  <div class="title">
+    <span class="material-symbols-outlined">receipt_long</span> 老人点餐 OCR
+    <span class="sub" id="hint">选择老人后拍照识别点餐单</span>
+    <span id="hintToggle" style="display:none;cursor:pointer;color:var(--blue);font-size:13px;margin-left:8px" onclick="document.getElementById('hintToggle').style.display='none';document.getElementById('searchArea').style.display='block';document.getElementById('hint').style.display='inline'">← 更换老人</span></div>
+
+  <!-- Step 1: 选老人 -->
+  <div id="searchArea">
+    <input class="inp" type="text" id="q" placeholder="搜索老人姓名..." autocomplete="off" autofocus>
+    <div id="list" style="display:flex;flex-direction:column;gap:8px;margin-top:12px;max-height:360px;overflow-y:auto">
+      <div class="empty"><p>加载中…</p></div>
+    </div>
+  </div>
+
+  <!-- Step 2: 拍照识别 -->
+  <div id="act" style="display:none;margin-top:20px">
+    <div class="c" style="text-align:center;padding:30px 20px;cursor:pointer" onclick="document.getElementById('fileInput').click()">
+      <div style="font-size:40px;margin-bottom:8px;color:var(--ink3)"><span class="material-symbols-outlined" style="font-size:40px">add_a_photo</span></div>
+      <div style="font-size:14px;font-weight:600">点击上传点餐单照片</div>
+      <div style="font-size:12px;color:var(--ink3);margin-top:4px">手写点餐单，含特殊要求（少盐/不吃）也能识别</div>
+      <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFile(this.files[0])">
+    </div>
+    <div id="progress" style="text-align:center;color:var(--ink3);font-size:13px;margin:8px 0;display:none">识别中…</div>
+    <div id="results" style="display:none"></div>
+  </div>
+</div>
+
+<script>
+var sr=null, allResidents=[], currentPage=1, pageSize=9;
+var _structured = null;
+
+function init(){loadAllResidents()}
+init();
+
+function loadAllResidents(){
+  fetch('/api/residents/?limit=200').then(function(r){return r.json()}).then(function(d){
+    allResidents = d.items || d; currentPage = 1; renderResidents(allResidents);
+  });
+}
+
+var t;document.getElementById('q').addEventListener('input',function(){
+  clearTimeout(t);var q=this.value.trim().toLowerCase();
+  t=setTimeout(function(){currentPage=1;
+    if(!q){renderResidents(allResidents);return}
+    var filtered=allResidents.filter(function(r){return r.name.indexOf(q)>=0||r.building.indexOf(q)>=0});
+    renderResidents(filtered);
+  },150);
+});
+
+function renderResidents(all){
+  var total=all.length, pages=Math.ceil(total/pageSize);
+  var start=(currentPage-1)*pageSize, items=all.slice(start,start+pageSize);
+  var l=document.getElementById('list');
+  if(!items.length){l.innerHTML='<div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">sentiment_dissatisfied</span></div><p>未找到匹配的老人</p></div>';return}
+  var html='';
+  items.forEach(function(r){html+='<div class="rc" data-id="'+r.id+'" onclick="sel('+r.id+',\''+r.name+'\',\''+r.room+'\')">'+
+    '<div class="av">'+r.name.charAt(0)+'</div><div class="inf"><div class="n">'+r.name+' · '+r.room+'室</div>'+
+    '<div class="m">'+r.care_level+' | '+r.building+r.floor+'</div></div><div class="ck"></div></div>'});
+  if(pages>1){
+    html+='<div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:8px;font-size:14px">';
+    html+='<button class="btn" style="padding:6px 12px;font-size:13px" onclick="currentPage=Math.max(1,currentPage-1);renderResidents(all);return false"'+(currentPage<=1?' disabled':'')+'>上一页</button>';
+    html+='<span style="color:var(--ink3)">第 '+currentPage+'/'+pages+' 页</span>';
+    html+='<button class="btn" style="padding:6px 12px;font-size:13px" onclick="currentPage=Math.min(pages,currentPage+1);renderResidents(all);return false"'+(currentPage>=pages?' disabled':'')+'>下一页</button>';
+    html+='</div>';
+  }
+  l.innerHTML=html;
+}
+
+function sel(id,name,room){sr={id:id,name:name,room:room};
+  document.querySelectorAll('.rc').forEach(function(c){c.classList.remove('sel')});document.querySelector('[data-id="'+id+'"]').classList.add('sel');
+  document.getElementById('hint').textContent='已选：'+name+' · '+room+'室';
+  document.getElementById('hintToggle').style.display='inline';
+  document.getElementById('searchArea').style.display='none';
+  document.getElementById('act').style.display='block';
+}
+
+document.addEventListener('paste', function(e){
+  if(!sr) return;
+  var items=(e.clipboardData||e.originalEvent.clipboardData).items;
+  for(var i=0;i<items.length;i++){
+    if(items[i].type.indexOf('image')===0){
+      e.preventDefault();handleFile(items[i].getAsFile());return;
+    }
+  }
+});
+
+function handleFile(file){
+  if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    var b64=ev.target.result.split(',')[1];
+    document.getElementById('progress').style.display='block';
+    document.getElementById('progress').textContent='识别中…';
+    fetch('/api/meal-order-ocr/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image:b64})})
+      .then(function(r){return r.json()}).then(showResults)
+      .catch(function(){document.getElementById('progress').textContent='识别失败，请重试'});
+  };
+  reader.readAsDataURL(file);
+}
+
+function showResults(data){
+  document.getElementById('progress').style.display='none';
+  _structured = data.structured || {};
+  var days=['周一','周二','周三','周四','周五','周六','周日'];
+  var meals=[['早餐','wb_sunny'],['午餐','wb_sunny'],['晚餐','bedtime']];
+
+  var d=new Date();d.setDate(d.getDate()-d.getDay()+8);
+  var ws=d.toISOString().slice(0,10);
+
+  var html='<div class="c"><div class="c-h"><span class="material-symbols-outlined">calendar_month</span> 点餐周配置</div>'+
+    '<div style="display:flex;align-items:center;gap:10px">'+
+    '<span style="font-weight:600;font-size:14px">周起始(周一):</span>'+
+    '<input type="date" class="inp" id="weekStart" value="'+ws+'" style="width:auto;padding:8px 12px">'+
+    '<span style="margin-left:auto;font-size:13px;color:var(--ink3)">识别到 <b style="color:var(--blue)">'+Object.keys(_structured).length+'</b> 天</span>'+
+    '</div></div>';
+
+  var anyDay=false;
+  days.forEach(function(day){
+    var dayMeals=_structured[day];
+    if(!dayMeals) return;
+    anyDay=true;
+    html+='<div class="c"><div class="c-h"><span class="material-symbols-outlined">today</span> '+day+'</div>';
+    meals.forEach(function(m){
+      var mt=m[0], icon=m[1];
+      var dishes=dayMeals[mt];
+      if(!dishes||!dishes.length) return;
+      html+='<div style="margin-bottom:12px">';
+      html+='<div style="font-size:13px;font-weight:600;color:var(--ink3);margin-bottom:6px">'+
+        '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">'+icon+'</span> '+mt+'</div>';
+      html+='<div style="display:flex;flex-wrap:wrap;gap:6px">';
+      dishes.forEach(function(dish){
+        if(dish.name){  // 有菜名
+          var checked=dish.matched?'checked':'';
+          html+='<label style="display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border:2px solid '+(dish.matched?'var(--blue)':'var(--red)')+';background:'+(dish.matched?'var(--blue2)':'#fff5f5')+';border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;user-select:none">'+
+            '<input type="checkbox" '+checked+' data-dish-id="'+dish.dish_id+'" data-day="'+day+'" data-mt="'+mt+'" data-note="'+escapeHtml(dish.note||'')+'" style="accent-color:var(--blue)"> '+dish.name+
+            (dish.note?'<span style="color:#e05555;font-size:11px">('+dish.note+')</span>':'')+
+            (dish.matched?'':'<span style="color:var(--red);font-size:11px">⚠</span>')+
+            '</label>';
+        } else {  // 纯特殊要求（不吃）
+          html+='<span style="display:inline-flex;align-items:center;gap:4px;padding:7px 12px;border:2px dashed var(--red);border-radius:8px;font-size:13px;font-weight:500;color:var(--red)">'+
+            '<span class="material-symbols-outlined" style="font-size:16px">block</span> '+dish.note+'</span>';
+        }
+      });
+      html+='</div></div>';
+    });
+    html+='</div>';
+  });
+
+  if(!anyDay){
+    html+='<div class="c"><div class="empty"><p>未识别到点餐内容，请换张更清晰的照片</p></div></div>';
+  }
+
+  html+='<button class="submit" onclick="submitOrder()"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px">description</span>确认创建点餐订单</button>';
+  document.getElementById('results').innerHTML=html;
+  document.getElementById('results').style.display='block';
+}
+
+function submitOrder(){
+  if(!sr) return;
+  var ws=document.getElementById('weekStart').value;
+  var payload=[];
+  var dayMap={'周一':0,'周二':1,'周三':2,'周四':3,'周五':4,'周六':5,'周日':6};
+
+  document.querySelectorAll('#results input[type=checkbox]:checked').forEach(function(cb){
+    var dishId=parseInt(cb.dataset.dishId);
+    var day=cb.dataset.day, mt=cb.dataset.mt, note=cb.dataset.note;
+    if(!dishId) return;
+    var found=payload.find(function(p){return p.day===day&&p.meal_type===mt});
+    if(found){
+      found.dish_ids.push(dishId);
+      if(note && found.special_requests.indexOf(note)<0) found.special_requests += (found.special_requests?'、':'')+note;
+    } else {
+      payload.push({resident_id:sr.id, week_start:ws, day:day, meal_type:mt, dish_ids:[dishId], special_requests:note});
+    }
+  });
+
+  if(!payload.length){toast('请至少勾选一道菜','#e05555');return}
+
+  fetch('/api/meal-order-ocr/batch-create/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+    .then(function(r){return r.json()}).then(function(d){
+      toast('<span class="material-symbols-outlined">check_circle</span> 已为 '+sr.name+' 创建 '+d.count+' 条点餐订单','#3ca07a');
+    }).catch(function(){toast('创建失败','#e05555')});
+}
+
+function escapeHtml(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+{% endblock %}

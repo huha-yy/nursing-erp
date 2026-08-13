@@ -230,6 +230,104 @@ def menu_ocr_batch_create(request, payload: list[dict]):
     return {"status": "created", "count": created}
 
 
+# ---- 老人点餐 OCR ----
+
+class MealOrderOcrIn(Schema):
+    image: str  # base64
+
+
+@router.post("/meal-order-ocr/", response=dict)
+def meal_order_ocr(request, payload: MealOrderOcrIn):
+    """识别老人点餐单照片 → 结构化（含特殊要求）→ 匹配菜品库。"""
+    ocr_text = _ocr_extract(payload.image)
+    if not ocr_text:
+        return {"error": "OCR 未识别到文字", "structured": {}, "unmatched": []}
+
+    dish_names = list(Dish.objects.filter(is_available=True).values_list("name", flat=True))
+    raw = _llm_structure(ocr_text, dish_names, mode="order")
+
+    dishes_by_name = {d.name: d.id for d in Dish.objects.filter(is_available=True)}
+    result = {}
+    unmatched = []
+    for day, meals in raw.items():
+        result[day] = {}
+        for meal_type, names in meals.items():
+            result[day][meal_type] = []
+            for name in names:
+                parsed = _parse_order_item(name)  # → (dish_name, note)
+                dish_name, note = parsed
+                if dish_name:  # 有菜名
+                    dish_id = dishes_by_name.get(dish_name)
+                    if not dish_id:
+                        best_id, best_name = _find_best_dish(dish_name, dishes_by_name)
+                        if best_id:
+                            dish_id, dish_name = best_id, best_name
+                    result[day][meal_type].append(
+                        {"name": dish_name, "note": note, "dish_id": dish_id,
+                         "matched": dish_id is not None})
+                    if dish_id is None:
+                        unmatched.append(dish_name)
+                else:  # 纯特殊要求（如"不吃"）
+                    result[day][meal_type].append(
+                        {"name": "", "note": note, "dish_id": None, "matched": False})
+
+    return {"text": ocr_text, "structured": result, "unmatched": unmatched,
+            "dish_count": len(dishes_by_name)}
+
+
+@router.post("/meal-order-ocr/batch-create/", response=dict)
+def meal_order_ocr_batch_create(request, payload: list[dict]):
+    """根据老人点餐识别结果批量创建 MealOrder。"""
+    from residents.models import Resident
+
+    resident_id = payload[0].get("resident_id") if payload else None
+    created = 0
+    day_index = {"周一": 0, "周二": 1, "周三": 2, "周四": 3, "周五": 4, "周六": 5, "周日": 6}
+    for item in payload:
+        resident_id = item.get("resident_id", resident_id)
+        dish_ids = item.get("dish_ids", [])
+        day = item.get("day", "")
+        meal_type = item.get("meal_type", "")
+        week_start = item.get("week_start", "")
+        special_requests = item.get("special_requests", "")
+        if not resident_id or not day or not meal_type or not week_start:
+            continue
+        # 只有特殊要求没有菜（如"不吃"），也记录一条
+        if not dish_ids and not special_requests:
+            continue
+        # 计算就餐日期（周一=week_start，周日起+6天）
+        base = date.fromisoformat(week_start)
+        order_date = base + timedelta(days=day_index.get(day, 0))
+        order = MealOrder.objects.create(
+            resident_id=resident_id, date=order_date, meal_type=meal_type,
+            special_requests=special_requests,
+        )
+        if dish_ids:
+            order.dishes.set(dish_ids)
+        created += 1
+    return {"status": "created", "count": created}
+
+
+def _parse_order_item(name: str) -> tuple:
+    """解析 LLM 输出的菜名，分离括号特殊要求。返回 (菜名, 特殊要求)。
+
+    如 "清蒸鲈鱼(少盐)" → ("清蒸鲈鱼", "少盐")；"不吃(外出)" → ("", "不吃(外出)")。
+    """
+    name = name.strip()
+    m = re.match(r'^(.*?)[（(]([^）)]+)[）)]$', name)
+    if m:
+        base = m.group(1).strip()
+        note = m.group(2).strip()
+        # 如果 base 是"不吃/外出/不用"这类，视为纯特殊要求
+        if base in ("不吃", "不用", "外出", "无", "停"):
+            return ("", f"{base}({note})")
+        return (base, note)
+    # 无括号：如果本身就是特殊标记
+    if name in ("不吃", "外出", "不用", "停"):
+        return ("", name)
+    return (name, "")
+
+
 def _ocr_extract(image_b64: str) -> str:
     """调用 Baidu Unlimited-OCR 提取图片文字。失败返回空字符串。"""
     try:
@@ -247,12 +345,29 @@ def _ocr_extract(image_b64: str) -> str:
 
 
 def _llm_structure_menu(ocr_text: str, dish_names: List[str]) -> dict:
+    """周菜单：LLM 结构化 + 纠错（不识别特殊要求）。"""
+    return _llm_structure(ocr_text, dish_names, mode="menu")
+
+
+def _llm_structure(ocr_text: str, dish_names: List[str], mode: str = "menu") -> dict:
     """用 LLM 把 OCR 原始文字结构化，识别星期/餐次并纠错对齐菜品库。
+
+    mode='menu'：周菜单（每餐菜名列表）
+    mode='order'：老人点餐（菜名可带括号特殊要求，如'清蒸鲈鱼(少盐)'，或'不吃'）
 
     返回 {周一: {早餐: [菜名...], ...}, ...}；LLM 失败时返回 {}。
     """
     days = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
     meals = ["早餐", "午餐", "晚餐"]
+
+    if mode == "order":
+        special_rule = (
+            "- 如果某道菜有特殊要求（少盐、少油、忌口、糖尿病餐等），在菜名后加括号标注，"
+            "如'清蒸鲈鱼(少盐)'\n"
+            "- 如果某餐不吃或外出，输出一个元素\"不吃\"，可加括号原因，如\"不吃(外出)\"\n"
+        )
+    else:
+        special_rule = ""
 
     system_prompt = (
         "你是养老院菜单数据整理助手。用户会给你一段 OCR 识别的菜单文字（可能包含错别字），"
@@ -266,7 +381,8 @@ def _llm_structure_menu(ocr_text: str, dish_names: List[str]) -> dict:
         "- 菜名尽量用标准清单里的标准名，错别字要纠正\n"
         "- 如果某菜名在清单里没有对应，保留原样\n"
         "- 只输出识别到的星期和餐次，没有的不要输出\n"
-        "- 菜名用顿号或逗号分隔的，拆成多个元素"
+        "- 菜名用顿号或逗号分隔的，拆成多个元素\n"
+        + special_rule
     )
 
     user_prompt = (
