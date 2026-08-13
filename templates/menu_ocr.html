@@ -51,20 +51,47 @@ function handleFiles(files){
   document.getElementById('uploadHint').textContent = '正在识别 '+list.length+' 张图片…';
 
   list.forEach(function(file){
-    var reader = new FileReader();
-    reader.onload = function(ev){
-      var b64 = ev.target.result.split(',')[1];
-      base64s.push(b64);
-      // 预览缩略图
-      document.getElementById('previewImgs').innerHTML +=
-        '<img src="'+ev.target.result+'" style="max-width:140px;max-height:140px;border-radius:8px;object-fit:cover">';
-      loaded++;
-      if(loaded === list.length){
-        ocr(base64s);
-      }
-    };
-    reader.readAsDataURL(file);
+    // 压缩大图，避免 OCR 超时
+    compressImage(file, 1600, function(blob){
+      var reader = new FileReader();
+      reader.onload = function(ev){
+        var b64 = ev.target.result.split(',')[1];
+        base64s.push(b64);
+        document.getElementById('previewImgs').innerHTML +=
+          '<img src="'+ev.target.result+'" style="max-width:140px;max-height:140px;border-radius:8px;object-fit:cover">';
+        loaded++;
+        if(loaded === list.length){ ocr(base64s); }
+      };
+      reader.readAsDataURL(blob);
+    });
   });
+}
+
+// 用 Canvas 压缩图片到 maxDim 以内，输出 JPEG
+function compressImage(file, maxDim, callback){
+  var img = new Image();
+  var url = URL.createObjectURL(file);
+  img.onload = function(){
+    URL.revokeObjectURL(url);
+    if(img.width <= maxDim && img.height <= maxDim){
+      callback(file);  // 图不大，用原文件
+      return;
+    }
+    var ratio = maxDim / Math.max(img.width, img.height);
+    var canvas = document.createElement('canvas');
+    canvas.width = Math.round(img.width * ratio);
+    canvas.height = Math.round(img.height * ratio);
+    var ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(function(blob){
+      callback(blob);
+    }, 'image/jpeg', 0.82);
+  };
+  img.onerror = function(){
+    URL.revokeObjectURL(url);
+    callback(file);  // 加载失败，用原文件
+  };
+  img.src = url;
 }
 
 function ocr(images){

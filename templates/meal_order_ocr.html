@@ -98,24 +98,50 @@ function handleFiles(files){
   document.getElementById('previewImgs').innerHTML='';
 
   list.forEach(function(file){
-    var reader=new FileReader();
-    reader.onload=function(ev){
-      var b64=ev.target.result.split(',')[1];
-      base64s.push(b64);
-      document.getElementById('previewImgs').innerHTML +=
-        '<img src="'+ev.target.result+'" style="max-width:140px;max-height:140px;border-radius:8px;object-fit:cover">';
-      loaded++;
-      if(loaded===list.length){
-        fetch('/api/meal-order-ocr/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({images:base64s})})
-          .then(function(r){
-            if(!r.ok){ return r.text().then(function(t){ throw new Error('HTTP '+r.status+': '+t.slice(0,200)); }); }
-            return r.json();
-          }).then(showResults)
-          .catch(function(err){document.getElementById('progress').textContent='识别失败：'+err.message});
-      }
-    };
-    reader.readAsDataURL(file);
+    compressImage(file, 1600, function(blob){
+      var reader=new FileReader();
+      reader.onload=function(ev){
+        var b64=ev.target.result.split(',')[1];
+        base64s.push(b64);
+        document.getElementById('previewImgs').innerHTML +=
+          '<img src="'+ev.target.result+'" style="max-width:140px;max-height:140px;border-radius:8px;object-fit:cover">';
+        loaded++;
+        if(loaded===list.length){
+          fetch('/api/meal-order-ocr/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({images:base64s})})
+            .then(function(r){
+              if(!r.ok){ return r.text().then(function(t){ throw new Error('HTTP '+r.status+': '+t.slice(0,200)); }); }
+              return r.json();
+            }).then(showResults)
+            .catch(function(err){document.getElementById('progress').textContent='识别失败：'+err.message});
+        }
+      };
+      reader.readAsDataURL(blob);
+    });
   });
+}
+
+function compressImage(file, maxDim, callback){
+  var img = new Image();
+  var url = URL.createObjectURL(file);
+  img.onload = function(){
+    URL.revokeObjectURL(url);
+    if(img.width <= maxDim && img.height <= maxDim){
+      callback(file);
+      return;
+    }
+    var ratio = maxDim / Math.max(img.width, img.height);
+    var canvas = document.createElement('canvas');
+    canvas.width = Math.round(img.width * ratio);
+    canvas.height = Math.round(img.height * ratio);
+    var ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(function(blob){ callback(blob); }, 'image/jpeg', 0.82);
+  };
+  img.onerror = function(){
+    URL.revokeObjectURL(url);
+    callback(file);
+  };
+  img.src = url;
 }
 
 function showResults(data){
