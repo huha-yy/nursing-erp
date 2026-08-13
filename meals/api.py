@@ -186,25 +186,26 @@ def menu_ocr(request, payload: MenuOcrIn):
     except Exception:
         pass
 
-    # Match each line against Dish library
+    # Match each line against Dish library — use whole-word substring matching
+    # (dish names are complete words like "清蒸鲈鱼", "小米粥"), NOT char overlap.
     dishes = list(Dish.objects.filter(is_available=True).values("id", "name", "category"))
     matches = []
     for line in ocr_text.split("\n"):
         line = line.strip()
         if len(line) < 2:
             continue
-        # Skip common non-dish lines
-        if re.match(r'^(周一|周二|周三|周四|周五|周六|周日|早餐|午餐|晚餐|星期|菜谱|菜单|[0-9./\-]+)$', line):
+        # Skip common non-dish lines (day/meal headers, numbers, table markup)
+        if re.match(r'^(周一|周二|周三|周四|周五|周六|周日|早餐|午餐|晚餐|星期|菜谱|菜单|收货|名称|数量|单位|备注|[0-9./\-:：\s]+|<.*>)$', line):
             matches.append({"line": line, "suggestions": []})
             continue
         suggestions = []
         for d in dishes:
-            score = _fuzzy_match(line, d["name"])
-            if score > 0.3:
+            score = _dish_match(line, d["name"])
+            if score >= 0.6:  # only high-confidence whole-word matches
                 suggestions.append({"id": d["id"], "name": d["name"],
                                     "category": d["category"], "score": round(score, 2)})
         suggestions.sort(key=lambda x: x["score"], reverse=True)
-        matches.append({"line": line, "suggestions": suggestions[:5]})
+        matches.append({"line": line, "suggestions": suggestions[:8]})
 
     return {"text": ocr_text, "matches": matches, "dish_count": len(dishes)}
 
@@ -227,11 +228,37 @@ def menu_ocr_batch_create(request, payload: list[dict]):
     return {"status": "created", "count": created}
 
 
-def _fuzzy_match(text: str, target: str) -> float:
-    """Simple fuzzy match score between text and target dish name."""
-    if target in text:
-        return 0.95
-    # Character overlap score
-    t_chars = set(text)
-    overlap = sum(1 for c in target if c in t_chars)
-    return overlap / max(len(target), 1)
+def _dish_match(line: str, dish_name: str) -> float:
+    """Whole-word substring matching for dish names.
+
+    Returns 1.0 if the dish name appears verbatim in the OCR line,
+    a lower score if a long contiguous substring matches (handles OCR
+    dropping a trailing character), and 0.0 otherwise. This rejects the
+    single-character-overlap false positives that plagued fuzzy matching.
+    """
+    line = line.replace(" ", "").replace("　", "")
+    dish = dish_name.replace(" ", "")
+    if not dish or not line:
+        return 0.0
+    # Exact whole-word containment — highest confidence.
+    if dish in line:
+        return 1.0
+    # Longest common contiguous substring fallback (OCR may miss 1 trailing char).
+    lcs = _longest_common_substring(line, dish)
+    ratio = lcs / len(dish)
+    # Require most of the dish name to match contiguously.
+    return ratio if ratio >= 0.7 else 0.0
+
+
+def _longest_common_substring(a: str, b: str) -> int:
+    """Length of the longest common contiguous substring of a and b."""
+    if not a or not b:
+        return 0
+    dp = [[0] * (len(b) + 1) for _ in range(len(a) + 1)]
+    longest = 0
+    for i in range(1, len(a) + 1):
+        for j in range(1, len(b) + 1):
+            if a[i - 1] == b[j - 1]:
+                dp[i][j] = dp[i - 1][j - 1] + 1
+                longest = max(longest, dp[i][j])
+    return longest
