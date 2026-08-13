@@ -164,18 +164,20 @@ def _format_order(o: MealOrder) -> dict:
 # ---- OCR: menu photo → dish matching ----
 
 class MenuOcrIn(Schema):
-    image: str  # base64
+    image: str = ""  # 单张 base64（向后兼容）
+    images: list[str] = []  # 多张 base64（跨页菜单）
 
 
 @router.post("/menu-ocr/", response=dict)
 def menu_ocr(request, payload: MenuOcrIn):
-    """识别菜单照片 → OCR 提取文字 → LLM 结构化纠错 → 匹配菜品库。
+    """识别菜单照片（支持多张跨页）→ OCR 提取文字 → LLM 结构化纠错 → 匹配菜品库。
 
     返回结构化的每天每餐菜名列表（LLM 自动识别星期/餐次，并纠正错别字
     对齐到菜品库标准名），而非逐行文字。
     """
-    # 1. OCR 提取原始文字
-    ocr_text = _ocr_extract(payload.image)
+    # 1. OCR 提取原始文字（支持多张跨页）
+    images = payload.images or ([payload.image] if payload.image else [])
+    ocr_text = _ocr_extract_multi(images)
     if not ocr_text:
         return {"error": "OCR 未识别到文字", "structured": {}, "unmatched": []}
 
@@ -233,13 +235,15 @@ def menu_ocr_batch_create(request, payload: list[dict]):
 # ---- 老人点餐 OCR ----
 
 class MealOrderOcrIn(Schema):
-    image: str  # base64
+    image: str = ""  # 单张 base64（向后兼容）
+    images: list[str] = []  # 多张 base64（跨页）
 
 
 @router.post("/meal-order-ocr/", response=dict)
 def meal_order_ocr(request, payload: MealOrderOcrIn):
-    """识别老人点餐单照片 → 结构化（含特殊要求）→ 匹配菜品库。"""
-    ocr_text = _ocr_extract(payload.image)
+    """识别老人点餐单照片（支持多张跨页）→ 结构化（含特殊要求）→ 匹配菜品库。"""
+    images = payload.images or ([payload.image] if payload.image else [])
+    ocr_text = _ocr_extract_multi(images)
     if not ocr_text:
         return {"error": "OCR 未识别到文字", "structured": {}, "unmatched": []}
 
@@ -329,7 +333,7 @@ def _parse_order_item(name: str) -> tuple:
 
 
 def _ocr_extract(image_b64: str) -> str:
-    """调用 Baidu Unlimited-OCR 提取图片文字。失败返回空字符串。"""
+    """调用 Baidu Unlimited-OCR 提取单张图片文字。失败返回空字符串。"""
     try:
         import httpx
         ocr_url = os.environ.get("DL_OCR_URL", "http://192.168.10.247:18080")
@@ -342,6 +346,24 @@ def _ocr_extract(image_b64: str) -> str:
     except Exception:
         pass
     return ""
+
+
+def _ocr_extract_multi(images: List[str]) -> str:
+    """提取多张图片文字，按页码标注拼接（用于跨页菜单）。
+
+    返回 "【第1页】...\n【第2页】..."；单张时等价于 _ocr_extract。
+    """
+    if not images:
+        return ""
+    if len(images) == 1:
+        return _ocr_extract(images[0])
+
+    parts = []
+    for i, img in enumerate(images, start=1):
+        text = _ocr_extract(img)
+        if text:
+            parts.append(f"【第{i}页】\n{text}")
+    return "\n\n".join(parts)
 
 
 def _llm_structure_menu(ocr_text: str, dish_names: List[str]) -> dict:
