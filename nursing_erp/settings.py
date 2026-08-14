@@ -18,6 +18,7 @@ if _env_file.exists():
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-insecure-change-me")
 DEBUG = os.environ.get("DEBUG", "false").lower() == "true"
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+CSRF_TRUSTED_ORIGINS = [o for o in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if o]
 
 INSTALLED_APPS = [
     "unfold",                           # Must be before django.contrib.admin
@@ -111,11 +112,46 @@ os.environ.setdefault("DL_OCR_URL", "http://192.168.10.247:18080")
 
 # DeepSeek LLM (用于 OCR 结果的结构化与纠错)
 # API key 在 .env 中，这里只放非敏感的默认 URL 和模型名
+# 注意：用非推理模型 deepseek-chat——推理模型(v4-flash)会把 token 耗在思维链上，
+# max_tokens 小时 content 会被截断为空，导致 OCR 结构化偶发失败。
 os.environ.setdefault("DEEPSEEK_BASE_URL", "https://api.deepseek.com/chat/completions")
-os.environ.setdefault("DEEPSEEK_MODEL", "deepseek-v4-flash")
+os.environ.setdefault("DEEPSEEK_MODEL", "deepseek-chat")
 
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+# ---- 日志 ----
+# OCR 识别过程（原始文字 / LLM 结构化结果 / 未匹配菜名）落盘，方便排查。
+LOG_DIR = BASE_DIR / "logs"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "menu_ocr": {
+            "format": "[{asctime}] {levelname} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "menu_ocr_file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": str(LOG_DIR / "menu-ocr.log"),
+            "maxBytes": 5 * 1024 * 1024,  # 5MB，单文件上限
+            "backupCount": 3,             # 保留 3 个轮转备份
+            "encoding": "utf-8",
+            "formatter": "menu_ocr",
+        },
+    },
+    "loggers": {
+        "menu_ocr": {
+            "handlers": ["menu_ocr_file"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -145,7 +181,7 @@ UNFOLD = {
         "show_all_applications": False,
         "navigation": [
             {"title": "AI 院长助手", "icon": "smart_toy", "collapsible": True, "items": [
-                {"title": "打开 AI Chat", "icon": "smart_toy", "link": "https://hz-sanfu.eldcare.cn/chat/"},
+                {"title": "打开 AI Chat", "icon": "smart_toy", "link": "https://chat.eldcare.cn:8443/chat"},
                 {"title": "快速记录", "icon": "edit_note", "link": "/quick-log/"},
                 {"title": "周选点餐", "icon": "calendar_month", "link": "/weekly-order/"},
             ]},
