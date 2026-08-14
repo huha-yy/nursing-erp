@@ -23,5 +23,8 @@ Thumbs.db
 # Backup
 backups/
 
+# Logs
+logs/
+
 # pytest
 .pytest_cache/

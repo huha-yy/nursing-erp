@@ -20,17 +20,32 @@
     <div class="c" style="text-align:center;padding:30px 20px;cursor:pointer" onclick="document.getElementById('fileInput').click()">
       <div style="font-size:40px;margin-bottom:8px;color:var(--ink3)"><span class="material-symbols-outlined" style="font-size:40px">add_a_photo</span></div>
       <div style="font-size:14px;font-weight:600">点击上传点餐单照片</div>
-      <div style="font-size:12px;color:var(--ink3);margin-top:4px">手写点餐单，含特殊要求（少盐/不吃）也能识别，可多选跨页</div>
-      <input type="file" id="fileInput" accept="image/*" multiple style="display:none" onchange="handleFiles(this.files)">
+      <div style="font-size:12px;color:var(--ink3);margin-top:4px">手写点餐单，含特殊要求（少盐/不吃）也能识别，可多次添加跨页</div>
+      <input type="file" id="fileInput" accept="image/*" multiple style="display:none" onchange="handleFiles(this.files);this.value=''">
     </div>
-    <div id="previewImgs" style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:8px 0"></div>
-    <div id="progress" style="text-align:center;color:var(--ink3);font-size:13px;margin:8px 0;display:none">识别中…</div>
+    <div id="preview" style="display:none">
+      <div class="c">
+        <div style="font-size:14px;font-weight:600;margin-bottom:12px;display:flex;align-items:center">
+          <span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:6px">image</span>已选照片
+          <span style="margin-left:auto;font-weight:400;font-size:13px;color:var(--ink3)">共 <b id="imgCount" style="color:var(--blue);font-weight:700">0</b> 张</span>
+        </div>
+        <div id="previewImgs" style="display:flex;flex-wrap:wrap;gap:10px"></div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="submit" id="startBtn" onclick="startOcr()" style="flex:1">
+          <span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px">document_scanner</span>开始识别
+        </button>
+        <button class="btn" onclick="clearImages()" style="padding:0 20px;font-size:15px;flex-shrink:0">清空</button>
+      </div>
+      <div style="text-align:center;margin-top:10px;color:var(--ink3);font-size:13px;display:none" id="progress">识别中…</div>
+    </div>
     <div id="results" style="display:none"></div>
   </div>
 </div>
 
 <script>
 var sr=null, allResidents=[], currentPage=1, pageSize=9;
+var _images = [];       // 待识别照片 [{dataUrl, b64}]
 var _structured = null;
 
 function init(){loadAllResidents()}
@@ -78,46 +93,94 @@ function sel(id,name,room){sr={id:id,name:name,room:room};
   document.getElementById('act').style.display='block';
 }
 
+// Paste handler — 支持一次粘贴多张
 document.addEventListener('paste', function(e){
   if(!sr) return;
   var items=(e.clipboardData||e.originalEvent.clipboardData).items;
+  var files=[];
   for(var i=0;i<items.length;i++){
     if(items[i].type.indexOf('image')===0){
-      e.preventDefault();handleFiles([items[i].getAsFile()]);return;
+      var f=items[i].getAsFile();
+      if(f) files.push(f);
     }
   }
+  if(files.length){ e.preventDefault(); handleFiles(files); }
 });
 
 function handleFiles(files){
   if(!files || !files.length) return;
   var list = Array.prototype.slice.call(files);
-  var base64s = [];
+  var startIdx = _images.length;
+  for(var i=0;i<list.length;i++){ _images[startIdx+i] = null; }  // 占位保持顺序
   var loaded = 0;
-  document.getElementById('progress').style.display='block';
-  document.getElementById('progress').textContent='识别 '+list.length+' 张图片…';
-  document.getElementById('previewImgs').innerHTML='';
 
-  list.forEach(function(file){
-    compressImage(file, 1600, function(blob){
+  document.getElementById('preview').style.display='block';
+
+  list.forEach(function(file, i){
+    compressImage(file, 2560, function(blob){
       var reader=new FileReader();
       reader.onload=function(ev){
-        var b64=ev.target.result.split(',')[1];
-        base64s.push(b64);
-        document.getElementById('previewImgs').innerHTML +=
-          '<img src="'+ev.target.result+'" style="max-width:140px;max-height:140px;border-radius:8px;object-fit:cover">';
+        _images[startIdx+i] = {dataUrl: ev.target.result, b64: ev.target.result.split(',')[1]};
         loaded++;
-        if(loaded===list.length){
-          fetch('/api/meal-order-ocr/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({images:base64s})})
-            .then(function(r){
-              if(!r.ok){ return r.text().then(function(t){ throw new Error('HTTP '+r.status+': '+t.slice(0,200)); }); }
-              return r.json();
-            }).then(showResults)
-            .catch(function(err){document.getElementById('progress').textContent='识别失败：'+err.message});
-        }
+        if(loaded===list.length){ renderPreviews(); }
       };
       reader.readAsDataURL(blob);
     });
   });
+}
+
+function renderPreviews(){
+  var html = '';
+  var count = 0;
+  _images.forEach(function(im, i){
+    if(!im) return;
+    count++;
+    html += '<div style="position:relative;width:110px;height:110px">'+
+      '<img src="'+im.dataUrl+'" style="width:110px;height:110px;border-radius:8px;object-fit:cover;display:block;border:1px solid var(--line)">'+
+      '<span onclick="removeImage('+i+')" style="position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;background:var(--red);color:#fff;font-size:14px;line-height:22px;text-align:center;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.2)">✕</span>'+
+      '</div>';
+  });
+  document.getElementById('previewImgs').innerHTML = html;
+  document.getElementById('imgCount').textContent = count;
+}
+
+function removeImage(i){
+  _images.splice(i, 1);
+  renderPreviews();
+  if(!_images.filter(Boolean).length){ resetToUpload(); }
+}
+
+function clearImages(){
+  _images = [];
+  resetToUpload();
+}
+
+function resetToUpload(){
+  document.getElementById('preview').style.display = 'none';
+  document.getElementById('previewImgs').innerHTML = '';
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('results').innerHTML = '';
+  _structured = null;
+}
+
+function startOcr(){
+  var imgs = _images.filter(Boolean);
+  if(!imgs.length){ toast('请先上传点餐单照片','#e05555'); return; }
+  var b64s = imgs.map(function(im){ return im.b64; });
+  var btn = document.getElementById('startBtn');
+  btn.disabled = true;
+  document.getElementById('progress').style.display = 'block';
+  document.getElementById('progress').textContent = '识别中…';
+
+  fetch('/api/meal-order-ocr/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({images:b64s})})
+    .then(function(r){
+      if(!r.ok){ return r.text().then(function(t){ throw new Error('HTTP '+r.status+': '+t.slice(0,200)); }); }
+      return r.json();
+    }).then(showResults)
+    .catch(function(err){
+      document.getElementById('progress').textContent='识别失败：'+err.message;
+      document.getElementById('startBtn').disabled = false;
+    });
 }
 
 function compressImage(file, maxDim, callback){
@@ -135,7 +198,7 @@ function compressImage(file, maxDim, callback){
     canvas.height = Math.round(img.height * ratio);
     var ctx = canvas.getContext('2d');
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    canvas.toBlob(function(blob){ callback(blob); }, 'image/jpeg', 0.82);
+    canvas.toBlob(function(blob){ callback(blob); }, 'image/jpeg', 0.9);
   };
   img.onerror = function(){
     URL.revokeObjectURL(url);
@@ -145,6 +208,7 @@ function compressImage(file, maxDim, callback){
 }
 
 function showResults(data){
+  document.getElementById('startBtn').disabled = false;
   document.getElementById('progress').style.display='none';
   _structured = data.structured || {};
   var days=['周一','周二','周三','周四','周五','周六','周日'];

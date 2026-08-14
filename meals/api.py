@@ -1,6 +1,6 @@
 from typing import List, Optional
 from datetime import date, timedelta
-import base64, os, re, json
+import base64, os, re, json, logging
 
 from ninja import Router, Query, Schema
 from ninja.pagination import paginate, PageNumberPagination
@@ -9,6 +9,8 @@ from .models import Dish, WeekMenu, MealOrder, MealFinance
 from nursing_erp.llm import chat as llm_chat
 
 router = Router(tags=["点餐送餐"])
+
+logger = logging.getLogger("menu_ocr")
 
 
 # ---- Schemas ----
@@ -179,6 +181,7 @@ def menu_ocr(request, payload: MenuOcrIn):
     images = payload.images or ([payload.image] if payload.image else [])
     ocr_text = _ocr_extract_multi(images)
     if not ocr_text:
+        logger.warning("===== 菜单 OCR 未识别到文字 (图片数=%d) =====", len(images))
         return {"error": "OCR 未识别到文字", "structured": {}, "unmatched": []}
 
     # 2. LLM 结构化 + 纠错
@@ -210,6 +213,17 @@ def menu_ocr(request, payload: MenuOcrIn):
                         result[day][meal_type].append({"name": name, "dish_id": None, "matched": False})
                         unmatched.append(name)
 
+    logger.info(
+        "===== 菜单 OCR (图片数=%d) =====\n"
+        "[OCR 原始文字]\n%s\n"
+        "[LLM 结构化]\n%s\n"
+        "[匹配后结果]\n%s\n"
+        "[未匹配菜名] %s",
+        len(images), ocr_text,
+        json.dumps(structured, ensure_ascii=False, indent=2),
+        json.dumps(result, ensure_ascii=False, indent=2),
+        unmatched,
+    )
     return {"text": ocr_text, "structured": result, "unmatched": unmatched,
             "dish_count": len(dishes_by_name)}
 
@@ -245,6 +259,7 @@ def meal_order_ocr(request, payload: MealOrderOcrIn):
     images = payload.images or ([payload.image] if payload.image else [])
     ocr_text = _ocr_extract_multi(images)
     if not ocr_text:
+        logger.warning("===== 点餐 OCR 未识别到文字 (图片数=%d) =====", len(images))
         return {"error": "OCR 未识别到文字", "structured": {}, "unmatched": []}
 
     dish_names = list(Dish.objects.filter(is_available=True).values_list("name", flat=True))
@@ -275,6 +290,17 @@ def meal_order_ocr(request, payload: MealOrderOcrIn):
                     result[day][meal_type].append(
                         {"name": "", "note": note, "dish_id": None, "matched": False})
 
+    logger.info(
+        "===== 点餐 OCR (图片数=%d) =====\n"
+        "[OCR 原始文字]\n%s\n"
+        "[LLM 结构化]\n%s\n"
+        "[匹配后结果]\n%s\n"
+        "[未匹配菜名] %s",
+        len(images), ocr_text,
+        json.dumps(raw, ensure_ascii=False, indent=2),
+        json.dumps(result, ensure_ascii=False, indent=2),
+        unmatched,
+    )
     return {"text": ocr_text, "structured": result, "unmatched": unmatched,
             "dish_count": len(dishes_by_name)}
 
@@ -412,7 +438,7 @@ def _llm_structure(ocr_text: str, dish_names: List[str], mode: str = "menu") -> 
         f"标准菜品清单（{len(dish_names)} 道）：\n" + "、".join(dish_names)
     )
 
-    reply = llm_chat(system_prompt, user_prompt, temperature=0.1, max_tokens=2000)
+    reply = llm_chat(system_prompt, user_prompt, temperature=0.1, max_tokens=4000)
     if not reply:
         return {}
 

@@ -9,7 +9,10 @@
 
 import os
 import time
+import logging
 import httpx
+
+logger = logging.getLogger("menu_ocr")
 
 
 def chat(system_prompt: str, user_prompt: str, temperature: float = 0.3,
@@ -17,9 +20,10 @@ def chat(system_prompt: str, user_prompt: str, temperature: float = 0.3,
     """调用 DeepSeek，返回文本回复。失败重试，仍失败返回空字符串。"""
     api_key = os.environ.get("DEEPSEEK_API_KEY", "")
     base_url = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com/chat/completions")
-    model = os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-flash")
+    model = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")
 
     if not api_key:
+        logger.error("DeepSeek 调用失败：DEEPSEEK_API_KEY 未设置")
         return ""
 
     last_err = None
@@ -47,8 +51,17 @@ def chat(system_prompt: str, user_prompt: str, temperature: float = 0.3,
             content = data["choices"][0]["message"]["content"].strip()
             if content:
                 return content
+            # content 为空——推理模型会把 token 耗在 reasoning_content 上，
+            # max_tokens 不够时 content 尚未生成就被截断。记录以便排查。
+            rc = data["choices"][0]["message"].get("reasoning_content", "")
+            logger.warning(
+                "DeepSeek 返回 content 为空 (model=%s, max_tokens=%d, reasoning_content 长度=%d)",
+                model, max_tokens, len(rc),
+            )
         except Exception as exc:
             last_err = exc
+            logger.warning("DeepSeek 调用失败 (第 %d/%d 次): %s", attempt + 1, retries + 1, exc)
             if attempt < retries:
                 time.sleep(1.5 * (attempt + 1))  # 1.5s, 3s 退避重试
+    logger.error("DeepSeek 最终失败: %s", last_err)
     return ""
