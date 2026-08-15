@@ -228,12 +228,42 @@ def menu_ocr(request, payload: MenuOcrIn):
             "dish_count": len(dishes_by_name)}
 
 
+def _infer_dish_category(name: str) -> str:
+    """根据菜名简单推断分类（人工修正新建菜品时给个合理默认分类）。"""
+    if any(k in name for k in ("汤", "羹")):
+        return "汤"
+    if any(k in name for k in ("粥", "饭", "面", "馒头", "饼", "粉", "包")):
+        return "主食"
+    if any(k in name for k in ("肉", "鸡", "鸭", "鱼", "虾", "排骨", "牛", "猪", "蛋", "蹄", "肝", "翅")):
+        return "荤菜"
+    return "素菜"
+
+
+def _get_or_create_dish(name: str) -> int | None:
+    """按菜名查找或新建菜品，返回 dish id；空名返回 None。"""
+    name = (name or "").strip()
+    if not name:
+        return None
+    dish, _ = Dish.objects.get_or_create(
+        name=name,
+        defaults={"category": _infer_dish_category(name), "is_available": True},
+    )
+    return dish.id
+
+
 @router.post("/menu-ocr/batch-create/", response=dict)
 def menu_ocr_batch_create(request, payload: list[dict]):
-    """根据结构化识别结果批量创建周菜单。"""
+    """根据结构化识别结果批量创建周菜单。
+
+    未匹配的菜名（人工修正后）通过 new_dishes 传入，自动加入菜品库。
+    """
     created = 0
     for item in payload:
-        dish_ids = item.get("dish_ids", [])
+        dish_ids = list(item.get("dish_ids", []))
+        for name in item.get("new_dishes", []):
+            did = _get_or_create_dish(name)
+            if did:
+                dish_ids.append(did)
         day = item.get("day", "")
         meal_type = item.get("meal_type", "")
         week_start = item.get("week_start", "")
@@ -315,7 +345,11 @@ def meal_order_ocr_batch_create(request, payload: list[dict]):
     day_index = {"周一": 0, "周二": 1, "周三": 2, "周四": 3, "周五": 4, "周六": 5, "周日": 6}
     for item in payload:
         resident_id = item.get("resident_id", resident_id)
-        dish_ids = item.get("dish_ids", [])
+        dish_ids = list(item.get("dish_ids", []))
+        for name in item.get("new_dishes", []):
+            did = _get_or_create_dish(name)
+            if did:
+                dish_ids.append(did)
         day = item.get("day", "")
         meal_type = item.get("meal_type", "")
         week_start = item.get("week_start", "")

@@ -201,14 +201,17 @@ function showResults(data){
         '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">'+icon+'</span> '+mt+'</div>';
       html += '<div style="display:flex;flex-wrap:wrap;gap:6px" id="dishbox_'+day+'_'+mt+'">';
       dishes.forEach(function(dish){
-        var checked = dish.matched ? 'checked' : '';
-        var style = dish.matched
-          ? 'border:2px solid var(--blue);background:var(--blue2)'
-          : 'border:2px solid var(--red);background:#fff5f5';
-        html += '<label style="display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;user-select:none;'+style+'" id="lbl_'+day+'_'+mt+'_'+dish.dish_id+'">'+
-          '<input type="checkbox" '+checked+' data-dish-id="'+dish.dish_id+'" data-day="'+day+'" data-mt="'+mt+'" style="accent-color:var(--blue)"> '+dish.name+
-          (dish.matched?'':'<span style="color:var(--red);font-size:11px">⚠未匹配</span>')+
-          '</label>';
+        if(dish.matched){
+          html += '<label style="display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border:2px solid var(--blue);background:var(--blue2);border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;user-select:none">'+
+            '<input type="checkbox" checked data-dish-id="'+dish.dish_id+'" data-day="'+day+'" data-mt="'+mt+'" style="accent-color:var(--blue)"> '+dish.name+
+            '</label>';
+        } else {
+          html += '<div style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:2px solid var(--red);background:#fff5f5;border-radius:8px;font-size:13px">'+
+            '<input type="checkbox" data-day="'+day+'" data-mt="'+mt+'" style="accent-color:var(--red)">'+
+            '<input type="text" value="'+dish.name+'" class="new-dish" style="width:130px;border:1px solid var(--red);border-radius:4px;padding:3px 6px;font-size:13px;background:#fff;color:#4A3728">'+
+            '<span style="color:var(--red);font-size:11px;white-space:nowrap">⚠手动修正</span>'+
+            '</div>';
+        }
       });
       html += '</div></div>';
     });
@@ -217,12 +220,6 @@ function showResults(data){
 
   if(!anyDay){
     html += '<div class="c"><div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">sentiment_dissatisfied</span></div><p>未识别到菜单结构，请换张更清晰的照片</p></div></div>';
-  } else if(data.unmatched && data.unmatched.length){
-    html += '<div class="c" style="border:1px solid var(--red)"><div class="c-h" style="color:var(--red)">⚠ 未匹配菜品（'+data.unmatched.length+' 道）</div>'+
-      '<div style="font-size:13px;color:var(--ink2)">以下菜名不在菜品库中，请先在"菜品库"中添加，或手动调整识别结果：</div>'+
-      '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">'+
-      data.unmatched.map(function(n){return '<span style="padding:4px 10px;border:1px solid var(--red);border-radius:6px;font-size:12px;color:var(--red)">'+n+'</span>'}).join('')+
-      '</div></div>';
   }
 
   html += '<button class="submit" onclick="batchCreate()"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px">description</span>确认创建周菜单</button>';
@@ -237,14 +234,19 @@ function batchCreate(){
   var payload=[];
   // 遍历所有勾选的 checkbox
   document.querySelectorAll('#results input[type=checkbox]:checked').forEach(function(cb){
-    var dishId = parseInt(cb.dataset.dishId);
+    var dishId = parseInt(cb.dataset.dishId) || null;
     var day = cb.dataset.day;
     var mt = cb.dataset.mt;
-    if(!dishId) return;
-    // 按 day+mt 聚合
     var found = payload.find(function(p){return p.day===day && p.meal_type===mt});
-    if(found){ found.dish_ids.push(dishId); }
-    else{ payload.push({week_start:ws, day:day, meal_type:mt, dish_ids:[dishId]}); }
+    if(!found){ found = {week_start:ws, day:day, meal_type:mt, dish_ids:[], new_dishes:[]}; payload.push(found); }
+    if(dishId){
+      found.dish_ids.push(dishId);
+    } else {
+      // 未匹配：读取人工修正后的菜名
+      var inp = cb.parentElement.querySelector('input[type=text]');
+      var name = inp ? inp.value.trim() : '';
+      if(name) found.new_dishes.push(name);
+    }
   });
 
   if(!payload.length){toast('请至少勾选一道菜','#e05555');return}
@@ -253,8 +255,9 @@ function batchCreate(){
   btn.disabled = true;
   fetch('/api/menu-ocr/batch-create/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
     .then(function(r){return r.json()}).then(function(d){
-      toast('<span class="material-symbols-outlined">check_circle</span> 已创建 '+d.count+' 条周菜单','#3ca07a');
+      toast('<span class="material-symbols-outlined">check_circle</span> 已创建 '+d.count+' 条周菜单，即将跳转…','#3ca07a');
       btn.disabled = false;
+      setTimeout(function(){ window.location.href = '/admin/meals/weekmenu/'; }, 1500);
     }).catch(function(){toast('创建失败','#e05555');btn.disabled=false});
 }
 </script>

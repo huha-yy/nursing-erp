@@ -240,12 +240,19 @@ function showResults(data){
       html+='<div style="display:flex;flex-wrap:wrap;gap:6px">';
       dishes.forEach(function(dish){
         if(dish.name){  // 有菜名
-          var checked=dish.matched?'checked':'';
-          html+='<label style="display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border:2px solid '+(dish.matched?'var(--blue)':'var(--red)')+';background:'+(dish.matched?'var(--blue2)':'#fff5f5')+';border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;user-select:none">'+
-            '<input type="checkbox" '+checked+' data-dish-id="'+dish.dish_id+'" data-day="'+day+'" data-mt="'+mt+'" data-note="'+escapeHtml(dish.note||'')+'" style="accent-color:var(--blue)"> '+dish.name+
-            (dish.note?'<span style="color:#e05555;font-size:11px">('+dish.note+')</span>':'')+
-            (dish.matched?'':'<span style="color:var(--red);font-size:11px">⚠</span>')+
-            '</label>';
+          if(dish.matched){
+            html+='<label style="display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border:2px solid var(--blue);background:var(--blue2);border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;user-select:none">'+
+              '<input type="checkbox" checked data-dish-id="'+dish.dish_id+'" data-day="'+day+'" data-mt="'+mt+'" data-note="'+escapeHtml(dish.note||'')+'" style="accent-color:var(--blue)"> '+dish.name+
+              (dish.note?'<span style="color:#e05555;font-size:11px">('+dish.note+')</span>':'')+
+              '</label>';
+          } else {
+            html+='<div style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:2px solid var(--red);background:#fff5f5;border-radius:8px;font-size:13px">'+
+              '<input type="checkbox" data-day="'+day+'" data-mt="'+mt+'" data-note="'+escapeHtml(dish.note||'')+'" style="accent-color:var(--red)">'+
+              '<input type="text" value="'+escapeHtml(dish.name)+'" class="new-dish" style="width:130px;border:1px solid var(--red);border-radius:4px;padding:3px 6px;font-size:13px;background:#fff;color:#4A3728">'+
+              (dish.note?'<span style="color:#e05555;font-size:11px">('+dish.note+')</span>':'')+
+              '<span style="color:var(--red);font-size:11px;white-space:nowrap">⚠手动修正</span>'+
+              '</div>';
+          }
         } else {  // 纯特殊要求（不吃）
           html+='<span style="display:inline-flex;align-items:center;gap:4px;padding:7px 12px;border:2px dashed var(--red);border-radius:8px;font-size:13px;font-weight:500;color:var(--red)">'+
             '<span class="material-symbols-outlined" style="font-size:16px">block</span> '+dish.note+'</span>';
@@ -272,15 +279,23 @@ function submitOrder(){
   var dayMap={'周一':0,'周二':1,'周三':2,'周四':3,'周五':4,'周六':5,'周日':6};
 
   document.querySelectorAll('#results input[type=checkbox]:checked').forEach(function(cb){
-    var dishId=parseInt(cb.dataset.dishId);
+    var dishId=parseInt(cb.dataset.dishId) || null;
     var day=cb.dataset.day, mt=cb.dataset.mt, note=cb.dataset.note;
-    if(!dishId) return;
     var found=payload.find(function(p){return p.day===day&&p.meal_type===mt});
-    if(found){
+    if(!found){
+      found={resident_id:sr.id, week_start:ws, day:day, meal_type:mt, dish_ids:[], new_dishes:[], special_requests:''};
+      payload.push(found);
+    }
+    if(dishId){
       found.dish_ids.push(dishId);
-      if(note && found.special_requests.indexOf(note)<0) found.special_requests += (found.special_requests?'、':'')+note;
     } else {
-      payload.push({resident_id:sr.id, week_start:ws, day:day, meal_type:mt, dish_ids:[dishId], special_requests:note});
+      // 未匹配：读取人工修正后的菜名
+      var inp = cb.parentElement.querySelector('input[type=text]');
+      var name = inp ? inp.value.trim() : '';
+      if(name) found.new_dishes.push(name);
+    }
+    if(note && found.special_requests.indexOf(note)<0){
+      found.special_requests += (found.special_requests?'、':'')+note;
     }
   });
 
@@ -288,7 +303,8 @@ function submitOrder(){
 
   fetch('/api/meal-order-ocr/batch-create/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
     .then(function(r){return r.json()}).then(function(d){
-      toast('<span class="material-symbols-outlined">check_circle</span> 已为 '+sr.name+' 创建 '+d.count+' 条点餐订单','#3ca07a');
+      toast('<span class="material-symbols-outlined">check_circle</span> 已为 '+sr.name+' 创建 '+d.count+' 条点餐订单，即将跳转…','#3ca07a');
+      setTimeout(function(){ window.location.href = '/admin/meals/mealorder/'; }, 1500);
     }).catch(function(){toast('创建失败','#e05555')});
 }
 
