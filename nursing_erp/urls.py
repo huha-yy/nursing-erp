@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.urls import path
 from ninja import NinjaAPI
 
-from nursing_erp.views import kitchen_today, finance_monthly, quick_log, weekly_order, menu_ocr_page, meal_order_ocr_page
+from nursing_erp.views import kitchen_today, finance_monthly, quick_log, weekly_order, menu_ocr_page, meal_order_ocr_page, resident_lifecycle
 
 api = NinjaAPI(title="养老院管理系统 API", version="1.0.0")
 
@@ -28,6 +28,7 @@ urlpatterns = [
     path("weekly-order/", weekly_order, name="weekly_order"),
     path("menu-ocr/", menu_ocr_page, name="menu_ocr"),
     path("meal-order-ocr/", meal_order_ocr_page, name="meal_order_ocr"),
+    path("resident/<int:resident_id>/lifecycle/", resident_lifecycle, name="resident_lifecycle"),
 ]
 
 from django.conf import settings

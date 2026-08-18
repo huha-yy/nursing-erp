@@ -88,3 +88,87 @@ def _day_of_week(d):
     """date → 周一/周二/..."""
     days = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
     return days[d.weekday()]
+
+
+def resident_lifecycle(request, resident_id):
+    """老人全生命周期档案 — 时间线 + 健康趋势"""
+    from django.shortcuts import get_object_or_404
+
+    from residents.models import Resident
+
+    resident = get_object_or_404(Resident, id=resident_id)
+
+    events = []
+
+    COLORS = {
+        "入住": "#27ae60", "护理": "#3b82f6", "健康": "#14b8a6", "用药": "#8b5cf6",
+        "作息": "#94a3b8", "异常": "#ef4444", "等级变更": "#f59e0b", "转区": "#f59e0b",
+        "离院": "#6b7280",
+    }
+
+    def add(d, kind, icon, title, detail=""):
+        if d:
+            events.append({
+                "date": d, "kind": kind, "icon": icon, "title": title,
+                "detail": detail or "", "color": COLORS.get(kind, "#6b7280"),
+            })
+
+    # 入住（时间线起点）
+    add(resident.admission_date, "入住", "🏠", "入住",
+        f"{resident.building} {resident.floor} {resident.room}室 · 初始等级 {resident.get_care_level_display()}")
+
+    for o in resident.logs.all():
+        add(o.log_date, "护理", "🛏️", o.get_category_display(), o.detail)
+
+    for o in resident.health_records.all():
+        add(o.record_date, "健康", "❤️",
+            f"血压 {o.blood_pressure or '—'} · 心率 {o.heart_rate or '—'}", o.note)
+
+    for o in resident.medications.all():
+        add(o.start_date, "用药", "💊", o.medicine_name, f"{o.dosage} · {o.get_frequency_display()}")
+
+    for o in resident.routines.all():
+        add(o.log_date, "作息", "🕐", f"情绪 {o.mood or '—'}", o.activities)
+
+    for o in resident.incidents.all():
+        add(o.created_at.date(), "异常", "⚠️", o.get_category_display(), o.description)
+
+    for o in resident.level_changes.all():
+        add(o.change_date, "等级变更", "📈",
+            f"{o.get_from_level_display()} → {o.get_to_level_display()}", o.reason)
+
+    for o in resident.transfers.all():
+        add(o.transfer_date, "转区", "🚚",
+            f"{o.get_from_zone_display()} → {o.get_to_zone_display()}", o.reason)
+
+    for o in resident.discharges.all():
+        add(o.discharge_date, "离院", "🏠", o.get_discharge_type_display(), o.reason)
+
+    events.sort(key=lambda e: e["date"], reverse=True)
+    for e in events:
+        e["date"] = e["date"].strftime("%Y-%m-%d")
+
+    # 健康趋势（血压收缩/舒张、血糖、体重）
+    hrs = list(resident.health_records.order_by("record_date"))
+    dates = [h.record_date.strftime("%m-%d") for h in hrs]
+    bp_sys, bp_dia, bs, wt = [], [], [], []
+    for h in hrs:
+        s = d = None
+        if h.blood_pressure and "/" in h.blood_pressure:
+            try:
+                s, d = (int(x) for x in h.blood_pressure.split("/"))
+            except ValueError:
+                s = d = None
+        bp_sys.append(s)
+        bp_dia.append(d)
+        bs.append(float(h.blood_sugar) if h.blood_sugar is not None else None)
+        wt.append(float(h.weight) if h.weight is not None else None)
+
+    trend = {"dates": dates, "bp_sys": bp_sys, "bp_dia": bp_dia, "blood_sugar": bs, "weight": wt}
+
+    return render(request, "resident_lifecycle.html", {
+        "page_title": f"{resident.name} 生命周期档案",
+        "resident": resident,
+        "events": events,
+        "trend": trend,
+    })

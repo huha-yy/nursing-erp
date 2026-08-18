@@ -107,7 +107,7 @@ function loadMenu(){
 function renderDay(day){
   var data = window._weekData; window._currentDay = day;
   var days=['周一','周二','周三','周四','周五','周六','周日'], meals=['早餐','午餐','晚餐'];
-  var dayItems=data.filter(function(m){return m.day===day});
+  var dayItems=data.filter(function(m){return m.day===day}).sort(function(a,b){return meals.indexOf(a.meal_type)-meals.indexOf(b.meal_type)});
   var mealIcons = {'早餐':'wb_sunny','午餐':'wb_sunny','晚餐':'bedtime'};
 
   // Day tabs — show indicator if dishes selected

@@ -168,3 +168,74 @@ class ResidentRoutine(models.Model):
 
     def __str__(self):
         return f"{self.resident.name} — {self.log_date}"
+
+
+class CareLevelChange(models.Model):
+    """护理等级变更记录 — 生命周期关键节点"""
+
+    resident = models.ForeignKey(
+        Resident, on_delete=models.CASCADE, related_name="level_changes", verbose_name="老人"
+    )
+    from_level = models.CharField(max_length=10, choices=Resident.CareLevel.choices, verbose_name="原等级")
+    to_level = models.CharField(max_length=10, choices=Resident.CareLevel.choices, verbose_name="新等级")
+    change_date = models.DateField(verbose_name="变更日期")
+    reason = models.TextField(blank=True, verbose_name="变更原因")
+    changed_by = models.CharField(max_length=30, blank=True, verbose_name="经办人")
+
+    class Meta:
+        verbose_name = "护理等级变更"
+        verbose_name_plural = verbose_name
+        ordering = ["-change_date"]
+
+    def __str__(self):
+        return f"{self.resident.name}: {self.get_from_level_display()}→{self.get_to_level_display()}"
+
+
+class TransferRecord(models.Model):
+    """转区记录 — 生命周期关键节点（自理区/介助区/介护区/认知障碍专区）"""
+
+    class Zone(models.TextChoices):
+        SELF_CARE = "自理区", "自理区"
+        ASSISTED = "介助区", "介助区"
+        NURSING = "介护区", "介护区"
+        DEMENTIA = "认知障碍专区", "认知障碍专区"
+
+    resident = models.ForeignKey(
+        Resident, on_delete=models.CASCADE, related_name="transfers", verbose_name="老人"
+    )
+    from_zone = models.CharField(max_length=20, choices=Zone.choices, verbose_name="原区域")
+    to_zone = models.CharField(max_length=20, choices=Zone.choices, verbose_name="新区域")
+    transfer_date = models.DateField(verbose_name="转区日期")
+    reason = models.TextField(blank=True, verbose_name="转区原因")
+
+    class Meta:
+        verbose_name = "转区记录"
+        verbose_name_plural = verbose_name
+        ordering = ["-transfer_date"]
+
+    def __str__(self):
+        return f"{self.resident.name}: {self.get_from_zone_display()}→{self.get_to_zone_display()}"
+
+
+class DischargeRecord(models.Model):
+    """离院记录 — 生命周期终点"""
+
+    class DischargeType(models.TextChoices):
+        DISCHARGED = "出院", "出院"
+        TRANSFERRED = "转院", "转院"
+        DECEASED = "身故", "身故"
+
+    resident = models.ForeignKey(
+        Resident, on_delete=models.CASCADE, related_name="discharges", verbose_name="老人"
+    )
+    discharge_type = models.CharField(max_length=10, choices=DischargeType.choices, verbose_name="离院类型")
+    discharge_date = models.DateField(verbose_name="离院日期")
+    reason = models.TextField(blank=True, verbose_name="原因")
+
+    class Meta:
+        verbose_name = "离院记录"
+        verbose_name_plural = verbose_name
+        ordering = ["-discharge_date"]
+
+    def __str__(self):
+        return f"{self.resident.name}: {self.get_discharge_type_display()}"

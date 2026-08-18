@@ -1,0 +1,112 @@
+{% extends "base_light.html" %}
+{% load static %}
+
+{% block content %}
+<style>
+  .lc-wrap{max-width:880px;margin:0 auto;padding:24px 20px 48px}
+  .lc-info{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+  .lc-info .it{background:var(--bg2);border-radius:8px;padding:10px 12px}
+  .lc-info .it .lbl{font-size:11px;color:var(--ink3);margin-bottom:3px}
+  .lc-info .it .val{font-size:14px;font-weight:600}
+  .chart{width:100%;height:240px}
+  /* 时间线 */
+  .lc-tl{position:relative;padding-left:20px}
+  .lc-tl::before{content:'';position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:var(--line)}
+  .lc-ev{position:relative;padding:0 0 18px 16px}
+  .lc-ev:last-child{padding-bottom:0}
+  .lc-dot{position:absolute;left:-20px;top:3px;width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px var(--line)}
+  .lc-date{font-size:12px;color:var(--ink3)}
+  .lc-title{font-size:14px;font-weight:600;margin-top:2px}
+  .lc-detail{font-size:13px;color:var(--ink2);margin-top:3px;line-height:1.55}
+  .lc-kind{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:100px;background:var(--bg2);color:var(--ink2);margin-right:6px;vertical-align:1px}
+</style>
+
+<div class="lc-wrap">
+  <div class="title">
+    <span class="material-symbols-outlined" style="color:var(--blue)">badge</span> {{ resident.name }} 生命周期档案
+    <span class="sub">{{ resident.gender }} · {{ resident.age }}岁 · {{ resident.get_care_level_display }}</span>
+  </div>
+
+  <!-- 基本信息 -->
+  <div class="c">
+    <div class="c-h"><span class="material-symbols-outlined" style="font-size:18px">person</span>基本信息</div>
+    <div class="lc-info">
+      <div class="it"><div class="lbl">姓名</div><div class="val">{{ resident.name }}</div></div>
+      <div class="it"><div class="lbl">房间</div><div class="val">{{ resident.building }} {{ resident.floor }} {{ resident.room }}室</div></div>
+      <div class="it"><div class="lbl">护理等级</div><div class="val">{{ resident.get_care_level_display }}</div></div>
+      <div class="it"><div class="lbl">入住日期</div><div class="val">{{ resident.admission_date|date:"Y-m-d"|default:"—" }}</div></div>
+      <div class="it"><div class="lbl">既往病史</div><div class="val">{{ resident.diagnosis|default:"—" }}</div></div>
+      <div class="it"><div class="lbl">过敏史</div><div class="val">{{ resident.allergies|default:"—" }}</div></div>
+    </div>
+  </div>
+
+  <!-- 健康趋势 -->
+  <div class="c" id="healthCard">
+    <div class="c-h"><span class="material-symbols-outlined" style="font-size:18px">monitor_heart</span>健康趋势</div>
+    <div id="bpChart" class="chart"></div>
+    <div id="bsChart" class="chart" style="margin-top:14px"></div>
+    <div id="wtChart" class="chart" style="margin-top:14px"></div>
+  </div>
+
+  <!-- 生命周期时间线 -->
+  <div class="c">
+    <div class="c-h"><span class="material-symbols-outlined" style="font-size:18px">timeline</span>生命周期时间线 <span class="cnt">{{ events|length }}</span></div>
+    <div class="lc-tl">
+      {% for e in events %}
+      <div class="lc-ev">
+        <div class="lc-dot" style="background:{{ e.color }}"></div>
+        <div class="lc-date">{{ e.date }}</div>
+        <div class="lc-title"><span class="lc-kind">{{ e.kind }}</span>{{ e.icon }} {{ e.title }}</div>
+        {% if e.detail %}<div class="lc-detail">{{ e.detail }}</div>{% endif %}
+      </div>
+      {% empty %}
+      <div class="empty"><p>暂无记录</p></div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{{ trend|json_script:"trend-data" }}
+<script src="{% static 'echarts.min.js' %}"></script>
+<script>
+  var trend = JSON.parse(document.getElementById('trend-data').textContent);
+  var dates = trend.dates || [];
+
+  function hasData(list) {
+    return (list || []).some(function(v){ return v !== null && v !== undefined; });
+  }
+
+  function lineChart(el, series) {
+    if (!dates.length || !series.some(function(s){ return hasData(s.data); })) {
+      document.getElementById(el).style.display = 'none';
+      return;
+    }
+    var chart = echarts.init(document.getElementById(el));
+    chart.setOption({
+      grid: { left: 44, right: 16, top: 32, bottom: 24 },
+      tooltip: { trigger: 'axis' },
+      legend: { data: series.map(function(s){ return s.name; }), top: 0, left: 'center' },
+      xAxis: { type: 'category', data: dates, boundaryGap: false },
+      yAxis: { type: 'value', scale: true },
+      series: series.map(function(s){
+        return {
+          name: s.name, type: 'line', data: s.data, smooth: true,
+          connectNulls: false, showSymbol: true, symbolSize: 5,
+          lineStyle: { width: 2 }, itemStyle: { color: s.color }
+        };
+      })
+    });
+    window.addEventListener('resize', function(){ chart.resize(); });
+  }
+
+  // 血压（收缩压 + 舒张压）
+  lineChart('bpChart', [
+    { name: '收缩压', data: trend.bp_sys, color: '#e05555' },
+    { name: '舒张压', data: trend.bp_dia, color: '#4f6ef7' }
+  ]);
+  // 血糖
+  lineChart('bsChart', [{ name: '血糖', data: trend.blood_sugar, color: '#f59e0b' }]);
+  // 体重
+  lineChart('wtChart', [{ name: '体重', data: trend.weight, color: '#14b8a6' }]);
+</script>
+{% endblock %}
