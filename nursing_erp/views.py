@@ -148,21 +148,32 @@ def resident_lifecycle(request, resident_id):
     for e in events:
         e["date"] = e["date"].strftime("%Y-%m-%d")
 
-    # 健康趋势（血压收缩/舒张、血糖、体重）
+    # 健康趋势（血压收缩/舒张、血糖、体重）— 连续日期轴，缺失日期补 None
     hrs = list(resident.health_records.order_by("record_date"))
-    dates = [h.record_date.strftime("%m-%d") for h in hrs]
-    bp_sys, bp_dia, bs, wt = [], [], [], []
-    for h in hrs:
-        s = d = None
-        if h.blood_pressure and "/" in h.blood_pressure:
-            try:
-                s, d = (int(x) for x in h.blood_pressure.split("/"))
-            except ValueError:
+    by_date = {h.record_date: h for h in hrs}
+    dates, bp_sys, bp_dia, bs, wt = [], [], [], [], []
+    if hrs:
+        cur, end = hrs[0].record_date, hrs[-1].record_date
+        while cur <= end:
+            dates.append(cur.strftime("%m-%d"))
+            h = by_date.get(cur)
+            if h:
                 s = d = None
-        bp_sys.append(s)
-        bp_dia.append(d)
-        bs.append(float(h.blood_sugar) if h.blood_sugar is not None else None)
-        wt.append(float(h.weight) if h.weight is not None else None)
+                if h.blood_pressure and "/" in h.blood_pressure:
+                    try:
+                        s, d = (int(x) for x in h.blood_pressure.split("/"))
+                    except ValueError:
+                        s = d = None
+                bp_sys.append(s)
+                bp_dia.append(d)
+                bs.append(float(h.blood_sugar) if h.blood_sugar is not None else None)
+                wt.append(float(h.weight) if h.weight is not None else None)
+            else:
+                bp_sys.append(None)
+                bp_dia.append(None)
+                bs.append(None)
+                wt.append(None)
+            cur += timedelta(days=1)
 
     trend = {"dates": dates, "bp_sys": bp_sys, "bp_dia": bp_dia, "blood_sugar": bs, "weight": wt}
 

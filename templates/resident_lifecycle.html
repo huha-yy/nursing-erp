@@ -46,6 +46,7 @@
     <div id="bpChart" class="chart"></div>
     <div id="bsChart" class="chart" style="margin-top:14px"></div>
     <div id="wtChart" class="chart" style="margin-top:14px"></div>
+    <div style="font-size:11px;color:var(--ink3);margin-top:10px">注：缺测日期按相邻记录线性估算（小圆点），仅作趋势参考</div>
   </div>
 
   <!-- 生命周期时间线 -->
@@ -76,6 +77,34 @@
     return (list || []).some(function(v){ return v !== null && v !== undefined; });
   }
 
+  // 缺测日期按相邻记录线性插值，返回 { data, orig }（orig[i] 标记是否为真实记录）
+  function fillGaps(list){
+    var n = list.length, data = list.slice(), orig = [], decimals = 0, i, k;
+    for (i = 0; i < n; i++) {
+      orig.push(data[i] !== null && data[i] !== undefined);
+      if (orig[i] && (data[i] % 1) !== 0) decimals = 1;
+    }
+    var round = decimals ? function(v){ return Math.round(v * 10) / 10; } : function(v){ return Math.round(v); };
+    var prev = null, prevIdx = -1;
+    for (i = 0; i < n; i++) {
+      if (orig[i]) {
+        if (prev !== null && i - prevIdx > 1) {
+          for (k = prevIdx + 1; k < i; k++) {
+            data[k] = round(prev + (data[i] - prev) * (k - prevIdx) / (i - prevIdx));
+          }
+        }
+        prev = data[i]; prevIdx = i;
+      }
+    }
+    var firstVal = null;
+    for (i = 0; i < n; i++) if (orig[i]) { firstVal = data[i]; break; }
+    if (firstVal !== null) for (i = 0; i < n && !orig[i]; i++) data[i] = firstVal;
+    var lastVal = null;
+    for (i = n - 1; i >= 0; i--) if (orig[i]) { lastVal = data[i]; break; }
+    if (lastVal !== null) for (i = n - 1; i >= 0 && !orig[i]; i--) data[i] = lastVal;
+    return { data: data, orig: orig };
+  }
+
   function lineChart(el, series) {
     if (!dates.length || !series.some(function(s){ return hasData(s.data); })) {
       document.getElementById(el).style.display = 'none';
@@ -87,12 +116,21 @@
       tooltip: { trigger: 'axis' },
       legend: { data: series.map(function(s){ return s.name; }), top: 0, left: 'center' },
       xAxis: { type: 'category', data: dates, boundaryGap: false },
-      yAxis: { type: 'value', scale: true },
+      yAxis: { type: 'value', scale: true,
+        axisLabel: { formatter: function(v){ return (v % 1 === 0) ? v : Math.round(v * 10) / 10; } }
+      },
       series: series.map(function(s){
+        var filled = fillGaps(s.data);
         return {
-          name: s.name, type: 'line', data: s.data, smooth: true,
-          connectNulls: false, showSymbol: true, symbolSize: 5,
-          lineStyle: { width: 2 }, itemStyle: { color: s.color }
+          name: s.name, type: 'line', smooth: true, connectNulls: false,
+          data: filled.data.map(function(v, i){
+            return { value: v, symbolSize: filled.orig[i] ? 5 : 2 };
+          }),
+          showSymbol: true,
+          lineStyle: { width: 2 }, itemStyle: { color: s.color },
+          tooltip: { formatter: function(p){
+            return p.seriesName + '：<b>' + p.value + '</b>' + (filled.orig[p.dataIndex] ? '' : '（估算）');
+          }}
         };
       })
     });
