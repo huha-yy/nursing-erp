@@ -3,6 +3,8 @@ from typing import List, Optional
 from ninja import Router, Query, Schema
 from ninja.pagination import paginate, PageNumberPagination
 
+from nursing_erp.api_scope import resident_for_write, scope_filter
+
 from .models import IncidentReport
 
 router = Router(tags=["异常上报"])
@@ -30,6 +32,7 @@ def list_incidents(
         qs = qs.filter(handled=handled)
     if category:
         qs = qs.filter(category=category)
+    qs = scope_filter(qs, request, "resident__building")
     return [
         {
             "id": i.id,
@@ -50,6 +53,7 @@ def list_incidents(
 @router.post("/incidents/", response=dict)
 def create_incident(request, payload: IncidentIn):
     """创建异常上报 — Agent 通过对话写入"""
+    resident_for_write(request, payload.resident_id)  # 404/403 楼栋守卫
     incident = IncidentReport.objects.create(
         resident_id=payload.resident_id,
         category=payload.category,

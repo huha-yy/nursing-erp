@@ -3,7 +3,10 @@ from datetime import date, timedelta
 import base64, os, re, json, logging
 
 from ninja import Router, Query, Schema
+from ninja.errors import HttpError
 from ninja.pagination import paginate, PageNumberPagination
+
+from nursing_erp.api_scope import resident_for_write, resolve_building_scope, scope_filter
 
 from .models import Dish, WeekMenu, MealOrder, MealFinance
 from nursing_erp.llm import chat as llm_chat
@@ -73,12 +76,14 @@ def list_meal_orders(
         qs = qs.filter(meal_type=meal_type)
     if resident_id:
         qs = qs.filter(resident_id=resident_id)
+    qs = scope_filter(qs, request, "resident__building")
     return [_format_order(o) for o in qs]
 
 
 @router.post("/meal-orders/", response=dict)
 def create_meal_order(request, payload: MealOrderIn):
     """创建点餐订单 — 常用于周五批量点餐"""
+    resident_for_write(request, payload.resident_id)  # 404/403 楼栋守卫
     order = MealOrder.objects.create(
         resident_id=payload.resident_id,
         date=payload.date,
@@ -92,7 +97,18 @@ def create_meal_order(request, payload: MealOrderIn):
 
 @router.post("/meal-orders/batch/", response=dict)
 def create_meal_orders_batch(request, payload: list[MealOrderIn]):
-    """批量创建 — 护理员帮老人一次性点整周"""
+    """批量创建 — 护理员帮老人一次性点整周。
+
+    预检全部老人的楼栋权限后才落库：任一条越权则整批 403 拒绝，
+    不留半批数据。
+    """
+    for i, item in enumerate(payload):
+        try:
+            resident_for_write(request, item.resident_id)
+        except HttpError as e:
+            if e.status_code == 403:
+                raise HttpError(403, f"第 {i + 1} 条越权，整批拒绝：{e.message}") from e
+            raise
     created = 0
     for item in payload:
         order = MealOrder.objects.create(
@@ -110,7 +126,12 @@ def create_meal_orders_batch(request, payload: list[MealOrderIn]):
 @router.post("/meal-orders/{order_id}/cancel/", response=dict)
 def cancel_meal_order(request, order_id: int, reason: str = ""):
     """退餐"""
-    order = MealOrder.objects.get(id=order_id)
+    order = MealOrder.objects.select_related("resident").filter(pk=order_id).first()
+    if order is None:
+        raise HttpError(404, "订单不存在")
+    scope = resolve_building_scope(request)
+    if scope and order.resident.building != scope:
+        raise HttpError(403, f"无权操作 {order.resident.building} 的订单（当前范围：{scope}）")
     order.cancel(reason)
     return {"id": order.id, "status": "cancelled"}
 
@@ -123,6 +144,7 @@ def list_meal_finance(request, month: Optional[str] = Query(None, description="�
     qs = MealFinance.objects.select_related("resident").all()
     if month:
         qs = qs.filter(month=month)
+    qs = scope_filter(qs, request, "resident__building")
     return [{
         "id": f.id, "resident_name": f.resident.name,
         "month": f.month, "total_meals": f.total_meals,
@@ -337,8 +359,23 @@ def meal_order_ocr(request, payload: MealOrderOcrIn):
 
 @router.post("/meal-order-ocr/batch-create/", response=dict)
 def meal_order_ocr_batch_create(request, payload: list[dict]):
-    """根据老人点餐识别结果批量创建 MealOrder。"""
+    """根据老人点餐识别结果批量创建 MealOrder。
+
+    同 batch：预检全部老人权限，任一条越权整批 403 拒绝。
+    """
     from residents.models import Resident
+
+    for i, item in enumerate(payload):
+        rid = item.get("resident_id")
+        if rid:
+            try:
+                resident_for_write(request, rid)
+            except HttpError as e:
+                if e.status_code == 403:
+                    raise HttpError(
+                        403, f"第 {i + 1} 条越权，整批拒绝：{e.message}"
+                    ) from e
+                raise
 
     resident_id = payload[0].get("resident_id") if payload else None
     created = 0

@@ -4,6 +4,8 @@ from datetime import date, datetime
 from ninja import Router, Query, Schema
 from ninja.pagination import paginate, PageNumberPagination
 
+from nursing_erp.api_scope import resident_for_write, scope_filter, scope_get_or_404
+
 from .models import Resident, NursingLog, HealthRecord, MedicationRecord
 
 router = Router(tags=["老人照护"])
@@ -45,13 +47,14 @@ def list_residents(
         qs = qs.filter(care_level=care_level)
     if search:
         qs = qs.filter(name__icontains=search)
+    qs = scope_filter(qs, request)
     return [format_resident(r) for r in qs]
 
 
 @router.get("/residents/{resident_id}/", response=dict)
 def get_resident(request, resident_id: int):
     """查询老人详情"""
-    r = Resident.objects.get(id=resident_id)
+    r = scope_get_or_404(Resident, resident_id, request)
     return format_resident(r, detail=True)
 
 
@@ -63,6 +66,7 @@ def list_resident_logs(
     log_date: Optional[date] = Query(None, description="日期筛选"),
 ):
     """查询某老人的护理日志"""
+    scope_get_or_404(Resident, resident_id, request)  # 越权/不存在统一 404
     qs = NursingLog.objects.filter(resident_id=resident_id)
     if log_date:
         qs = qs.filter(log_date=log_date)
@@ -83,6 +87,7 @@ def list_resident_logs(
 @paginate(PageNumberPagination, page_size=50)
 def list_resident_health(request, resident_id: int):
     """查询某老人的健康数据记录"""
+    scope_get_or_404(Resident, resident_id, request)
     qs = HealthRecord.objects.filter(resident_id=resident_id)
     return [
         {
@@ -100,6 +105,7 @@ def list_resident_health(request, resident_id: int):
 @paginate(PageNumberPagination, page_size=50)
 def list_resident_medications(request, resident_id: int):
     """查询某老人的用药记录"""
+    scope_get_or_404(Resident, resident_id, request)
     qs = MedicationRecord.objects.filter(resident_id=resident_id)
     return [
         {
@@ -119,6 +125,7 @@ def list_resident_medications(request, resident_id: int):
 @router.post("/nursing-logs/", response=dict)
 def create_nursing_log(request, payload: NursingLogIn):
     """创建护理日志 — Agent 通过对话写入"""
+    resident_for_write(request, payload.resident_id)  # 404/403 楼栋守卫
     log_date = payload.log_date or date.today()
     log = NursingLog.objects.create(
         resident_id=payload.resident_id,
@@ -133,6 +140,7 @@ def create_nursing_log(request, payload: NursingLogIn):
 @router.post("/health-records/", response=dict)
 def create_health_record(request, payload: HealthRecordIn):
     """创建健康记录 — Agent 通过对话写入"""
+    resident_for_write(request, payload.resident_id)  # 404/403 楼栋守卫
     record_date = payload.record_date or date.today()
     hr = HealthRecord.objects.create(
         resident_id=payload.resident_id,

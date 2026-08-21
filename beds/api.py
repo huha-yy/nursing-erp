@@ -1,6 +1,8 @@
 from ninja import Query, Router
 from ninja.pagination import PageNumberPagination, paginate
 
+from nursing_erp.api_scope import resolve_building_scope
+
 from .models import Bed
 from .services import occupancy_stats
 
@@ -17,7 +19,14 @@ def list_beds(
     occupied: bool | None = Query(None, description="占用筛选：true 已住 / false 空床"),
     search: str | None = Query(None, description="房间号/床位号模糊搜索"),
 ):
-    """查询床位列表，占用关系由老人档案派生"""
+    """查询床位列表，占用关系由老人档案派生。
+
+    统计/台账类端点的 scope 语义是"覆盖"而非叠加：楼栋受限请求里
+    ?building= 被 scope 覆盖（scope 即答案，叠加只会得到冲突空集）。
+    """
+    scope = resolve_building_scope(request)
+    if scope:
+        building = scope  # 覆盖显式参数
     qs = Bed.objects.select_related("room__floor__building").prefetch_related("occupant")
     if building:
         qs = qs.filter(room__floor__building__name=building)
@@ -38,8 +47,12 @@ def bed_occupancy(
     request,
     building: str | None = Query(None, description="只看单栋（缺省全院）"),
 ):
-    """入住率统计：按楼栋 total/occupied/free/maintenance/rate + 全院合计"""
-    return occupancy_stats(building)
+    """入住率统计：按楼栋 total/occupied/free/maintenance/rate + 全院合计。
+
+    scope 覆盖语义同 /beds/：楼栋受限请求只返回本楼（显式参数被覆盖）。
+    """
+    scope = resolve_building_scope(request)
+    return occupancy_stats(scope or building)
 
 
 def format_bed(b: Bed) -> dict:
