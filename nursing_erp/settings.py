@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     "incidents.apps.IncidentsConfig",
     "meals.apps.MealsConfig",
     "beds.apps.BedsConfig",
+    "billing.apps.BillingConfig",
 ]
 
 MIDDLEWARE = [
@@ -227,6 +228,12 @@ UNFOLD = {
                 {"title": "餐费月结", "icon": "payments", "link": "/admin/meals/mealfinance/"},
                 {"title": "食堂看板", "icon": "soup_kitchen", "link": "/kitchen/"},
                 {"title": "财务月结", "icon": "account_balance", "link": "/finance/"},
+            ]},
+            {"title": "财务账单", "icon": "account_balance_wallet", "collapsible": True, "items": [
+                {"title": "应收月账单", "icon": "receipt_long",
+                 "link": "/admin/billing/monthlybill/"},
+                {"title": "价目表", "icon": "price_change", "link": "/admin/billing/feerule/"},
+                {"title": "账单看板", "icon": "account_balance_wallet", "link": "/billing/"},
             ]},
             {"title": "系统管理", "icon": "settings", "collapsible": True, "items": [
                 {"title": "用户账号", "icon": "manage_accounts", "link": "/admin/auth/user/"},

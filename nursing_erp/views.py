@@ -3,10 +3,12 @@
 from datetime import date, timedelta
 
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 
-from meals.models import MealOrder, WeekMenu, MealFinance
 from beds.services import occupancy_stats
+from billing.models import MonthlyBill
+from billing.services import arrears_stats, current_month, generate_month_bills, month_summary
+from meals.models import MealFinance, MealOrder, WeekMenu
 
 
 @login_required
@@ -79,6 +81,45 @@ def bed_board(request):
     """床位看板 — 入住率总览（与 /api/beds/occupancy/ 同源统计）"""
     stats = occupancy_stats(request.GET.get("building", "") or None)
     return render(request, "bed_board.html", {"stats": stats})
+
+
+@login_required
+def billing_board(request):
+    """应收月账单看板 — 出账 / 核销 / 欠费名单。
+
+    与 /finance/ 同口径：登录即可见全院（无 session 楼栋强制——演示阶段楼长
+    可见全院账单可接受，API 侧已有严格 scope，页面如需收紧再对齐）。
+    """
+    month = request.GET.get("month", "") or request.POST.get("month", "") or current_month()
+    building = request.GET.get("building", "") or request.POST.get("building", "") or None
+
+    if request.method == "POST":
+        action = request.POST.get("action", "")
+        if action == "generate":
+            generate_month_bills(month, building=building)
+        elif action == "settle":
+            bill = MonthlyBill.objects.filter(pk=request.POST.get("bill_id")).first()
+            if bill:
+                bill.settle(operator=_operator_name(request))
+        query = f"month={month}"
+        if building:
+            query += f"&building={building}"
+        return redirect(f"{request.path}?{query}")
+
+    return render(request, "billing_board.html", {
+        "month": month,
+        "building": building or "",
+        "summary": month_summary(month, building),
+        "arrears": arrears_stats(month=month, building=building),
+    })
+
+
+def _operator_name(request) -> str:
+    """核销人：session 员工姓名（无档案退回用户名）。"""
+    try:
+        return request.user.employee.name
+    except Exception:
+        return request.user.username
 
 
 @login_required

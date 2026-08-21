@@ -3,17 +3,28 @@ from django.urls import path
 from ninja import NinjaAPI
 
 from nursing_erp.api_auth import erp_auth
-from nursing_erp.views import kitchen_today, finance_monthly, quick_log, weekly_order, menu_ocr_page, meal_order_ocr_page, resident_lifecycle, bed_board
+from nursing_erp.views import (
+    bed_board,
+    billing_board,
+    finance_monthly,
+    kitchen_today,
+    meal_order_ocr_page,
+    menu_ocr_page,
+    quick_log,
+    resident_lifecycle,
+    weekly_order,
+)
 
 api = NinjaAPI(title="养老院管理系统 API", version="1.0.0", auth=erp_auth)
 
 # Phase 1-A API routers
+from beds.api import router as beds_router
+from billing.api import router as billing_router
+from incidents.api import router as incidents_router
+from meals.api import router as meals_router
+from operations.api import router as operations_router
 from residents.api import router as residents_router
 from staff.api import router as staff_router
-from incidents.api import router as incidents_router
-from operations.api import router as operations_router
-from meals.api import router as meals_router
-from beds.api import router as beds_router
 
 api.add_router("/", residents_router)
 api.add_router("/", staff_router)
@@ -21,12 +32,14 @@ api.add_router("/", incidents_router)
 api.add_router("/", operations_router)
 api.add_router("/", meals_router)
 api.add_router("/", beds_router)
+api.add_router("/", billing_router)
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", api.urls),
     path("kitchen/", kitchen_today, name="kitchen_today"),
     path("beds/", bed_board, name="bed_board"),
+    path("billing/", billing_board, name="billing_board"),
     path("finance/", finance_monthly, name="finance_monthly"),
     path("quick-log/", quick_log, name="quick_log"),
     path("weekly-order/", weekly_order, name="weekly_order"),
