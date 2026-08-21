@@ -1,8 +1,12 @@
 from django.db import models
 
+from nursing_erp.staff_fk import StaffFkMixin
 
-class IncidentReport(models.Model):
+
+class IncidentReport(StaffFkMixin, models.Model):
     """异常情况一键上报"""
+
+    staff_fk_fields = (("handled_by", "handled_by_emp"),)
 
     class Category(models.TextChoices):
         FALL = "fall", "摔倒"
@@ -29,6 +33,10 @@ class IncidentReport(models.Model):
     description = models.TextField(blank=True, verbose_name="补充说明")
     handled = models.BooleanField(default=False, verbose_name="已处理")
     handled_by = models.CharField(max_length=30, blank=True, verbose_name="处理人")
+    handled_by_emp = models.ForeignKey(
+        "staff.Employee", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="handled_incidents", verbose_name="处理人档案",
+    )
     handled_at = models.DateTimeField(null=True, blank=True, verbose_name="处理时间")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="上报时间")
 

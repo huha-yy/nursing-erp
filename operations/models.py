@@ -1,5 +1,7 @@
 from django.db import models
 
+from nursing_erp.staff_fk import StaffFkMixin
+
 
 class InventoryItem(models.Model):
     """库存物品"""
@@ -30,13 +32,19 @@ class InventoryItem(models.Model):
         return self.quantity < self.safety_stock
 
 
-class StockIn(models.Model):
+class StockIn(StaffFkMixin, models.Model):
     """入库记录"""
+
+    staff_fk_fields = (("operator", "operator_emp"),)
     item = models.ForeignKey(InventoryItem, on_delete=models.CASCADE, verbose_name="物品")
     quantity = models.IntegerField(verbose_name="入库数量")
     supplier = models.CharField(max_length=100, blank=True, verbose_name="供应商")
     date = models.DateField(verbose_name="入库日期")
     operator = models.CharField(max_length=30, blank=True, verbose_name="操作人")
+    operator_emp = models.ForeignKey(
+        "staff.Employee", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="stock_ins", verbose_name="操作人档案",
+    )
 
     class Meta:
         verbose_name = "入库记录"
@@ -51,11 +59,17 @@ class StockIn(models.Model):
         super().save(*args, **kwargs)
 
 
-class StockOut(models.Model):
+class StockOut(StaffFkMixin, models.Model):
     """领用记录"""
+
+    staff_fk_fields = (("taken_by", "taken_by_emp"),)
     item = models.ForeignKey(InventoryItem, on_delete=models.CASCADE, verbose_name="物品")
     quantity = models.IntegerField(verbose_name="领用数量")
     taken_by = models.CharField(max_length=30, blank=True, verbose_name="领用人")
+    taken_by_emp = models.ForeignKey(
+        "staff.Employee", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="stock_outs", verbose_name="领用人档案",
+    )
     date = models.DateField(verbose_name="领用日期")
 
     class Meta:
@@ -71,8 +85,10 @@ class StockOut(models.Model):
         super().save(*args, **kwargs)
 
 
-class MaintenanceOrder(models.Model):
+class MaintenanceOrder(StaffFkMixin, models.Model):
     """设备报修工单"""
+
+    staff_fk_fields = (("reported_by", "reported_by_emp"),)
     STATUS_CHOICES = [
         ("pending", "待处理"),
         ("in_progress", "维修中"),
@@ -82,6 +98,10 @@ class MaintenanceOrder(models.Model):
     location = models.CharField(max_length=100, verbose_name="所在位置")
     fault_description = models.TextField(verbose_name="故障描述")
     reported_by = models.CharField(max_length=30, blank=True, verbose_name="报修人")
+    reported_by_emp = models.ForeignKey(
+        "staff.Employee", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="maintenance_orders", verbose_name="报修人档案",
+    )
     status = models.CharField(
         max_length=15, choices=STATUS_CHOICES, default="pending", verbose_name="状态"
     )
@@ -97,9 +117,16 @@ class MaintenanceOrder(models.Model):
         return f"{self.equipment_name} — {self.get_status_display()}"
 
 
-class Inspection(models.Model):
+class Inspection(StaffFkMixin, models.Model):
     """卫生巡检"""
+
+    staff_fk_fields = (("inspector_name", "inspector_emp"),)
+
     inspector_name = models.CharField(max_length=30, verbose_name="巡检人")
+    inspector_emp = models.ForeignKey(
+        "staff.Employee", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="inspections", verbose_name="巡检人档案",
+    )
     area = models.CharField(max_length=100, verbose_name="巡检区域")
     date = models.DateField(verbose_name="巡检日期")
     result = models.CharField(
@@ -117,9 +144,16 @@ class Inspection(models.Model):
         return f"{self.area} — {self.date} — {self.result}"
 
 
-class Approval(models.Model):
+class Approval(StaffFkMixin, models.Model):
     """审批单"""
+
+    staff_fk_fields = (("applicant_name", "applicant_emp"),)
+
     applicant_name = models.CharField(max_length=30, verbose_name="申请人")
+    applicant_emp = models.ForeignKey(
+        "staff.Employee", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="approvals", verbose_name="申请人档案",
+    )
     approval_type = models.CharField(
         max_length=10,
         choices=[("leave","请假"),("purchase","采购"),("reimburse","报销"),("other","其他")],

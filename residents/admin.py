@@ -112,7 +112,7 @@ class NursingLogAdmin(BuildingScopeMixin, ModelAdmin, ImportExportModelAdmin):
     search_fields = ["resident__name", "detail"]
     list_per_page = 30
     date_hierarchy = "log_date"
-    autocomplete_fields = ["resident"]
+    autocomplete_fields = ["resident", "staff_emp"]
 
     @admin.display(description="摘要")
     def detail_short(self, obj):
@@ -160,7 +160,7 @@ class CareLevelChangeAdmin(BuildingScopeMixin, ModelAdmin, ImportExportModelAdmi
     list_filter = ["change_date", "to_level"]
     search_fields = ["resident__name"]
     date_hierarchy = "change_date"
-    autocomplete_fields = ["resident"]
+    autocomplete_fields = ["resident", "changed_by_emp"]
 
 
 @admin.register(TransferRecord)

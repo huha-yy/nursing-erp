@@ -36,7 +36,7 @@ class StockInAdmin(ModelAdmin):
     list_filter = ["date", "supplier"]
     search_fields = ["item__name"]
     date_hierarchy = "date"
-    autocomplete_fields = ["item"]
+    autocomplete_fields = ["item", "operator_emp"]
 
 
 @admin.register(StockOut)
@@ -45,7 +45,7 @@ class StockOutAdmin(ModelAdmin):
     list_filter = ["date"]
     search_fields = ["item__name", "taken_by"]
     date_hierarchy = "date"
-    autocomplete_fields = ["item"]
+    autocomplete_fields = ["item", "taken_by_emp"]
 
 
 @admin.register(MaintenanceOrder)
@@ -54,6 +54,7 @@ class MaintenanceOrderAdmin(ModelAdmin):
     list_filter = ["status"]
     search_fields = ["equipment_name", "location", "fault_description"]
     date_hierarchy = "reported_at"
+    autocomplete_fields = ["reported_by_emp"]
     actions = ["mark_in_progress", "mark_done"]
 
     @admin.action(description="标记为维修中")
@@ -74,6 +75,7 @@ class InspectionAdmin(ModelAdmin, ImportExportModelAdmin):
     list_filter = ["result", "date"]
     search_fields = ["area", "inspector_name"]
     date_hierarchy = "date"
+    autocomplete_fields = ["inspector_emp"]
 
     @admin.display(description="备注")
     def note_short(self, obj):
@@ -86,6 +88,7 @@ class ApprovalAdmin(ModelAdmin):
     list_filter = ["approval_type", "status"]
     search_fields = ["title", "applicant_name", "content"]
     date_hierarchy = "created_at"
+    autocomplete_fields = ["applicant_emp"]
     actions = ["approve_selected", "reject_selected"]
 
     @admin.action(description="批量通过")

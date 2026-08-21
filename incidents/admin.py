@@ -16,7 +16,7 @@ class IncidentReportAdmin(BuildingScopeMixin, ModelAdmin):
     search_fields = ["resident__name", "description"]
     list_per_page = 30
     date_hierarchy = "created_at"
-    autocomplete_fields = ["resident"]
+    autocomplete_fields = ["resident", "handled_by_emp"]
     actions = ["mark_handled"]
 
     @admin.display(description="类型")

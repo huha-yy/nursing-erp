@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import User
 
+from nursing_erp.staff_fk import StaffFkMixin
+
 
 class Employee(models.Model):
     """员工档案"""
@@ -81,9 +83,16 @@ class Attendance(models.Model):
         return f"{self.employee.name} — {self.date}"
 
 
-class Task(models.Model):
+class Task(StaffFkMixin, models.Model):
     """任务派发"""
+
+    staff_fk_fields = (("assigner_name", "assigner_emp"),)
+
     assigner_name = models.CharField(max_length=30, verbose_name="派发人")
+    assigner_emp = models.ForeignKey(
+        "Employee", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="assigned_tasks", verbose_name="派发人档案",
+    )
     assignee = models.ForeignKey(
         Employee, on_delete=models.CASCADE, related_name="tasks", verbose_name="接收人"
     )

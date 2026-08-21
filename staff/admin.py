@@ -42,7 +42,7 @@ class TaskAdmin(BuildingScopeMixin, ModelAdmin):
     list_filter = ["is_completed", "deadline"]
     search_fields = ["title", "assigner_name", "assignee__name"]
     date_hierarchy = "created_at"
-    autocomplete_fields = ["assignee"]
+    autocomplete_fields = ["assignee", "assigner_emp"]
 
 
 @admin.register(Performance)

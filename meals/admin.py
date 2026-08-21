@@ -36,7 +36,7 @@ class MealOrderAdmin(BuildingScopeMixin, ModelAdmin):
     search_fields = ["resident__name", "dishes__name"]
     list_per_page = 50
     date_hierarchy = "date"
-    autocomplete_fields = ["resident"]
+    autocomplete_fields = ["resident", "ordered_by_emp"]
     filter_horizontal = ["dishes"]
     actions = ["action_cancel", "action_preparing", "action_delivering", "action_delivered"]
 
@@ -70,6 +70,7 @@ class MealOrderAdmin(BuildingScopeMixin, ModelAdmin):
 @admin.register(MealModificationLog)
 class MealModificationLogAdmin(ModelAdmin):
     list_display = ["order_info", "action", "reason_short", "changed_at", "changed_by"]
+    autocomplete_fields = ["changed_by_emp"]
     list_filter = ["action", "changed_at"]
     date_hierarchy = "changed_at"
 

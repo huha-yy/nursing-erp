@@ -1,5 +1,7 @@
 from django.db import models
 
+from nursing_erp.staff_fk import StaffFkMixin
+
 
 class Dish(models.Model):
     """菜品库 — 食堂维护"""
@@ -57,8 +59,10 @@ class WeekMenu(models.Model):
         return f"{self.week_start} {self.get_day_display()} {self.get_meal_type_display()}"
 
 
-class MealOrder(models.Model):
+class MealOrder(StaffFkMixin, models.Model):
     """老人点餐 — 护理员从菜单中勾选菜品"""
+
+    staff_fk_fields = (("ordered_by", "ordered_by_emp"),)
 
     class MealType(models.TextChoices):
         BREAKFAST = "早餐", "早餐"
@@ -85,6 +89,10 @@ class MealOrder(models.Model):
         max_length=15, choices=Status.choices, default=Status.ORDERED, verbose_name="状态"
     )
     ordered_by = models.CharField(max_length=30, blank=True, verbose_name="点餐人")
+    ordered_by_emp = models.ForeignKey(
+        "staff.Employee", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="meal_orders", verbose_name="点餐人档案",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -118,8 +126,10 @@ class MealOrder(models.Model):
         )
 
 
-class MealModificationLog(models.Model):
+class MealModificationLog(StaffFkMixin, models.Model):
     """改餐/退餐日志"""
+
+    staff_fk_fields = (("changed_by", "changed_by_emp"),)
 
     class Action(models.TextChoices):
         MODIFY = "modify", "改餐"
@@ -132,6 +142,10 @@ class MealModificationLog(models.Model):
     reason = models.TextField(blank=True, verbose_name="原因")
     changed_at = models.DateTimeField(auto_now_add=True)
     changed_by = models.CharField(max_length=30, blank=True, verbose_name="操作人")
+    changed_by_emp = models.ForeignKey(
+        "staff.Employee", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="meal_modifications", verbose_name="操作人档案",
+    )
 
     class Meta:
         verbose_name = "改退餐记录"

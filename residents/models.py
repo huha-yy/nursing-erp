@@ -2,6 +2,7 @@ from django.db import models
 from django.db.models import Q
 
 from beds.models import Bed
+from nursing_erp.staff_fk import StaffFkMixin
 
 
 class Resident(models.Model):
@@ -87,8 +88,10 @@ class Resident(models.Model):
         super().save(*args, **kwargs)
 
 
-class NursingLog(models.Model):
+class NursingLog(StaffFkMixin, models.Model):
     """护理日志 — 替代纸质笔记"""
+
+    staff_fk_fields = (("staff_name", "staff_emp"),)
 
     class Category(models.TextChoices):
         FEEDING = "feeding", "喂饭/协助进食"
@@ -110,6 +113,10 @@ class NursingLog(models.Model):
     )
     detail = models.TextField(blank=True, verbose_name="详细记录")
     staff_name = models.CharField(max_length=30, blank=True, verbose_name="护理员")
+    staff_emp = models.ForeignKey(
+        "staff.Employee", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="nursing_logs", verbose_name="护理员档案",
+    )
 
     class Meta:
         verbose_name = "护理日志"
@@ -210,8 +217,10 @@ class ResidentRoutine(models.Model):
         return f"{self.resident.name} — {self.log_date}"
 
 
-class CareLevelChange(models.Model):
+class CareLevelChange(StaffFkMixin, models.Model):
     """护理等级变更记录 — 生命周期关键节点"""
+
+    staff_fk_fields = (("changed_by", "changed_by_emp"),)
 
     resident = models.ForeignKey(
         Resident, on_delete=models.CASCADE, related_name="level_changes", verbose_name="老人"
@@ -221,6 +230,10 @@ class CareLevelChange(models.Model):
     change_date = models.DateField(verbose_name="变更日期")
     reason = models.TextField(blank=True, verbose_name="变更原因")
     changed_by = models.CharField(max_length=30, blank=True, verbose_name="经办人")
+    changed_by_emp = models.ForeignKey(
+        "staff.Employee", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="care_level_changes", verbose_name="经办人档案",
+    )
 
     class Meta:
         verbose_name = "护理等级变更"
