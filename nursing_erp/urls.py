@@ -2,9 +2,10 @@ from django.contrib import admin
 from django.urls import path
 from ninja import NinjaAPI
 
+from nursing_erp.api_auth import erp_auth
 from nursing_erp.views import kitchen_today, finance_monthly, quick_log, weekly_order, menu_ocr_page, meal_order_ocr_page, resident_lifecycle
 
-api = NinjaAPI(title="养老院管理系统 API", version="1.0.0")
+api = NinjaAPI(title="养老院管理系统 API", version="1.0.0", auth=erp_auth)
 
 # Phase 1-A API routers
 from residents.api import router as residents_router

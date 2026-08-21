@@ -2,11 +2,13 @@
 
 from datetime import date, timedelta
 
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 
 from meals.models import MealOrder, WeekMenu, MealFinance
 
 
+@login_required
 def kitchen_today(request):
     """食堂今日看板"""
     today = date.today()
@@ -42,6 +44,7 @@ def kitchen_today(request):
     })
 
 
+@login_required
 def finance_monthly(request):
     """财务月度餐费对账"""
     month_param = request.GET.get("month", "")
@@ -64,21 +67,25 @@ def finance_monthly(request):
     })
 
 
+@login_required
 def quick_log(request):
     """护理员快速录入"""
     return render(request, "quick_log.html")
 
 
+@login_required
 def weekly_order(request):
     """周五周选点餐 — 护理员帮老人选下周菜品"""
     return render(request, "weekly_order.html")
 
 
+@login_required
 def menu_ocr_page(request):
     """食堂菜单 OCR 录入 — 拍照自动识别菜品"""
     return render(request, "menu_ocr.html")
 
 
+@login_required
 def meal_order_ocr_page(request):
     """老人点餐 OCR 录入 — 选老人 + 拍照自动识别点餐单"""
     return render(request, "meal_order_ocr.html")
@@ -90,6 +97,7 @@ def _day_of_week(d):
     return days[d.weekday()]
 
 
+@login_required
 def resident_lifecycle(request, resident_id):
     """老人全生命周期档案 — 时间线 + 健康趋势"""
     from django.shortcuts import get_object_or_404

@@ -20,6 +20,12 @@ DEBUG = os.environ.get("DEBUG", "false").lower() == "true"
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 CSRF_TRUSTED_ORIGINS = [o for o in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if o]
 
+# /api/ 认证密钥（nursing_erp/api_auth.py）：机器调用方带 X-API-Key 头。
+# 与 ai-nursing-home/infra/.env 的 NURSING_ERP_API_KEY 同值。未配置则 fail-closed。
+ERP_API_KEY = os.environ.get("ERP_API_KEY", "")
+# 轻量页 @login_required 未登录时跳转 admin 登录页，登录后回跳原地址
+LOGIN_URL = "/admin/login/"
+
 INSTALLED_APPS = [
     "unfold",                           # Must be before django.contrib.admin
     "django.contrib.admin",
