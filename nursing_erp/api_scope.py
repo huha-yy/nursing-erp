@@ -5,6 +5,9 @@ Agent 查询能看全院数据，权限形同虚设。本模块把楼栋可见�
 
 scope 来源（resolve_building_scope）：
 - key 路径（X-API-Key，dl-control 机器调用）：读 X-Building 头。
+  楼栋名是中文，HTTP 头只可靠传输 ASCII——dl-control 侧 percent-encode
+  （quote），本侧 unquote 还原；不含 % 的值 unquote 为原样，故裸中文
+  （进程内测试直传）也兼容。
   空/缺省 → None（全院，向后兼容——dl-control 升级发头前一切照旧）；
   非空但床位台账 Building 表查无此名 → 400（fail-loud：dl-control 侧
   楼栋名与台账失配时立即暴露，而非静默放过全量数据）
@@ -22,6 +25,8 @@ scope 来源（resolve_building_scope）：
   入住率时答案就是本楼，叠加只会得到冲突空集（beds/api.py 内联处理）
 """
 
+from urllib.parse import unquote
+
 from django.apps import apps
 from ninja.errors import HttpError
 
@@ -29,7 +34,8 @@ from ninja.errors import HttpError
 def resolve_building_scope(request) -> str | None:
     """解析本次请求的楼栋范围：None = 全院。"""
     if request.auth == "api-key":
-        name = (request.headers.get("X-Building", "") or "").strip()
+        raw = (request.headers.get("X-Building", "") or "").strip()
+        name = unquote(raw).strip()
         if not name:
             return None
         building_model = apps.get_model("beds", "Building")

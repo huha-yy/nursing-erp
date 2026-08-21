@@ -85,6 +85,16 @@ def test_key_with_building_header_scoped(client, two_buildings):
 
 
 @pytest.mark.django_db
+def test_key_percent_encoded_header_decoded(client, two_buildings):
+    """线上契约钉：dl-control 对中文楼栋名 percent-encode（httpx 只收 ASCII 头值），
+    ERP 侧 unquote 还原——编码头与裸中文必须等价。"""
+    r1, _ = two_buildings
+    for header in ("1%E5%8F%B7%E6%A5%BC", "1号楼"):
+        items = client.get("/api/residents/", HTTP_X_BUILDING=header).json()["items"]
+        assert [i["id"] for i in items] == [r1.id]
+
+
+@pytest.mark.django_db
 def test_key_unknown_building_400(client, two_buildings):
     """未知名 fail-loud 400：暴露 dl-control 侧名称与台账失配"""
     resp = client.get("/api/residents/", HTTP_X_BUILDING="7号楼")
