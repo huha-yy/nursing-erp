@@ -7,6 +7,9 @@
     <span class="sub">{{ month }}</span>
   </div>
 
+  <div class="menut">本页仅<strong>餐费明细</strong>对账（点餐 × 单价）。床位/护理/餐费合并应收与缴费核销请看
+    <a href="/billing/?month={{ month }}" style="color:var(--blue)">账单看板</a>——缴费状态以账单为准，本页"已缴"仅记录餐费单独缴纳。</div>
+
   <div class="stats">
     <div class="stat"><div class="num">{{ resident_count }}</div><div class="lbl">就餐人数</div></div>
     <div class="stat"><div class="num" style="font-size:24px">¥{{ total_amount|floatformat:0 }}</div><div class="lbl">应收总额</div></div>

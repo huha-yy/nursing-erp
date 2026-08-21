@@ -414,6 +414,22 @@ def test_billing_page_anonymous_redirect_and_logged_in(client, api_setup):
     assert page.status_code == 200
     html = page.content.decode()
     assert "应收月账单" in html and "2026-08" in html and "¥1100" in html
+    # 导航收敛契约钉：顶栏「财务」指向 /billing/，无独立「账单」入口
+    assert 'href="/billing/"' in html and ">账单</a>" not in html
+    # 餐费明细互链（带月份）
+    assert 'href="/finance/?month=2026-08"' in html
+
+
+@pytest.mark.django_db
+def test_finance_page_scoped_note_and_link_back(client, api_setup):
+    """老 /finance/ 页定位说明：仅餐费明细 + 缴费以账单为准 + 回链看板"""
+    user = User.objects.create_user(username="viewer2", password="x")
+    client.force_login(user)
+    page = client.get("/finance/", {"month": "2026-08"})
+    assert page.status_code == 200
+    html = page.content.decode()
+    assert "餐费明细" in html and "缴费状态以账单为准" in html
+    assert 'href="/billing/?month=2026-08"' in html
 
 
 @pytest.mark.django_db

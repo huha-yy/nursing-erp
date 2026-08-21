@@ -1,4 +1,4 @@
-{% extends "base_light.html" %}{% block nav_billing %}on{% endblock %}
+{% extends "base_light.html" %}{% block nav_finance %}on{% endblock %}
 
 {% block content %}
 <div class="wrap">
@@ -31,7 +31,9 @@
   </div>
 
   <div class="c">
-    <div class="c-h">账单明细<span class="cnt">{{ summary.bills|length }}<span> 单 · 已缴 {{ summary.paid_count }}</span></span></div>
+    <div class="c-h">账单明细
+      <a href="/finance/?month={{ month }}" style="font-size:13px;font-weight:500;color:var(--blue);text-decoration:none">餐费明细 ›</a>
+      <span class="cnt">{{ summary.bills|length }}<span> 单 · 已缴 {{ summary.paid_count }}</span></span></div>
     {% if summary.bills %}
     <table><thead><tr>
       <th>老人</th><th>楼栋房号</th><th>床位费</th><th>护理费</th><th>餐费</th><th>合计</th><th>状态</th><th>核销人</th><th></th>
