@@ -1,4 +1,7 @@
 from django.db import models
+from django.db.models import Q
+
+from beds.models import Bed
 
 
 class Resident(models.Model):
@@ -17,6 +20,15 @@ class Resident(models.Model):
     building = models.CharField(max_length=20, verbose_name="楼栋")
     floor = models.CharField(max_length=10, verbose_name="楼层")
     room = models.CharField(max_length=10, verbose_name="房间号")
+    bed = models.ForeignKey(
+        Bed,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="occupant",
+        verbose_name="床位",
+        help_text="选择床位后自动同步楼栋/楼层/房间；不一致时以床位为准",
+    )
     admission_date = models.DateField(null=True, blank=True, verbose_name="入住日期")
     diagnosis = models.TextField(blank=True, verbose_name="既往病史")
     allergies = models.TextField(blank=True, verbose_name="过敏史")
@@ -42,9 +54,37 @@ class Resident(models.Model):
             models.Index(fields=["care_level"]),
             models.Index(fields=["name"]),
         ]
+        constraints = [
+            # 一人一床：condition 排除 NULL，存量行（未回填床位）不受影响
+            models.UniqueConstraint(
+                fields=["bed"],
+                condition=Q(bed__isnull=False),
+                name="resident_bed_unique",
+                violation_error_message="该床位已有老人入住",
+            ),
+        ]
 
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        """挂接床位时同步 building/floor/room 字符串缓存（以床位链为准）。
+
+        字符串三列是既有 admin 筛选、楼栋权限（BuildingScopeMixin）和
+        AI 侧 /api/residents/ 契约的兼容层，床位链才是权威数据源。
+        注意：queryset.update()/bulk_update 绕过本方法，可能造成缓存
+        漂移——入住率统计只读床位链不受影响，字符串会在下次 save 时对齐。
+        """
+        if self.bed_id:
+            bed = Bed.objects.select_related("room__floor__building").get(pk=self.bed_id)
+            synced = (bed.room.floor.building.name, bed.room.floor.name, bed.room.number)
+            if (self.building, self.floor, self.room) != synced:
+                self.building, self.floor, self.room = synced
+                if kwargs.get("update_fields") is not None:
+                    kwargs["update_fields"] = list(
+                        {*kwargs["update_fields"], "building", "floor", "room"}
+                    )
+        super().save(*args, **kwargs)
 
 
 class NursingLog(models.Model):
@@ -239,3 +279,14 @@ class DischargeRecord(models.Model):
 
     def __str__(self):
         return f"{self.resident.name}: {self.get_discharge_type_display()}"
+
+    def save(self, *args, **kwargs):
+        """新建离院记录时释放床位（仅新建——后续编辑不得误释放已重新安排的床位）。
+
+        用 update() 直查清空 bed，绕过 Resident.save() 的字符串同步：
+        楼栋/楼层/房间保留为"最后已知位置"，楼栋权限可见性与历史记录不受影响。
+        """
+        is_new = self._state.adding
+        super().save(*args, **kwargs)
+        if is_new and self.resident_id:
+            Resident.objects.filter(pk=self.resident_id, bed__isnull=False).update(bed=None)

@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "operations.apps.OperationsConfig",
     "incidents.apps.IncidentsConfig",
     "meals.apps.MealsConfig",
+    "beds.apps.BedsConfig",
 ]
 
 MIDDLEWARE = [

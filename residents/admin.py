@@ -71,6 +71,7 @@ class ResidentAdmin(BuildingScopeMixin, ModelAdmin, ImportExportModelAdmin):
                     "care_level", "contact_name", "contact_phone", "lifecycle_link"]
     list_filter = ["building", "floor", "care_level", "gender"]
     search_fields = ["name", "id_card", "diagnosis"]
+    autocomplete_fields = ["bed"]
     list_per_page = 30
     inlines = [
         NursingLogInline,
@@ -84,7 +85,9 @@ class ResidentAdmin(BuildingScopeMixin, ModelAdmin, ImportExportModelAdmin):
     ]
     fieldsets = (
         ("基本信息", {"fields": ("name", "gender", "age", "id_card", "photo")}),
-        ("入住信息", {"fields": ("building", "floor", "room", "admission_date")}),
+        # 床位是权威数据源：选床后楼栋/楼层/房间自动同步（以床位为准）。
+        # 字符串列保持可编辑，兼容"台账未建链先收人"与脚本导入的过渡期。
+        ("入住信息", {"fields": ("bed", "admission_date", "building", "floor", "room")}),
         ("健康档案", {"fields": ("care_level", "diagnosis", "allergies")}),
         ("家属信息", {"fields": ("contact_name", "contact_phone")}),
         ("其他", {"fields": ("notes",)}),

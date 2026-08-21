@@ -6,6 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 
 from meals.models import MealOrder, WeekMenu, MealFinance
+from beds.services import occupancy_stats
 
 
 @login_required
@@ -71,6 +72,13 @@ def finance_monthly(request):
 def quick_log(request):
     """护理员快速录入"""
     return render(request, "quick_log.html")
+
+
+@login_required
+def bed_board(request):
+    """床位看板 — 入住率总览（与 /api/beds/occupancy/ 同源统计）"""
+    stats = occupancy_stats(request.GET.get("building", "") or None)
+    return render(request, "bed_board.html", {"stats": stats})
 
 
 @login_required

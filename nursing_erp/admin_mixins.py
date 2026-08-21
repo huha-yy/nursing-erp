@@ -42,6 +42,7 @@ class BuildingScopeMixin:
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         """Also scope FK lookups (e.g. when picking a resident, show only
         those in the same building)."""
+        from beds.models import Bed
         from residents.models import Resident
 
         field = super().formfield_for_foreignkey(db_field, request, **kwargs)
@@ -59,5 +60,11 @@ class BuildingScopeMixin:
         # Scope Resident lookups to the caregiver's building
         if db_field.remote_field and db_field.remote_field.model is Resident:
             field.queryset = field.queryset.filter(building=employee.building)
+
+        # Scope Bed lookups too — 否则楼栋受限员工能把老人挂到别栋的床
+        if db_field.remote_field and db_field.remote_field.model is Bed:
+            field.queryset = field.queryset.filter(
+                room__floor__building__name=employee.building
+            )
 
         return field
