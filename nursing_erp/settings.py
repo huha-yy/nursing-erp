@@ -93,7 +93,9 @@ else:
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
+            # NURSING_DB 可指到临时库文件——scripts/rebuild_demo_data.py 的
+            # 演练/验证通道，不碰生产 db.sqlite3
+            "NAME": os.environ.get("NURSING_DB") or BASE_DIR / "db.sqlite3",
         }
     }
 
