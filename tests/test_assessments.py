@@ -7,8 +7,9 @@
 2. 服务层 2：review_lists 三态分类+无床排除 / 目录改动不腐蚀历史单
 3. API 4：建单+详情契约 / 列表过滤+X-Building scope / confirm 守卫 /
    confirm 校验（坏档位、改判无原因）
-4. 页面 5：匿名跳转+登录渲染 / 盘点分页+筛选+搜索 / 工作台渲染（26 输入+角标
-   数据）/ 工作台建单→看板 toast+定级（session 员工名）/ 生命周期事件
+4. 页面 6：匿名跳转+登录渲染 / 盘点分页+筛选+搜索 / 工作台渲染（26 输入+角标
+   数据）/ 工作台建单→看板 toast+定级（session 员工名）/ 只读详情（26 项逐分
+   +定级信息+入口链接）/ 生命周期事件
 5. admin 1：楼栋过滤 + confirmed 冻结 + action 逐单定级
 
 核心不变式：定级确认 = 原子（评估单落定 + Resident.care_level 翻转 +
@@ -547,6 +548,33 @@ def test_page_form_workbench_render(client, api_setup):
     assert cfg["total_max"] == 190
     assert cfg["level_map"]["2"] == "半护" and "失智" not in cfg["level_map"].values()
     assert [b[2] for b in cfg["bands"]] == [0, 1, 2, 3, 4]
+
+
+@pytest.mark.django_db
+def test_page_detail_shows_item_scores(client, api_setup):
+    """/assessments/<id>/ 只读详情：26 项逐分 + 定级信息 + 三处入口链接"""
+    user = User.objects.create_user(username="detailer", password="x")
+    client.force_login(user)
+    r1, _ = api_setup
+    assert client.get("/assessments/99999/").status_code == 302  # 不存在回看板
+
+    # target 50：10 分项=5、5 分项=2（银行家舍入）→ 原始 88 → 归一 46 → 2级
+    a = _assess(r1, target=50)
+    html = client.get(f"/assessments/{a.id}/").content.decode()
+    assert "评估单详情" in html and "一号老人" in html
+    assert "待定级 · 建议 半护" in html  # draft 态徽章
+    assert html.count("5/10") == 12 and html.count("2/5") == 14  # 26 项逐分
+    assert "自理能力" in html and "2级 中度受损" in html  # 维度分组 + 等级标签
+
+    a.confirm(operator="刘主任")
+    html2 = client.get(f"/assessments/{a.id}/").content.decode()
+    assert "已定级 · 半护" in html2 and "刘主任" in html2
+
+    board = client.get("/assessments/").content.decode()
+    assert f'href="/assessments/{a.id}/"' in board  # 定级历史行「详情 ›」
+    form_html = client.get("/assessments/new/", {"resident_id": r1.id}).content.decode()
+    assert "上次评估" in form_html  # 工作台头部入口
+    assert f'href="/assessments/{a.id}/"' in form_html
 
 
 @pytest.mark.django_db

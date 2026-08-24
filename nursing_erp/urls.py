@@ -4,6 +4,7 @@ from ninja import NinjaAPI
 
 from nursing_erp.api_auth import erp_auth
 from nursing_erp.views import (
+    assessment_detail_page,
     assessment_form_page,
     assessments_board,
     bed_board,
@@ -46,6 +47,11 @@ urlpatterns = [
     path("billing/", billing_board, name="billing_board"),
     path("assessments/", assessments_board, name="assessments_board"),
     path("assessments/new/", assessment_form_page, name="assessment_form_page"),
+    path(
+        "assessments/<int:assessment_id>/",
+        assessment_detail_page,
+        name="assessment_detail_page",
+    ),
     path("finance/", finance_monthly, name="finance_monthly"),
     path("quick-log/", quick_log, name="quick_log"),
     path("weekly-order/", weekly_order, name="weekly_order"),

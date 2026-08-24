@@ -19,7 +19,7 @@
     <span style="color:var(--ink3);font-size:14px">{{ resident.building }} {{ resident.room }}</span>
     <span class="b b-ok">{{ resident.get_care_level_display }}</span>
     {% if last %}
-    <span style="color:var(--ink3);font-size:13px">上次评估 {{ last.assess_date|date:"Y-m-d" }} · {{ last.total_score }}分·{{ last.grade }}级</span>
+    <a href="/assessments/{{ last.id }}/" style="color:var(--ink3);font-size:13px;text-decoration:none">上次评估 {{ last.assess_date|date:"Y-m-d" }} · {{ last.total_score }}分·{{ last.grade }}级 ›</a>
     {% else %}
     <span class="b b-err">首次评估</span>
     {% endif %}

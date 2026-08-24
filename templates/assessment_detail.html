@@ -1,0 +1,63 @@
+{% extends "base_light.html" %}{% block nav_assess %}on{% endblock %}
+
+{% block content %}
+<div class="wrap">
+  <div class="title">
+    <span class="material-symbols-outlined">fact_check</span> 评估单详情
+    <span class="sub">{{ a.assess_date|date:"Y-m-d" }} · {{ a.resident.name }}</span>
+    <a href="/assessments/" style="margin-left:auto;font-size:13px;color:var(--blue);text-decoration:none">← 回盘点</a>
+  </div>
+
+  <div class="c" style="padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+    <div style="font-size:20px;font-weight:700">{{ a.resident.name }}</div>
+    <span style="color:var(--ink3);font-size:14px">{{ a.resident.building }} {{ a.resident.room }}</span>
+    <span class="b b-ok">{{ a.resident.get_care_level_display }}</span>
+    {% if a.status == "confirmed" %}
+    <span class="b b-ok">已定级 · {{ a.final_level }}</span>
+    {% else %}
+    <span class="b b-warn">待定级 · 建议 {{ a.suggested_level }}</span>
+    {% endif %}
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="num">{{ a.total_score }}</div><div class="lbl">总分（0-100 越高越受损）</div></div>
+    <div class="stat"><div class="num">{{ a.grade }}级</div><div class="lbl">{{ grade_label }}</div></div>
+    <div class="stat"><div class="num" style="font-size:24px;padding-top:10px">{{ a.suggested_level }}</div><div class="lbl">建议护理档</div></div>
+    <div class="stat"><div class="num" style="font-size:24px;padding-top:10px">{% if a.final_level %}{{ a.final_level }}{% else %}—{% endif %}</div><div class="lbl">定级结果{% if a.final_level and a.suggested_level != a.final_level %}（改判）{% endif %}</div></div>
+  </div>
+
+  <div class="c">
+    <div class="c-h">评估信息</div>
+    <table><tbody>
+      <tr>
+        <td style="color:var(--ink3);width:90px">评估日期</td><td>{{ a.assess_date|date:"Y-m-d" }}</td>
+        <td style="color:var(--ink3);width:90px">评估员</td><td>{{ a.assessor1 }} / {{ a.assessor2 }}（国标双人评估）</td>
+      </tr>
+      {% if a.status == "confirmed" %}
+      <tr>
+        <td style="color:var(--ink3)">定级人</td><td>{{ a.confirmed_by|default:"—" }}{% if a.confirmed_at %} · {{ a.confirmed_at|date:"Y-m-d H:i" }}{% endif %}</td>
+        <td style="color:var(--ink3)">定级说明</td><td>{% if a.confirm_reason %}{{ a.confirm_reason }}{% else %}按建议档{% endif %}</td>
+      </tr>
+      {% endif %}
+    </tbody></table>
+  </div>
+
+  <div class="c">
+    <div class="c-h">26 项打分明细<span class="cnt">GB/T 42195-2022<span> · 分越高该项能力越受损</span></span></div>
+    {% for g in groups %}
+    <div style="font-weight:700;font-size:14px;margin:12px 0 6px;color:var(--blue)">{{ g.dimension }}<span style="color:var(--ink3);font-weight:400;font-size:12px;margin-left:8px">{{ g.subtotal }}/{{ g.subtotal_max }}</span></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px">
+      {% for r in g.rows %}
+      <div style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500">
+        <span style="flex:1">{{ r.name }}</span>
+        <div style="width:56px;height:6px;border-radius:3px;background:var(--bg2);overflow:hidden;flex-shrink:0">
+          <div style="height:100%;background:var(--blue);width:{{ r.pct }}%"></div>
+        </div>
+        <b style="width:38px;text-align:right;flex-shrink:0">{{ r.score }}/{{ r.max }}</b>
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

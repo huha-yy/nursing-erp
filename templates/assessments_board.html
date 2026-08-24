@@ -72,7 +72,7 @@
     <div class="c-h">待定级<span class="cnt">{{ drafts|length }}<span> 单</span></span></div>
     {% if drafts %}
     <table><thead><tr>
-      <th>老人</th><th>评估日</th><th>总分</th><th>能力等级</th><th>建议档</th><th>评估员</th><th>定级 / 原因</th>
+      <th>老人</th><th>评估日</th><th>总分</th><th>能力等级</th><th>建议档</th><th>评估员</th><th>定级 / 原因</th><th></th>
     </tr></thead><tbody>
     {% for a in drafts %}
     <tr>
@@ -96,6 +96,7 @@
           <button class="btn" style="padding:6px 16px;font-size:13px;white-space:nowrap" type="submit">定级</button>
         </form>
       </td>
+      <td><a class="btn" style="padding:5px 12px;font-size:13px;white-space:nowrap" href="/assessments/{{ a.id }}/">详情 ›</a></td>
     </tr>
     {% endfor %}
     </tbody></table>
@@ -106,7 +107,7 @@
     <div class="c-h">定级历史<span class="cnt">近 {{ history|length }}<span> 单</span></span></div>
     {% if history %}
     <table><thead><tr>
-      <th>老人</th><th>评估日</th><th>总分</th><th>能力等级</th><th>建议 → 定级</th><th>定级人</th>
+      <th>老人</th><th>评估日</th><th>总分</th><th>能力等级</th><th>建议 → 定级</th><th>定级人</th><th></th>
     </tr></thead><tbody>
     {% for a in history %}
     <tr>
@@ -119,6 +120,7 @@
         {% if a.suggested_level != a.final_level %}<span class="b b-warn">改判</span>{% endif %}
       </td>
       <td>{{ a.confirmed_by|default:"—" }}</td>
+      <td><a class="btn" style="padding:5px 12px;font-size:13px;white-space:nowrap" href="/assessments/{{ a.id }}/">详情 ›</a></td>
     </tr>
     {% endfor %}
     </tbody></table>

@@ -286,6 +286,47 @@ def assessment_form_page(request):
 
 
 @login_required
+def assessment_detail_page(request, assessment_id):
+    """评估单详情（只读）— 26 项打分明细 + 定级信息。
+
+    入口：看板「定级历史/待定级」行「详情 ›」、工作台「上次评估」链接。
+    不存在回看板（与 API 的 404 语义不同：页面侧统一回列表）。
+    """
+    a = (
+        Assessment.objects.select_related("resident")
+        .prefetch_related("scores__item")
+        .filter(pk=assessment_id)
+        .first()
+    )
+    if a is None:
+        return redirect("/assessments/")
+    by_dim: dict[str, list] = {}
+    for s in sorted(a.scores.all(), key=lambda s: s.item.order):
+        by_dim.setdefault(s.item.dimension, []).append(s)
+    groups = [
+        {
+            "dimension": AssessmentItem.Dimension(dim).label,
+            "rows": [
+                {
+                    "name": s.item.name, "score": s.score, "max": s.item.max_score,
+                    # 0-10/0-5 量表 ×100 恒整（10 的倍数/20 的倍数）
+                    "pct": s.score * 100 // s.item.max_score,
+                }
+                for s in rows
+            ],
+            "subtotal": sum(s.score for s in rows),
+            "subtotal_max": sum(s.item.max_score for s in rows),
+        }
+        for dim, rows in by_dim.items()
+    ]
+    return render(request, "assessment_detail.html", {
+        "a": a,
+        "grade_label": Assessment.GRADE_LABELS[a.grade],
+        "groups": groups,
+    })
+
+
+@login_required
 def weekly_order(request):
     """周五周选点餐 — 护理员帮老人选下周菜品"""
     return render(request, "weekly_order.html")
