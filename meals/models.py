@@ -104,6 +104,16 @@ class MealOrder(StaffFkMixin, models.Model):
             models.Index(fields=["date", "status"]),
             models.Index(fields=["resident", "date"]),
         ]
+        constraints = [
+            # 同一老人同一日期同一餐次只允许一张有效订单（已退餐除外，
+            # 退餐后可重新点餐）。背景：OCR 重复识别曾给张国栋造出
+            # 171 条同周重复点餐，直接抬高月结餐费与应收账单。
+            models.UniqueConstraint(
+                fields=["resident", "date", "meal_type"],
+                condition=~models.Q(status="cancelled"),
+                name="uniq_active_meal_order_per_slot",
+            ),
+        ]
 
     def __str__(self):
         dishes_list = ", ".join(self.dishes.values_list("name", flat=True))

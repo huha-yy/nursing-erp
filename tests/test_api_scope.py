@@ -188,10 +188,13 @@ def test_meal_order_batch_first_violation_rejects_whole_batch(client, two_buildi
 
     assert MealOrder.objects.count() == 0  # 半批数据也不留
 
-    # 全部本楼 → 正常创建
+    # 全部本楼 → 正常创建（2026-08-24 起同老人同餐次唯一，改用两个不同餐次）
     ok = client.post(
         "/api/meal-orders/batch/",
-        [{**payload[0]}, {**payload[0]}],
+        [
+            {**payload[0], "meal_type": "午餐"},
+            {**payload[0], "meal_type": "晚餐"},
+        ],
         content_type="application/json", HTTP_X_BUILDING="1号楼",
     )
     assert ok.status_code == 200

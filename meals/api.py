@@ -58,6 +58,39 @@ def list_week_menu(request, week_start: Optional[str] = Query(None, description=
 
 # ---- MealOrder ----
 
+def _assert_no_active_duplicate(items: list, batch: bool = False):
+    """防重预检：同一老人同一日期同一餐次只允许一张有效订单（已退餐除外）。
+
+    items 为 (resident_id, date, meal_type) 列表；先查批次内部重复，
+    再逐条查库中已有有效订单（cancelled 不算），命中即抛 400——
+    批量路径整批拒绝，不留半批数据（与楼栋越权预检同语义）。
+    """
+    suffix = "，整批拒绝" if batch else ""
+    seen: dict = {}
+    for i, key in enumerate(items):
+        if key in seen:
+            raise HttpError(
+                400,
+                f"第 {seen[key] + 1} 条与第 {i + 1} 条重复："
+                f"老人{key[0]} {key[1]} {key[2]} 一餐只能点一次{suffix}",
+            )
+        seen[key] = i
+    for rid, d, mt in seen:
+        dup = (
+            MealOrder.objects.select_related("resident")
+            .filter(resident_id=rid, date=d, meal_type=mt)
+            .exclude(status=MealOrder.Status.CANCELLED)
+            .first()
+        )
+        if dup:
+            raise HttpError(
+                400,
+                f"{dup.resident.name} {d} {mt} 已有一张有效订单"
+                f"（id={dup.id}，{dup.get_status_display()}），"
+                f"请先改餐/退餐再重新点{suffix}",
+            )
+
+
 @router.get("/meal-orders/", response=List[dict])
 @paginate(PageNumberPagination, page_size=50)
 def list_meal_orders(
@@ -84,6 +117,7 @@ def list_meal_orders(
 def create_meal_order(request, payload: MealOrderIn):
     """创建点餐订单 — 常用于周五批量点餐"""
     resident_for_write(request, payload.resident_id)  # 404/403 楼栋守卫
+    _assert_no_active_duplicate([(payload.resident_id, payload.date, payload.meal_type)])
     order = MealOrder.objects.create(
         resident_id=payload.resident_id,
         date=payload.date,
@@ -109,6 +143,9 @@ def create_meal_orders_batch(request, payload: list[MealOrderIn]):
             if e.status_code == 403:
                 raise HttpError(403, f"第 {i + 1} 条越权，整批拒绝：{e.message}") from e
             raise
+    _assert_no_active_duplicate(
+        [(i.resident_id, i.date, i.meal_type) for i in payload], batch=True
+    )
     created = 0
     for item in payload:
         order = MealOrder.objects.create(
@@ -361,7 +398,8 @@ def meal_order_ocr(request, payload: MealOrderOcrIn):
 def meal_order_ocr_batch_create(request, payload: list[dict]):
     """根据老人点餐识别结果批量创建 MealOrder。
 
-    同 batch：预检全部老人权限，任一条越权整批 403 拒绝。
+    同 batch：预检全部老人权限，任一条越权整批 403 拒绝；
+    同一老人同一餐次重复（批内或库中已有有效订单）整批 400 拒绝。
     """
     from residents.models import Resident
 
@@ -378,10 +416,13 @@ def meal_order_ocr_batch_create(request, payload: list[dict]):
                 raise
 
     resident_id = payload[0].get("resident_id") if payload else None
-    created = 0
     day_index = {"周一": 0, "周二": 1, "周三": 2, "周四": 3, "周五": 4, "周六": 5, "周日": 6}
+    # 第一遍：规范化为 (resident_id, date, meal_type, dish_ids, special_requests)，
+    # 跳过条件与原实现一致（缺字段 / 无菜也无特殊要求）
+    entries = []
     for item in payload:
         resident_id = item.get("resident_id", resident_id)
+        rid = resident_id  # 本条实际生效的老人（可能继承自上一条）
         dish_ids = list(item.get("dish_ids", []))
         for name in item.get("new_dishes", []):
             did = _get_or_create_dish(name)
@@ -391,7 +432,7 @@ def meal_order_ocr_batch_create(request, payload: list[dict]):
         meal_type = item.get("meal_type", "")
         week_start = item.get("week_start", "")
         special_requests = item.get("special_requests", "")
-        if not resident_id or not day or not meal_type or not week_start:
+        if not rid or not day or not meal_type or not week_start:
             continue
         # 只有特殊要求没有菜（如"不吃"），也记录一条
         if not dish_ids and not special_requests:
@@ -399,8 +440,16 @@ def meal_order_ocr_batch_create(request, payload: list[dict]):
         # 计算就餐日期（周一=week_start，周日起+6天）
         base = date.fromisoformat(week_start)
         order_date = base + timedelta(days=day_index.get(day, 0))
+        entries.append((rid, order_date, meal_type, dish_ids, special_requests))
+
+    # 第二遍：防重预检（重拍/重复识别是历史重复数据的根源）
+    _assert_no_active_duplicate([(e[0], e[1], e[2]) for e in entries], batch=True)
+
+    # 第三遍：落库
+    created = 0
+    for rid, order_date, meal_type, dish_ids, special_requests in entries:
         order = MealOrder.objects.create(
-            resident_id=resident_id, date=order_date, meal_type=meal_type,
+            resident_id=rid, date=order_date, meal_type=meal_type,
             special_requests=special_requests,
         )
         if dish_ids:
