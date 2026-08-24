@@ -408,7 +408,7 @@ def test_billing_page_anonymous_redirect_and_logged_in(client, api_setup):
     resp = client.get("/billing/")
     assert resp.status_code == 302 and "/admin/login/" in resp["Location"]
 
-    user = User.objects.create_user(username="viewer", password="x")
+    user = User.objects.create_user(username="viewer", password="x", is_staff=True)
     client.force_login(user)
     page = client.get("/billing/", {"month": "2026-08"})
     assert page.status_code == 200
@@ -423,7 +423,7 @@ def test_billing_page_anonymous_redirect_and_logged_in(client, api_setup):
 @pytest.mark.django_db
 def test_finance_page_scoped_note_and_link_back(client, api_setup):
     """老 /finance/ 页定位说明：仅餐费明细 + 缴费以账单为准 + 回链看板"""
-    user = User.objects.create_user(username="viewer2", password="x")
+    user = User.objects.create_user(username="viewer2", password="x", is_staff=True)
     client.force_login(user)
     page = client.get("/finance/", {"month": "2026-08"})
     assert page.status_code == 200

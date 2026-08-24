@@ -358,7 +358,7 @@ def test_bed_board_page(db, django_user_model):
     from django.test import Client
 
     _seed_occupancy_data()
-    user = django_user_model.objects.create_user(username="viewer", password="pw123456")
+    user = django_user_model.objects.create_user(username="viewer", password="pw123456", is_staff=True)
     c = Client()
     c.force_login(user)
 

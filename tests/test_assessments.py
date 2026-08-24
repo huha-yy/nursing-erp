@@ -486,7 +486,7 @@ def test_page_anonymous_redirect_and_logged_in(client, api_setup):
     resp = client.get("/assessments/")
     assert resp.status_code == 302 and "/admin/login/" in resp["Location"]
 
-    user = User.objects.create_user(username="viewer", password="x")
+    user = User.objects.create_user(username="viewer", password="x", is_staff=True)
     client.force_login(user)
     page = client.get("/assessments/")
     assert page.status_code == 200
@@ -502,7 +502,7 @@ def test_page_anonymous_redirect_and_logged_in(client, api_setup):
 @pytest.mark.django_db
 def test_page_review_pagination_filter_search(client, api_setup):
     """盘点表分页（20/页）+ 状态筛选 chip + 姓名搜索（2026-08-24 交互改版）"""
-    user = User.objects.create_user(username="pager", password="x")
+    user = User.objects.create_user(username="pager", password="x", is_staff=True)
     client.force_login(user)
     # 连 api_setup 两位共 26 位在住（全部待评估，同楼则按姓名序分页稳定）
     for i in range(24):
@@ -533,7 +533,7 @@ def test_page_form_workbench_render(client, api_setup):
     """/assessments/new/ 工作台：老人头 + 26 输入 + 角标预览数据；无 id 回看板"""
     import json as _json
 
-    user = User.objects.create_user(username="former", password="x")
+    user = User.objects.create_user(username="former", password="x", is_staff=True)
     client.force_login(user)
     r1, _ = api_setup
     assert client.get("/assessments/new/").status_code == 302  # 无 resident_id
@@ -553,7 +553,7 @@ def test_page_form_workbench_render(client, api_setup):
 @pytest.mark.django_db
 def test_page_detail_shows_item_scores(client, api_setup):
     """/assessments/<id>/ 只读详情：26 项逐分 + 定级信息 + 三处入口链接"""
-    user = User.objects.create_user(username="detailer", password="x")
+    user = User.objects.create_user(username="detailer", password="x", is_staff=True)
     client.force_login(user)
     r1, _ = api_setup
     assert client.get("/assessments/99999/").status_code == 302  # 不存在回看板
@@ -624,7 +624,7 @@ def test_page_post_create_and_confirm(client, api_setup):
 @pytest.mark.django_db
 def test_lifecycle_shows_assessment_event(client):
     """生命周期视图：评估事件（总分/等级/评估员/定级）+ 变更事件"""
-    user = User.objects.create_user(username="viewer2", password="x")
+    user = User.objects.create_user(username="viewer2", password="x", is_staff=True)
     client.force_login(user)
     r = _resident(name="生命周期老人", room="101")
     a = _assess(r, target=55, d=date(2026, 7, 1))

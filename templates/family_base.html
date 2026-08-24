@@ -1,0 +1,131 @@
+{% load static %}<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="{{ page_title }}">
+<title>{{ page_title }} — 家属服务</title>
+<link href="{% static 'unfold/fonts/inter/styles.css' %}" rel="stylesheet">
+<link href="{% static 'unfold/fonts/material-symbols/styles.css' %}" rel="stylesheet">
+<style>
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal; font-style: normal; font-size: 24px;
+  line-height: 1; letter-spacing: normal; text-transform: none;
+  display: inline-block; white-space: nowrap; word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+:root{
+  --ink:#1e293b;--ink2:#475569;--ink3:#94a3b8;
+  --bg:#f8f9fb;--bg2:#f1f3f6;
+  --card:#fff;--line:#e8eaef;--line2:#f2f3f6;
+  --blue:#4f6ef7;--blue2:#eef1ff;--red:#e05555;--green:#3ca07a;
+  --r:8px;
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  background:var(--bg);color:var(--ink);min-height:100vh;-webkit-font-smoothing:antialiased;
+}
+/* ── Header ── */
+.topbar{
+  background:var(--card);border-bottom:1px solid var(--line);
+  padding:0 20px;display:flex;align-items:center;height:50px;gap:20px;
+}
+.topbar .logo{font-size:15px;font-weight:700;color:var(--ink);text-decoration:none}
+.topbar .navs{display:flex;gap:0;margin-left:auto}
+.topbar .navs a{
+  padding:6px 12px;border-radius:6px;font-size:13px;font-weight:500;color:var(--ink2);
+  text-decoration:none;transition:background .15s,color .15s
+}
+.topbar .navs a:hover{background:var(--bg2);color:var(--ink)}
+.topbar .navs a.on{background:var(--blue2);color:var(--blue)}
+/* ── Layout ── */
+.wrap{max-width:840px;margin:0 auto;padding:32px 24px}
+/* ── Title ── */
+.title{font-size:20px;font-weight:700;color:var(--ink);margin-bottom:24px;display:flex;align-items:baseline;gap:12px}
+.title .sub{font-size:14px;font-weight:400;color:var(--ink3)}
+/* ── Card ── */
+.c{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:20px;margin-bottom:14px}
+.c-h{font-size:14px;font-weight:600;color:var(--ink);margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--line2);display:flex;align-items:center;gap:8px}
+.c-h .cnt{margin-left:auto;font-size:22px;font-weight:700;color:var(--ink)}
+.c-h .cnt span{font-size:13px;font-weight:400;color:var(--ink3)}
+/* ── Stats ── */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin-bottom:24px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:20px 16px;text-align:center}
+.stat .num{font-size:30px;font-weight:800;letter-spacing:-.02em;color:var(--ink)}
+.stat .lbl{font-size:12px;color:var(--ink3);margin-top:6px}
+.stat.-warn .num{color:var(--red)}
+/* ── Table ── */
+table{width:100%;border-collapse:collapse;font-size:14px}
+thead th{text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);color:var(--ink3);font-weight:600;font-size:12px}
+tbody td{padding:10px 12px;border-bottom:1px solid var(--line2)}
+tbody tr:last-child td{border-bottom:none}
+/* ── Badge ── */
+.b{display:inline-flex;align-items:center;gap:3px;padding:2px 9px;border-radius:100px;font-size:12px;font-weight:500}
+.b-ok{background:#ecfdf5;color:#065f46}
+.b-warn{background:#fffbeb;color:#92400e}
+.b-err{background:#fef2f2;color:#991b1b}
+.b-dim{background:var(--bg2);color:var(--ink3)}
+/* ── Input ── */
+.inp{width:100%;padding:11px 14px;font-size:15px;border:1px solid var(--line);border-radius:var(--r);font-family:inherit;background:var(--card);outline:none;transition:border-color .15s,box-shadow .15s}
+.inp:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(79,110,247,.08)}
+/* ── Button ── */
+.btn{font-size:14px;font-weight:600;border:1px solid var(--line);border-radius:var(--r);background:var(--card);cursor:pointer;font-family:inherit;text-align:center;transition:all .12s;padding:14px 6px;color:inherit;text-decoration:none}
+.btn:hover{background:var(--bg2)}
+.btn.sel{border-color:var(--blue);background:var(--blue);color:#fff;font-weight:700}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+/* ── Submit ── */
+.submit{width:100%;padding:14px;font-size:16px;font-weight:700;color:#fff;background:var(--blue);border:none;border-radius:var(--r);cursor:pointer;font-family:inherit;transition:background .15s}
+.submit:hover:not(:disabled){background:#3d5de0}
+.submit:disabled{opacity:.45;cursor:not-allowed}
+/* ── Toast ── */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:11px 22px;border-radius:8px;color:#fff;font-weight:600;font-size:14px;z-index:200;opacity:0;transition:opacity .25s;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,.12)}
+.toast.show{opacity:1}
+/* ── Resident card ── */
+.rc{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;cursor:pointer;transition:border-color .12s,background .12s;display:flex;align-items:center;gap:12px}
+.rc:hover{border-color:#bcc4de}
+.rc .av{width:38px;height:38px;border-radius:50%;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:var(--ink2);flex-shrink:0}
+.rc .inf{flex:1;min-width:0}
+.rc .inf .n{font-size:15px;font-weight:600}
+.rc .inf .m{font-size:12px;color:var(--ink3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* ── Empty ── */
+.empty{padding:40px 20px;text-align:center;color:var(--ink3)}
+.empty .ic{font-size:36px;margin-bottom:8px}
+.empty p{font-size:14px}
+@media(max-width:640px){
+  .wrap{padding:20px 12px}.topbar{padding:0 12px}.topbar .navs a{font-size:12px;padding:4px 8px}
+  .stats{grid-template-columns:repeat(2,1fr)}.title{font-size:18px}.btn{font-size:13px;padding:12px 4px}
+}
+</style>
+</head>
+<body>
+{# 家属端专用顶栏：绝不出现 /admin/ 与任何员工页链接（数据边界的一部分） #}
+<div class="topbar">
+  <a href="/family/" class="logo">家属服务 · 养老院</a>
+  <div class="navs">
+    <a href="/family/" class="{% block nav_home %}{% endblock %}">
+      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">home</span>首页</a>
+    <a href="/family/care/" class="{% block nav_care %}{% endblock %}">
+      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">favorite</span>照护</a>
+    <a href="/family/order/" class="{% block nav_order %}{% endblock %}">
+      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">restaurant</span>点餐</a>
+    <a href="/family/billing/" class="{% block nav_bill %}{% endblock %}">
+      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">receipt_long</span>账单</a>
+    <a href="/family/password/" class="{% block nav_pw %}{% endblock %}">
+      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">lock</span>改密码</a>
+    <a href="/family/logout/">
+      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">logout</span>退出</a>
+  </div>
+</div>
+{% block content %}{% endblock %}
+<div class="toast" id="toast"></div>
+<script>
+function toast(m,c){var t=document.getElementById('toast');t.innerHTML=m;t.style.background=c||'#1e293b';t.className='toast show';setTimeout(function(){t.className='toast'},2000)}
+</script>
+</body>
+</html>

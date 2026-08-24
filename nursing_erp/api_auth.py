@@ -30,6 +30,17 @@ def erp_auth(request):
     # 2) 浏览器调用：已登录 session（AuthenticationMiddleware 已挂 request.user）
     user = getattr(request, "user", None)
     if user is not None and user.is_authenticated:
+        # 家属身份不得走员工 /api/（2026-08-24 家属端安全闭合）：
+        # 家属本来无 Employee 档案，session 口径会 fail-open 到全院数据，
+        # 必须在此按 FamilyMember 档案显式拒绝——家属 API 在独立的
+        # /api/family/ NinjaAPI 实例上，不经过本函数。
+        # 只按档案拒、不按 is_staff 拒：无档案的裸账号沿用 admin 建档
+        # 语义（tests/test_api_auth.py 有钉），家属档案即使被误勾
+        # is_staff 也照样拒。
+        from family.models import is_family_user
+
+        if is_family_user(user):
+            return None
         return f"session:{user.pk}"
 
     return None  # ninja 收到 None → 401 Unauthorized

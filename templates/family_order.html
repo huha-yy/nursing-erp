@@ -1,0 +1,193 @@
+{% extends "family_base.html" %}{% block nav_order %}on{% endblock %}
+
+{% block content %}
+<div class="wrap">
+  <div class="title">
+    <span class="material-symbols-outlined">restaurant</span> 代点餐
+    <span class="sub">为绑定老人点本周或未来一周的三餐</span>
+  </div>
+
+  <!-- 周选择 + 老人选择 -->
+  <div class="c" style="padding:16px 20px">
+    <div style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px;margin-bottom:12px">
+      <span class="material-symbols-outlined" style="color:var(--blue)">today</span>
+      <span>选餐周:</span>
+      <input type="date" class="inp" id="weekStart" style="width:auto;padding:6px 10px;font-size:13px">
+    </div>
+    <div id="chips" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+  </div>
+
+  <div id="act" style="display:none">
+    <!-- Day tabs + menu area -->
+    <div id="week"><div class="empty"><p>加载菜单中…</p></div></div>
+
+    <!-- Submit bar -->
+    <div class="c" id="submitBar" style="padding:16px 20px;display:flex;align-items:center;gap:12px">
+      <div style="flex:1;font-size:14px;font-weight:600" id="submitSummary">尚未选择任何菜品</div>
+      <button class="submit" id="go" disabled onclick="submitAll()" style="width:auto;padding:12px 28px;font-size:14px">
+        <span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px">description</span>提交点餐
+      </button>
+    </div>
+  </div>
+
+  <!-- 本周已点 -->
+  <div class="c">
+    <div class="c-h"><span class="material-symbols-outlined">receipt_long</span> 该周已点订单
+      <span class="cnt" id="ordCnt">0<span> 餐</span></span></div>
+    <div id="orders"><div class="empty" style="padding:20px"><p>加载中…</p></div></div>
+  </div>
+</div>
+
+<script>
+var DAYS=['周一','周二','周三','周四','周五','周六','周日'],MEALS=['早餐','午餐','晚餐'];
+var mealData=null,ordersData=[],choices={},cur=null,sr=null;
+
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function monday(d){d=new Date(d);d.setDate(d.getDate()-((d.getDay()+6)%7));return d.toISOString().slice(0,10)}
+
+function init(){
+  document.getElementById('weekStart').value=monday(new Date());
+  document.getElementById('weekStart').addEventListener('change',load);
+  load();
+}
+
+function load(){
+  choices={};sr=null;document.getElementById('act').style.display='none';
+  fetch('/api/family/meals/?week_start='+document.getElementById('weekStart').value)
+    .then(function(r){return r.json()})
+    .then(function(d){mealData=d;ordersData=d.orders||[];renderChips();renderOrders();});
+}
+
+function renderChips(){
+  var rs=mealData.residents||[];
+  var el=document.getElementById('chips');
+  if(!rs.length){el.innerHTML='<span style="font-size:13px;color:var(--ink3)">暂未绑定老人</span>';return}
+  el.innerHTML=rs.map(function(r){
+    return '<button class="btn'+(sr&&sr.id===r.id?' sel':'')+'" style="padding:10px 18px;font-size:14px" onclick="selRes('+r.id+')">'+
+      esc(r.name)+'<span style="font-weight:400;font-size:12px;opacity:.7"> · '+esc(r.relation)+'</span></button>';
+  }).join('');
+}
+
+function selRes(id){
+  var r=(mealData.residents||[]).filter(function(x){return x.id===id})[0];if(!r)return;
+  sr=r;choices={};renderChips();
+  document.getElementById('act').style.display='block';
+  document.getElementById('week').innerHTML='<div class="empty"><p>加载菜单中…</p></div>';
+  var menu=mealData.menu||[];
+  if(!menu.length){document.getElementById('week').innerHTML='<div class="empty"><div class="ic"><span class="material-symbols-outlined">inbox</span></div><p>该周暂无菜单，请联系院方</p></div>';return}
+  window._weekData=menu;window._currentDay='周一';
+  renderDay('周一');
+}
+
+function renderDay(day){
+  var data=window._weekData;window._currentDay=day;
+  var dayItems=data.filter(function(m){return m.day===day}).sort(function(a,b){return MEALS.indexOf(a.meal_type)-MEALS.indexOf(b.meal_type)});
+  var icons={'早餐':'wb_sunny','午餐':'wb_twilight','晚餐':'bedtime'};
+
+  var html='<div style="display:flex;gap:4px;margin:20px 0;flex-wrap:wrap">';
+  DAYS.forEach(function(d){
+    var has=false;MEALS.forEach(function(mt){if(choices[d+'|'+mt]&&choices[d+'|'+mt].length)has=true});
+    html+='<button class="btn'+(d===day?' sel':'')+'" style="padding:10px 16px;font-size:14px;min-width:52px;position:relative" onclick="renderDay(\''+d+'\')">'+d+
+      (has?'<span style="position:absolute;top:3px;right:3px;width:8px;height:8px;border-radius:50%;background:var(--blue)"></span>':'')+'</button>';
+  });
+  html+='</div>';
+
+  if(!dayItems.length){
+    html+='<div class="empty" style="padding:28px"><p>'+day+'暂无菜单配置</p></div>';
+  }else{
+    dayItems.forEach(function(m){
+      var n=choices[day+'|'+m.meal_type]?choices[day+'|'+m.meal_type].length:0;
+      html+='<div class="c" style="margin-bottom:14px"><div class="c-h"><span class="material-symbols-outlined">'+(icons[m.meal_type]||'restaurant')+'</span> '+m.meal_type+
+        '<span style="margin-left:auto;font-size:12px;font-weight:400;color:var(--ink3)">'+m.dishes.length+' 道可选'+
+        (n>0?' · <span style="color:var(--blue);font-weight:600">已选 '+n+' 道</span>':'')+'</span></div>';
+      html+='<div style="display:flex;flex-wrap:wrap;gap:8px">';
+      m.dishes.forEach(function(dish){
+        var on=choices[day+'|'+m.meal_type]&&choices[day+'|'+m.meal_type].indexOf(dish.id)>=0;
+        html+='<label style="display:inline-flex;align-items:center;gap:5px;padding:8px 14px;border:2px solid '+(on?'var(--blue)':'var(--line)')+';background:'+(on?'var(--blue2)':'transparent')+';border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;transition:all .12s;user-select:none">'+
+          '<input type="checkbox" onchange="tog('+dish.id+',\''+day+'\',\''+m.meal_type+'\')" style="accent-color:var(--blue);width:16px;height:16px"'+(on?' checked':'')+'> '+esc(dish.name)+'</label>';
+      });
+      html+='</div></div>';
+    });
+  }
+
+  var idx=DAYS.indexOf(day);
+  html+='<div style="display:flex;justify-content:space-between;margin-top:20px;margin-bottom:20px">';
+  html+='<button class="btn" style="padding:10px 16px;font-size:14px"'+(idx<=0?' disabled':'')+' onclick="renderDay(\''+DAYS[idx-1]+'\')"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">chevron_left</span> '+(idx>0?DAYS[idx-1]:'')+'</button>';
+  html+='<button class="btn" style="padding:10px 16px;font-size:14px"'+(idx>=6?' disabled':'')+' onclick="renderDay(\''+DAYS[idx+1]+'\')">'+(idx<6?DAYS[idx+1]:'')+' <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">chevron_right</span></button>';
+  html+='</div>';
+
+  document.getElementById('week').innerHTML=html;
+  updateSummary();
+}
+
+function tog(dishId,day,mt){
+  var k=day+'|'+mt;if(!choices[k])choices[k]=[];
+  var i=choices[k].indexOf(dishId);
+  if(i<0){choices[k].push(dishId)}else{choices[k].splice(i,1)}
+  renderDay(window._currentDay);
+}
+
+function updateSummary(){
+  var tm=0,td=0;DAYS.forEach(function(d){MEALS.forEach(function(mt){
+    if(choices[d+'|'+mt]&&choices[d+'|'+mt].length){tm++;td+=choices[d+'|'+mt].length}
+  })});
+  document.getElementById('go').disabled=tm===0;
+  document.getElementById('submitSummary').innerHTML=tm===0?'尚未选择任何菜品':
+    '已选 <span style="color:var(--blue)">'+tm+'</span> 餐 · <span style="color:var(--blue)">'+td+'</span> 道菜';
+}
+
+function submitAll(){
+  if(!sr)return;
+  var b=document.getElementById('go'),ws=mealData.week_start,payload=[];
+  DAYS.forEach(function(day,i){
+    MEALS.forEach(function(mt){
+      var ids=choices[day+'|'+mt]||[];
+      if(ids.length){
+        var d=new Date(ws);d.setDate(d.getDate()+i);
+        payload.push({resident_id:sr.id,date:d.toISOString().slice(0,10),meal_type:mt,dish_ids:ids,special_requests:''});
+      }
+    });
+  });
+  if(!payload.length){toast('请至少选择一餐','#e05555');return}
+  b.disabled=true;b.textContent='提交中…';
+  fetch('/api/family/meal-orders/batch/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+    .then(function(r){return r.json().then(function(d){return {ok:r.ok,d:d}})})
+    .then(function(x){
+      if(x.ok&&x.d.status==='created'){toast('<span class="material-symbols-outlined">check_circle</span> 已为 '+esc(sr.name)+' 提交 '+x.d.count+' 餐','#3ca07a');setTimeout(load,800)}
+      else{toast('提交失败：'+esc(x.d.detail||x.d.message||'请检查该时段是否已点过'),'#e05555')}
+    })
+    .catch(function(){toast('网络错误','#e05555')})
+    .finally(function(){b.disabled=false;b.innerHTML='<span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px">description</span>提交点餐'});
+}
+
+function renderOrders(){
+  var el=document.getElementById('orders');
+  document.getElementById('ordCnt').innerHTML=ordersData.length+'<span> 餐</span>';
+  if(!ordersData.length){el.innerHTML='<div class="empty" style="padding:20px"><p>该周暂无订单</p></div>';return}
+  var today=new Date().toISOString().slice(0,10);
+  var cls={'ordered':'b-ok','modified':'b-warn','cancelled':'b-dim','preparing':'b-warn','delivering':'b-warn','delivered':'b-dim'};
+  el.innerHTML='<table><thead><tr><th>日期</th><th>餐次</th><th>老人</th><th>菜品</th><th>状态</th><th>操作人</th><th></th></tr></thead><tbody>'+
+    ordersData.map(function(o){
+      var cancellable=['ordered','modified','preparing'].indexOf(o.status)>=0&&o.date>=today;
+      return '<tr><td>'+esc(o.date)+'</td><td>'+esc(o.meal_type)+'</td><td>'+esc(o.resident_name)+'</td>'+
+        '<td>'+esc(o.dishes.map(function(d){return d.name}).join('、'))+(o.special_requests?('<br><span style="font-size:12px;color:var(--ink3)">'+esc(o.special_requests)+'</span>'):'')+'</td>'+
+        '<td><span class="b '+(cls[o.status]||'b-dim')+'">'+esc(o.status_display)+'</span></td>'+
+        '<td style="font-size:12px;color:var(--ink3)">'+esc(o.ordered_by||'院方')+'</td>'+
+        '<td>'+(cancellable?('<button class="btn" style="padding:6px 12px;font-size:12px" onclick="cancelOrder('+o.id+')">退餐</button>'):'')+'</td></tr>';
+    }).join('')+'</tbody></table>';
+}
+
+function cancelOrder(id){
+  if(!confirm('确定退掉这一餐吗？'))return;
+  fetch('/api/family/meal-orders/'+id+'/cancel/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reason:''})})
+    .then(function(r){return r.json().then(function(d){return {ok:r.ok,d:d}})})
+    .then(function(x){
+      if(x.ok){toast('<span class="material-symbols-outlined">check_circle</span> 已退餐','#3ca07a');load()}
+      else{toast('退餐失败：'+esc(x.d.detail||''),'#e05555')}
+    })
+    .catch(function(){toast('网络错误','#e05555')});
+}
+
+init();
+</script>
+{% endblock %}

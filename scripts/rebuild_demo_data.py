@@ -2,7 +2,8 @@
 """演示数据重灌 — 保留档案底座，重置并重造「业务动态层」。
 
 分层契约（2026-08-24 定）：
-- 档案层不动：登录账号 / 员工 / 老人 / 床位 / 菜品库 / 价目表 / 库存目录
+- 档案层不动：登录账号 / 员工 / 老人 / 床位 / 菜品库 / 价目表 / 库存目录 /
+  家属账号与绑定（Q6 起属档案层，重灌只补种不清空）
   （id、密码、挂床关系全部保持 → 日常点点点测试的手感不变）
 - 动态层重置：点餐 / 月结 / 账单 / 改退餐 / 护理日志 / 健康·作息·用药 /
   任务 / 排班 / 考勤 / 绩效 / 出入库 / 审批 / 巡检 / 报修 / 异常 / 周菜单
@@ -56,6 +57,7 @@ from assessments.services import create_assessment, review_lists  # noqa: E402
 from beds.models import Bed  # noqa: E402
 from billing.models import FeeRule, MonthlyBill  # noqa: E402
 from billing.services import arrears_stats, generate_month_bills, month_summary  # noqa: E402
+from family.models import FamilyBinding, FamilyMember  # noqa: E402
 from incidents.models import IncidentReport  # noqa: E402
 from meals.models import Dish, MealFinance, MealModificationLog, MealOrder, WeekMenu  # noqa: E402
 from operations.models import (  # noqa: E402
@@ -176,7 +178,61 @@ def daterange(a: date, b: date):
         d += timedelta(days=1)
 
 
+def seed_family() -> None:
+    """家属账号种子（Q6）——档案层语义：幂等、可重复重灌、绝不重建已有账号。
+
+    口径：
+    - 每位在住老人按 contact_name/contact_phone 建一个"子女"账号（密码 123456，
+      仅建号时设置；之后用户改密不覆盖——忘了走 admin「重置密码」action）
+    - username（=手机号）被员工或其他账号占用 → 跳过并告警（不抢号）
+    - 剧情加成：1号楼101 同房两老共用一个子女账号（多绑演示：一位家属看两位老人）
+    """
+    created = existed = skipped = 0
+    bindings_created = 0
+    for r in Resident.objects.order_by("id"):
+        if not (r.contact_name and r.contact_phone):
+            continue
+        fm = FamilyMember.objects.filter(phone=r.contact_phone).first()
+        if fm is None:
+            if User.objects.filter(username=r.contact_phone).exists():
+                print(f"    跳过 {r.name}：手机号 {r.contact_phone} 已被非家属账号占用")
+                skipped += 1
+                continue
+            user = User.objects.create_user(
+                username=r.contact_phone, password="123456", first_name=r.contact_name,
+            )
+            fm = FamilyMember.objects.create(user=user, name=r.contact_name, phone=r.contact_phone)
+            created += 1
+        else:
+            existed += 1
+        _, made = FamilyBinding.objects.get_or_create(
+            family=fm, resident=r, defaults={"relation": FamilyBinding.Relation.CHILD}
+        )
+        bindings_created += int(made)
+
+    # 多绑演示：张国栋(101)与李秀兰(102)是老两口，子女王丽华一个账号看两位老人
+    # （库内房间为单人间，"同房两老"不成立，剧情改为同院不同房）
+    couple = list(Resident.objects.filter(name__in=("张国栋", "李秀兰")).order_by("id"))
+    if len(couple) == 2:
+        fm1 = FamilyMember.objects.filter(phone=couple[0].contact_phone).first()
+        if fm1 is not None:
+            _, made = FamilyBinding.objects.get_or_create(
+                family=fm1, resident=couple[1], defaults={"relation": FamilyBinding.Relation.CHILD}
+            )
+            bindings_created += int(made)
+
+    print(f"  家属账号：新建 {created} / 已有 {existed} / 跳过 {skipped}；"
+          f"绑定新增 {bindings_created}（张国栋+李秀兰 一个子女账号双绑就位）")
+
+
 def main() -> None:
+    # 外科手术模式：只补种家属账号（Q6 上线用）——纯增量 INSERT，不动动态层，
+    # 与常驻 runserver 并行安全，故不进 runserver 守卫
+    if "--seed-family-only" in sys.argv:
+        with transaction.atomic():
+            seed_family()
+        return
+
     # runserver 守卫只管默认库（生产 db.sqlite3）；NURSING_DB 指向临时库时
     # 写的是另一个文件，与运行中的服务互不相扰，放行
     if "--force" not in sys.argv and not os.environ.get("NURSING_DB"):
@@ -244,6 +300,9 @@ def main() -> None:
         promo.care_level = "自理"  # 每轮重灌回到时间线起点（首评前基线）重新走
         promo.save(update_fields=["care_level"])
         print(f"  档案校正：菜品重分类 {fixed} 道；{promo.name} 等级重置为 自理")
+
+        # ── 2.5 家属账号种子（档案层语义：幂等 get_or_create，不进清空列表）──
+        seed_family()
 
         # ── 3. 周菜单（覆盖整个点餐跨度）──────────────────────────
         dish_pools = {

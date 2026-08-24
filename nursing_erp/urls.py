@@ -18,6 +18,17 @@ from nursing_erp.views import (
     weekly_order,
 )
 
+from family.api import family_api
+from family.views import (
+    family_billing,
+    family_care,
+    family_home,
+    family_login,
+    family_logout,
+    family_order,
+    family_password,
+)
+
 api = NinjaAPI(title="养老院管理系统 API", version="1.0.0", auth=erp_auth)
 
 # Phase 1-A API routers
@@ -41,6 +52,9 @@ api.add_router("/", assessments_router)
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    # 家属 API 独立实例（auth=family_auth），必须排在员工 /api/ 之前，
+    # 否则 /api/family/… 会被员工的 router 抢先匹配
+    path("api/family/", family_api.urls),
     path("api/", api.urls),
     path("kitchen/", kitchen_today, name="kitchen_today"),
     path("beds/", bed_board, name="bed_board"),
@@ -58,6 +72,15 @@ urlpatterns = [
     path("menu-ocr/", menu_ocr_page, name="menu_ocr"),
     path("meal-order-ocr/", meal_order_ocr_page, name="meal_order_ocr"),
     path("resident/<int:resident_id>/lifecycle/", resident_lifecycle, name="resident_lifecycle"),
+    # 家属端（fat-JS 页面，数据走 /api/family/*）
+    path("family/login/", family_login, name="family_login"),
+    path("family/logout/", family_logout, name="family_logout"),
+    path("family/", family_home, name="family_home"),
+    path("family/care/", family_care, name="family_care"),
+    path("family/care/<int:resident_id>/", family_care, name="family_care_resident"),
+    path("family/order/", family_order, name="family_order"),
+    path("family/billing/", family_billing, name="family_billing"),
+    path("family/password/", family_password, name="family_password"),
 ]
 
 from django.conf import settings

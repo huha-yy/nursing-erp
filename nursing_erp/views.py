@@ -3,7 +3,7 @@
 from datetime import date, timedelta
 from urllib.parse import urlencode
 
-from django.contrib.auth.decorators import login_required
+from nursing_erp.page_access import staff_required
 from django.shortcuts import redirect, render
 
 from assessments.models import Assessment, AssessmentItem, GradeLevelMap
@@ -15,7 +15,7 @@ from meals.models import MealFinance, MealOrder, WeekMenu
 from residents.models import Resident
 
 
-@login_required
+@staff_required
 def kitchen_today(request):
     """食堂今日看板"""
     today = date.today()
@@ -51,7 +51,7 @@ def kitchen_today(request):
     })
 
 
-@login_required
+@staff_required
 def finance_monthly(request):
     """财务月度餐费对账"""
     month_param = request.GET.get("month", "")
@@ -74,20 +74,20 @@ def finance_monthly(request):
     })
 
 
-@login_required
+@staff_required
 def quick_log(request):
     """护理员快速录入"""
     return render(request, "quick_log.html")
 
 
-@login_required
+@staff_required
 def bed_board(request):
     """床位看板 — 入住率总览（与 /api/beds/occupancy/ 同源统计）"""
     stats = occupancy_stats(request.GET.get("building", "") or None)
     return render(request, "bed_board.html", {"stats": stats})
 
 
-@login_required
+@staff_required
 def billing_board(request):
     """应收月账单看板 — 出账 / 核销 / 欠费名单。
 
@@ -138,7 +138,7 @@ _REVIEW_PAGE_SIZE = 20
 _REVIEW_STATE_LABELS = {"pending": "待评估", "due": "待复评", "ok": "期内已评"}
 
 
-@login_required
+@staff_required
 def assessments_board(request):
     """入住评估看板 — 分页盘点 / 待定级确认 / 定级历史。
 
@@ -220,7 +220,7 @@ def assessments_board(request):
     })
 
 
-@login_required
+@staff_required
 def assessment_form_page(request):
     """评估工作台 — 单人 26 项打分 + 实时总分角标（纯前端预览，落库以后端为准）。
 
@@ -285,7 +285,7 @@ def assessment_form_page(request):
     })
 
 
-@login_required
+@staff_required
 def assessment_detail_page(request, assessment_id):
     """评估单详情（只读）— 26 项打分明细 + 定级信息。
 
@@ -326,19 +326,19 @@ def assessment_detail_page(request, assessment_id):
     })
 
 
-@login_required
+@staff_required
 def weekly_order(request):
     """周五周选点餐 — 护理员帮老人选下周菜品"""
     return render(request, "weekly_order.html")
 
 
-@login_required
+@staff_required
 def menu_ocr_page(request):
     """食堂菜单 OCR 录入 — 拍照自动识别菜品"""
     return render(request, "menu_ocr.html")
 
 
-@login_required
+@staff_required
 def meal_order_ocr_page(request):
     """老人点餐 OCR 录入 — 选老人 + 拍照自动识别点餐单"""
     return render(request, "meal_order_ocr.html")
@@ -350,7 +350,7 @@ def _day_of_week(d):
     return days[d.weekday()]
 
 
-@login_required
+@staff_required
 def resident_lifecycle(request, resident_id):
     """老人全生命周期档案 — 时间线 + 健康趋势"""
     from django.shortcuts import get_object_or_404

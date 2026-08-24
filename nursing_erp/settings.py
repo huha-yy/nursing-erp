@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     "beds.apps.BedsConfig",
     "billing.apps.BillingConfig",
     "assessments.apps.AssessmentsConfig",
+    "family.apps.FamilyConfig",
 ]
 
 MIDDLEWARE = [
@@ -247,6 +248,11 @@ UNFOLD = {
                  "link": "/admin/billing/monthlybill/"},
                 {"title": "价目表", "icon": "price_change", "link": "/admin/billing/feerule/"},
                 {"title": "账单看板", "icon": "account_balance_wallet", "link": "/billing/"},
+            ]},
+            {"title": "家属服务", "icon": "family_restroom", "collapsible": True, "items": [
+                {"title": "家属账号", "icon": "family_restroom",
+                 "link": "/admin/family/familymember/"},
+                {"title": "绑定台账", "icon": "link", "link": "/admin/family/familybinding/"},
             ]},
             {"title": "系统管理", "icon": "settings", "collapsible": True, "items": [
                 {"title": "用户账号", "icon": "manage_accounts", "link": "/admin/auth/user/"},

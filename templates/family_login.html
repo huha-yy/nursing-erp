@@ -1,0 +1,33 @@
+{% extends "family_base.html" %}
+
+{% block content %}
+<div class="wrap" style="max-width:400px;margin-top:8vh">
+  <div class="c" style="padding:32px 28px">
+    <div style="text-align:center;margin-bottom:24px">
+      <div style="width:56px;height:56px;border-radius:16px;background:var(--blue2);display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px">
+        <span class="material-symbols-outlined" style="font-size:30px;color:var(--blue)">favorite</span>
+      </div>
+      <div style="font-size:19px;font-weight:700">家属服务登录</div>
+      <div style="font-size:13px;color:var(--ink3);margin-top:4px">登录后可查看老人的照护、点餐与账单</div>
+    </div>
+    {% if error %}
+    <div style="background:#fef2f2;color:#991b1b;font-size:13px;padding:10px 14px;border-radius:8px;margin-bottom:14px">{{ error }}</div>
+    {% endif %}
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.GET.next }}">
+      <div style="margin-bottom:12px">
+        <input class="inp" type="tel" name="phone" placeholder="手机号" required autofocus
+               autocomplete="username" value="{{ request.POST.phone|default:'' }}">
+      </div>
+      <div style="margin-bottom:20px">
+        <input class="inp" type="password" name="password" placeholder="密码" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="submit">登 录</button>
+    </form>
+    <div style="font-size:12px;color:var(--ink3);text-align:center;margin-top:16px">
+      账号由院方开通，如忘记密码请联系院方管理员
+    </div>
+  </div>
+</div>
+{% endblock %}

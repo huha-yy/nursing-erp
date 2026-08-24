@@ -121,10 +121,14 @@ class MealOrder(StaffFkMixin, models.Model):
         dishes_list = ", ".join(self.dishes.values_list("name", flat=True))
         return f"{self.resident.name} — {self.date} {self.get_meal_type_display()}"
 
-    def cancel(self, reason: str = ""):
+    def cancel(self, reason: str = "", operator: str = ""):
+        """退餐并留痕。operator 记操作人（家属代退时传"家属-王丽华（子女）"），
+        员工端现有调用不传参，行为与历史一致（changed_by 落空串）。"""
         self.status = self.Status.CANCELLED
         self.save()
-        MealModificationLog.objects.create(order=self, action="cancel", reason=reason)
+        MealModificationLog.objects.create(
+            order=self, action="cancel", reason=reason, changed_by=operator
+        )
 
     def modify_dishes(self, dish_ids: list[int], reason: str = ""):
         old_names = ", ".join(self.dishes.values_list("name", flat=True))
