@@ -388,6 +388,38 @@ def test_api_list_filter_and_scope(client, api_setup):
 
 
 @pytest.mark.django_db
+def test_api_review_endpoint_and_scoping(client, api_setup):
+    """盘点端点：待评估/待复评 rows（state 标签 + last_assessed）+ 三态计数；
+    楼长 X-Building 只看本楼。AI 侧"谁该复评/谁还没评"的数据源。"""
+    r1, _r2 = api_setup  # 两楼各一位在住、无评估 → 待评估
+    due_date = date.today() - timedelta(days=400)
+    _assess(r1, target=50, d=due_date).confirm()  # 1号楼 → 待复评
+    r_ok = _resident(name="期内", room="102")
+    r_ok.bed = _bed(room="102")
+    r_ok.save()
+    _assess(r_ok, target=50).confirm()  # 1号楼 期内已评
+
+    out = client.get("/api/assessments/review/").json()
+    assert out["pending_first_count"] == 1  # 只剩 2号楼那位（r1 已变待复评）
+    assert out["due_review_count"] == 1 and out["ok_count"] == 1
+    assert {row["state"] for row in out["rows"]} == {"待评估", "待复评"}
+    due_row = next(r for r in out["rows"] if r["state"] == "待复评")
+    assert due_row["resident_name"] == "一号老人"
+    assert due_row["last_assessed"] == due_date.isoformat()
+    assert set(due_row) == {
+        "state", "resident_id", "resident_name", "building", "room",
+        "care_level", "last_assessed",
+    }
+    assert all(r["last_assessed"] is None for r in out["rows"] if r["state"] == "待评估")
+
+    scoped = client.get(
+        "/api/assessments/review/", HTTP_X_BUILDING="2号楼"
+    ).json()
+    assert scoped["pending_first_count"] == 1  # 只剩 2号楼那位
+    assert all(row["building"] == "2号楼" for row in scoped["rows"])
+
+
+@pytest.mark.django_db
 def test_api_confirm_guards(client, api_setup):
     """confirm 守卫：缺失 404 / 跨楼 403 / key 路径 operator=api / 再确认 400"""
     r1, _r2 = api_setup

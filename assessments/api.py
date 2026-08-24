@@ -19,7 +19,7 @@ from nursing_erp.api_scope import (
 )
 
 from .models import Assessment
-from .services import create_assessment
+from .services import create_assessment, review_lists
 
 router = Router(tags=["入住评估"])
 
@@ -107,6 +107,40 @@ def list_assessments(request, resident_id: int = 0, status: str = ""):
         qs = qs.filter(status=status)
     qs = scope_filter(qs, request, "resident__building")
     return [_assessment_out(a) for a in qs]
+
+
+@router.get("/assessments/review/", response=dict)
+def assessment_review(request):
+    """评估状态盘点（国标 12 个月复评）——AI 侧"谁该复评/谁还没评"的数据源。
+
+    rows 只含可行动两态（待评估/待复评，state 标签区分）；期内已评只给
+    计数 ok_count——36 人量级下不稀释注入上限。楼栋 scope 生效（楼长只看本楼）。
+    注意：本路由须注册在 /assessments/{id}/ 之前（同名段会被 int 参数吞 422）。
+    """
+    scope = resolve_building_scope(request)
+    rv = review_lists(building=scope or "")
+
+    def _row(state: str, r: dict) -> dict:
+        res = r["resident"]
+        return {
+            "state": state,
+            "resident_id": res.id,
+            "resident_name": res.name,
+            "building": res.building,
+            "room": res.room,
+            "care_level": res.care_level,
+            "last_assessed": r["last_assessed"].isoformat() if r["last_assessed"] else None,
+        }
+
+    return {
+        "rows": (
+            [_row("待评估", r) for r in rv["pending_first"]]
+            + [_row("待复评", r) for r in rv["due_review"]]
+        ),
+        "pending_first_count": len(rv["pending_first"]),
+        "due_review_count": len(rv["due_review"]),
+        "ok_count": len(rv["ok"]),
+    }
 
 
 @router.get("/assessments/{assessment_id}/", response=dict)

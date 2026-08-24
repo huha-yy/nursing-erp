@@ -57,19 +57,22 @@ def create_assessment(resident, assess_date, assessor1: str, assessor2: str,
     return assessment
 
 
-def review_lists() -> dict[str, list[dict]]:
+def review_lists(building: str = "") -> dict[str, list[dict]]:
     """在住（bed 非空，对齐 billing 在住口径）评估状态盘点：
     pending_first（无已确认单→待评估）/ due_review（最近已确认 > 12 个月→待复评）/
     ok（期内已评，含最近评估日期）。36 人量级 Python 侧分类足够。
+    building 非空时只盘该楼（API 楼长 scope 用；页面全院）。
     """
     last = Assessment.objects.filter(
         resident=OuterRef("pk"), status=Assessment.Status.CONFIRMED,
     ).order_by("-assess_date").values("assess_date")[:1]
     cutoff = date.today() - REVIEW_INTERVAL
     pending, due, ok = [], [], []
+    residents = Resident.objects.filter(bed__isnull=False)
+    if building:
+        residents = residents.filter(building=building)
     residents = (
-        Resident.objects.filter(bed__isnull=False)
-        .annotate(last_assessed=Subquery(last))
+        residents.annotate(last_assessed=Subquery(last))
         .order_by("building", "name")
     )
     for r in residents:
