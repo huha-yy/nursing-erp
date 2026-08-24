@@ -1,11 +1,12 @@
 """轻量专用页面 — 食堂看板 / 财务月结 / 周选点餐"""
 
 from datetime import date, timedelta
+from urllib.parse import urlencode
 
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 
-from assessments.models import Assessment, AssessmentItem
+from assessments.models import Assessment, AssessmentItem, GradeLevelMap
 from assessments.services import create_assessment, review_lists
 from beds.services import occupancy_stats
 from billing.models import MonthlyBill
@@ -125,78 +126,67 @@ def _operator_name(request) -> str:
         return request.user.username
 
 
+def _parse_date(s):
+    try:
+        return date.fromisoformat(s or "")
+    except ValueError:
+        return None
+
+
+# 盘点表分页（周点餐同款交互，服务端切片——36 人量级足够）
+_REVIEW_PAGE_SIZE = 20
+_REVIEW_STATE_LABELS = {"pending": "待评估", "due": "待复评", "ok": "期内已评"}
+
+
 @login_required
 def assessments_board(request):
-    """入住评估看板 — 评估状态盘点 / 26 项评估单 / 待定级确认 / 定级历史。
+    """入住评估看板 — 分页盘点 / 待定级确认 / 定级历史。
 
+    录入已移至 /assessments/new/ 工作台（2026-08-24 交互改版：盘点表
+    分页 + 状态筛选 + 姓名搜索，行尾进工作台）。建单/定级成功回本页
+    toast（?created= / ?confirmed=）。
     与 /billing/ 同口径：登录即可见全院（无 session 楼栋强制——演示阶段可接受，
     API 侧已有严格 scope，页面如需收紧再对齐）。
     """
-
-    def _parse_date(s):
-        try:
-            return date.fromisoformat(s or "")
-        except ValueError:
-            return None
-
     error = ""
-    if request.method == "POST":
-        action = request.POST.get("action", "")
-        if action == "create":
-            resident = Resident.objects.filter(pk=request.POST.get("resident_id", 0)).first()
-            assess_date = _parse_date(request.POST.get("assess_date", ""))
-            scores: dict[int, int] = {}
-            for key, value in request.POST.items():
-                if key.startswith("score_") and value.strip():
-                    try:
-                        scores[int(key[6:])] = int(value)
-                    except ValueError:
-                        error = f"分值须为整数，收到：{value!r}"
-                        break
-            if resident is None:
-                error = error or "老人不存在"
-            elif assess_date is None:
-                error = error or "评估日期格式须为 YYYY-MM-DD"
+    if request.method == "POST" and request.POST.get("action") == "confirm":
+        a = Assessment.objects.select_related("resident").filter(
+            pk=request.POST.get("assessment_id", 0)
+        ).first()
+        if a is None:
+            error = "评估单不存在"
+        else:
+            try:
+                a.confirm(
+                    operator=_operator_name(request),
+                    final_level=request.POST.get("final_level", ""),
+                    reason=request.POST.get("reason", ""),
+                )
+            except ValueError as exc:
+                error = str(exc)
             if not error:
-                try:
-                    a = create_assessment(
-                        resident, assess_date,
-                        request.POST.get("assessor1", ""), request.POST.get("assessor2", ""),
-                        scores,
-                    )
-                    return redirect(f"{request.path}?resident_id={a.resident_id}")
-                except ValueError as exc:
-                    error = str(exc)  # fail-loud 回显，不跳转
-        elif action == "confirm":
-            a = Assessment.objects.select_related("resident").filter(
-                pk=request.POST.get("assessment_id", 0)
-            ).first()
-            if a is None:
-                error = "评估单不存在"
-            else:
-                try:
-                    a.confirm(
-                        operator=_operator_name(request),
-                        final_level=request.POST.get("final_level", ""),
-                        reason=request.POST.get("reason", ""),
-                    )
-                except ValueError as exc:
-                    error = str(exc)
-                if not error:
-                    return redirect(f"{request.path}?resident_id={a.resident_id}")
+                return redirect("/assessments/?" + urlencode({"confirmed": a.resident.name}))
 
-    # GET 渲染（POST 失败也回到这里带 error 回显）
+    # 三态合并成统一行集（待评估 → 待复评 → 期内，triage 置顶）再筛选/分页
     review = review_lists()
-    focus = Resident.objects.filter(
-        pk=request.GET.get("resident_id", 0)
-    ).select_related("bed").first()
-    by_dim: dict[str, list] = {}
-    for item in AssessmentItem.objects.filter(is_active=True):
-        by_dim.setdefault(item.dimension, []).append(item)
-    groups = [
-        {"dimension": AssessmentItem.Dimension(dim).label, "items": rows}
-        for dim, rows in by_dim.items()
-    ]
+    rows = (
+        [("pending", r) for r in review["pending_first"]]
+        + [("due", r) for r in review["due_review"]]
+        + [("ok", r) for r in review["ok"]]
+    )
+    state = request.GET.get("state", "")
+    if state in _REVIEW_STATE_LABELS:
+        rows = [row for row in rows if row[0] == state]
+    q = request.GET.get("q", "").strip()
+    if q:
+        rows = [row for row in rows if q in row[1]["resident"].name]
+    try:
+        page_no = max(1, int(request.GET.get("page", "1")))
+    except ValueError:
+        page_no = 1
+    pages = max(1, (len(rows) + _REVIEW_PAGE_SIZE - 1) // _REVIEW_PAGE_SIZE)
+    page_no = min(page_no, pages)
+
     drafts = Assessment.objects.filter(
         status=Assessment.Status.DRAFT
     ).select_related("resident")
@@ -204,15 +194,93 @@ def assessments_board(request):
         status=Assessment.Status.CONFIRMED
     ).select_related("resident")[:20]
     return render(request, "assessments_board.html", {
-        "review": review,
-        "focus": focus,
-        "groups": groups,
+        "rows": rows[(page_no - 1) * _REVIEW_PAGE_SIZE: page_no * _REVIEW_PAGE_SIZE],
+        "state_labels": _REVIEW_STATE_LABELS,
+        "state": state,
+        "q": q,
+        "page_no": page_no,
+        "pages": pages,
+        "page_prev": page_no - 1,
+        "page_next": page_no + 1,
+        "row_total": len(rows),
+        "counts": {
+            "pending": len(review["pending_first"]),
+            "due": len(review["due_review"]),
+            "ok": len(review["ok"]),
+        },
         "drafts": drafts,
         "history": history,
         "total_confirmed": Assessment.objects.filter(
             status=Assessment.Status.CONFIRMED
         ).count(),
         "care_levels": Resident.CareLevel.choices,
+        "created": request.GET.get("created", ""),
+        "confirmed": request.GET.get("confirmed", ""),
+        "error": error,
+    })
+
+
+@login_required
+def assessment_form_page(request):
+    """评估工作台 — 单人 26 项打分 + 实时总分角标（纯前端预览，落库以后端为准）。
+
+    入口：看板盘点行「评估/复评」。无 resident_id / 老人不存在回看板。
+    POST 建单失败原地回显（fail-loud），成功回看板 toast「已建单，待定级」。
+    """
+    resident = Resident.objects.filter(
+        pk=request.GET.get("resident_id", 0)
+    ).select_related("bed").first()
+    if resident is None:
+        return redirect("/assessments/")
+
+    error = ""
+    if request.method == "POST":
+        assess_date = _parse_date(request.POST.get("assess_date", ""))
+        scores: dict[int, int] = {}
+        for key, value in request.POST.items():
+            if key.startswith("score_") and value.strip():
+                try:
+                    scores[int(key[6:])] = int(value)
+                except ValueError:
+                    error = f"分值须为整数，收到：{value!r}"
+                    break
+        if assess_date is None:
+            error = error or "评估日期格式须为 YYYY-MM-DD"
+        if not error:
+            try:
+                a = create_assessment(
+                    resident, assess_date,
+                    request.POST.get("assessor1", ""), request.POST.get("assessor2", ""),
+                    scores,
+                )
+                return redirect("/assessments/?" + urlencode({"created": a.resident.name}))
+            except ValueError as exc:
+                error = str(exc)  # fail-loud 回显，不跳转
+
+    catalog = list(AssessmentItem.objects.filter(is_active=True))
+    by_dim: dict[str, list] = {}
+    for item in catalog:
+        by_dim.setdefault(item.dimension, []).append(item)
+    groups = [
+        {"dimension": AssessmentItem.Dimension(dim).label, "items": items}
+        for dim, items in by_dim.items()
+    ]
+    last = resident.assessments.filter(
+        status=Assessment.Status.CONFIRMED
+    ).order_by("-assess_date").first()
+    # 角标预览数据（json_script 注入）：分段/等级标签是国标常量，映射读配置表
+    # ——后台改映射前端无需跟改。仅预览；总分落库仍以 recalculate() 为准。
+    badge = {
+        "total_max": sum(i.max_score for i in catalog),
+        "bands": Assessment.BANDS,
+        "labels": {str(k): v for k, v in Assessment.GRADE_LABELS.items()},
+        "level_map": {str(m.grade): m.care_level for m in GradeLevelMap.objects.all()},
+    }
+    return render(request, "assessment_form.html", {
+        "resident": resident,
+        "groups": groups,
+        "last": last,
+        "badge": badge,
         "error": error,
     })
 

@@ -7,7 +7,8 @@
 2. 服务层 2：review_lists 三态分类+无床排除 / 目录改动不腐蚀历史单
 3. API 4：建单+详情契约 / 列表过滤+X-Building scope / confirm 守卫 /
    confirm 校验（坏档位、改判无原因）
-4. 页面 3：匿名跳转+登录渲染 / POST 建单+定级（session 员工名）/ 生命周期事件
+4. 页面 5：匿名跳转+登录渲染 / 盘点分页+筛选+搜索 / 工作台渲染（26 输入+角标
+   数据）/ 工作台建单→看板 toast+定级（session 员工名）/ 生命周期事件
 5. admin 1：楼栋过滤 + confirmed 冻结 + action 逐单定级
 
 核心不变式：定级确认 = 原子（评估单落定 + Resident.care_level 翻转 +
@@ -490,39 +491,101 @@ def test_page_anonymous_redirect_and_logged_in(client, api_setup):
     assert page.status_code == 200
     html = page.content.decode()
     assert "入住评估" in html and "GB/T 42195-2022" in html
-    assert "评估状态盘点" in html and "新建评估单" in html
-    # 在住老人（api_setup 两位）落盘点表
+    assert "评估状态盘点" in html and "待定级" in html
+    # 在住老人（api_setup 两位）落盘点表，行尾「评估 ›」进工作台
     assert "一号老人" in html and "待评估" in html
+    r1, _ = api_setup
+    assert f'href="/assessments/new/?resident_id={r1.id}"' in html
+
+
+@pytest.mark.django_db
+def test_page_review_pagination_filter_search(client, api_setup):
+    """盘点表分页（20/页）+ 状态筛选 chip + 姓名搜索（2026-08-24 交互改版）"""
+    user = User.objects.create_user(username="pager", password="x")
+    client.force_login(user)
+    # 连 api_setup 两位共 26 位在住（全部待评估，同楼则按姓名序分页稳定）
+    for i in range(24):
+        r = _resident(name=f"甲{i:02d}", room=f"3{i:02d}")
+        r.bed = _bed(room=f"3{i:02d}")
+        r.save()
+    p1 = client.get("/assessments/").content.decode()
+    # 1号楼按姓名序：一号老人 + 甲00..甲18 恰 20 行；甲19 起落第 2 页
+    assert "甲00" in p1 and "甲18" in p1 and "甲19" not in p1
+    assert "第 1/2 页（共 26 人）" in p1
+    p2 = client.get("/assessments/", {"page": "2"}).content.decode()
+    assert "甲23" in p2 and "甲00" not in p2
+    p9 = client.get("/assessments/", {"page": "9"}).content.decode()
+    assert "第 2/2 页" in p9  # 越界钳回末页
+
+    due = api_setup[0]
+    _assess(due, target=50, d=date.today() - timedelta(days=400)).confirm()
+    sf = client.get("/assessments/", {"state": "due"}).content.decode()
+    assert "一号老人" in sf and "甲00" not in sf  # 只看待复评
+    q = client.get("/assessments/", {"q": "甲23"}).content.decode()
+    assert "甲23" in q and "甲00" not in q  # 搜索命中唯一
+    empty = client.get("/assessments/", {"q": "查无此人"}).content.decode()
+    assert "未找到匹配的老人" in empty
+
+
+@pytest.mark.django_db
+def test_page_form_workbench_render(client, api_setup):
+    """/assessments/new/ 工作台：老人头 + 26 输入 + 角标预览数据；无 id 回看板"""
+    import json as _json
+
+    user = User.objects.create_user(username="former", password="x")
+    client.force_login(user)
+    r1, _ = api_setup
+    assert client.get("/assessments/new/").status_code == 302  # 无 resident_id
+    assert client.get("/assessments/new/", {"resident_id": "99999"}).status_code == 302
+
+    html = client.get("/assessments/new/", {"resident_id": r1.id}).content.decode()
+    assert "评估工作台" in html and "一号老人" in html and "首次评估" in html
+    assert html.count('type="number"') == 26 and 'id="badge-data"' in html
+    cfg = _json.loads(
+        html.split('id="badge-data"', 1)[1].split(">", 1)[1].split("</script>", 1)[0]
+    )
+    assert cfg["total_max"] == 190
+    assert cfg["level_map"]["2"] == "半护" and "失智" not in cfg["level_map"].values()
+    assert [b[2] for b in cfg["bands"]] == [0, 1, 2, 3, 4]
 
 
 @pytest.mark.django_db
 def test_page_post_create_and_confirm(client, api_setup):
-    """POST 建单（26 个 score_<id> 字段）+ POST 定级（session 员工名落定级人）"""
+    """工作台 POST 建单（26 个 score_<id> 字段）→ 看板 toast；看板 POST 定级"""
     from assessments.models import Assessment
 
     emp = _employee("王医护")
     client.force_login(emp.user)
     r = api_setup[0]
 
-    form = {
-        "action": "create", "resident_id": str(r.id), "assess_date": "2026-08-01",
-        "assessor1": "王医护", "assessor2": "李护士",
-    }
+    form = {"assess_date": "2026-08-01", "assessor1": "王医护", "assessor2": "李护士"}
     for i in _items():
         form[f"score_{i.id}"] = str(i.max_score)  # 全满分 → 4级 全护
-    resp = client.post("/assessments/", form)
-    assert resp.status_code == 302 and f"resident_id={r.id}" in resp["Location"]
+    resp = client.post(f"/assessments/new/?resident_id={r.id}", form)
+    assert resp.status_code == 302 and "created=" in resp["Location"]
 
     a = Assessment.objects.get(resident=r)
     assert a.total_score == 100 and a.suggested_level == "全护"
     assert a.status == Assessment.Status.DRAFT
     assert a.assessor1_emp == emp  # StaffFkMixin：同名员工自动挂档案
 
+    # 缺项 fail-loud：原地回显错误不跳转（新建单不落库）
+    first_score = next(k for k in form if k.startswith("score_"))
+    resp_bad = client.post(
+        f"/assessments/new/?resident_id={r.id}",
+        {k: v for k, v in form.items() if k != first_score},
+    )
+    assert resp_bad.status_code == 200 and "缺 1 项" in resp_bad.content.decode()
+    assert Assessment.objects.filter(resident=r).count() == 1
+
+    toast = client.get("/assessments/", {"created": "一号老人"}).content.decode()
+    assert "已建单，待定级：一号老人" in toast  # toast 钩子渲染
+
     resp2 = client.post("/assessments/", {
         "action": "confirm", "assessment_id": str(a.id),
         "final_level": "", "reason": "",
     })
-    assert resp2.status_code == 302
+    assert resp2.status_code == 302 and "confirmed=" in resp2["Location"]
     a.refresh_from_db()
     assert a.status == Assessment.Status.CONFIRMED and a.final_level == "全护"
     assert a.confirmed_by == "王医护"  # session 员工名，非 username

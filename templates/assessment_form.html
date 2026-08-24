@@ -1,0 +1,89 @@
+{% extends "base_light.html" %}{% block nav_assess %}on{% endblock %}
+
+{% block content %}
+<div class="wrap">
+  <div class="title">
+    <span class="material-symbols-outlined">fact_check</span> 评估工作台
+    <span class="sub">GB/T 42195-2022 · 26 项能力评估</span>
+    <a href="/assessments/" style="margin-left:auto;font-size:13px;color:var(--blue);text-decoration:none">← 回盘点</a>
+  </div>
+
+  {% if error %}
+  <div class="c" style="border-color:var(--red)">
+    <div style="color:var(--red);font-weight:600">⚠ {{ error }}</div>
+  </div>
+  {% endif %}
+
+  <div class="c" style="padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+    <div style="font-size:20px;font-weight:700">{{ resident.name }}</div>
+    <span style="color:var(--ink3);font-size:14px">{{ resident.building }} {{ resident.room }}</span>
+    <span class="b b-ok">{{ resident.get_care_level_display }}</span>
+    {% if last %}
+    <span style="color:var(--ink3);font-size:13px">上次评估 {{ last.assess_date|date:"Y-m-d" }} · {{ last.total_score }}分·{{ last.grade }}级</span>
+    {% else %}
+    <span class="b b-err">首次评估</span>
+    {% endif %}
+  </div>
+
+  <form method="post" class="c">
+    {% csrf_token %}
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+      <input class="inp" type="date" name="assess_date" value="{% now 'Y-m-d' %}" style="max-width:170px" required>
+      <input class="inp" name="assessor1" placeholder="评估员1（医护）" style="max-width:170px" required>
+      <input class="inp" name="assessor2" placeholder="评估员2" style="max-width:170px" required>
+      <div id="badge" style="margin-left:auto;position:sticky;top:10px;z-index:50;background:#fff;border:2px solid var(--line);border-radius:10px;padding:8px 16px;font-size:14px;color:var(--ink3);box-shadow:0 2px 10px rgba(0,0,0,.08)">尚未打分</div>
+    </div>
+
+    {% for g in groups %}
+    <div style="font-weight:700;font-size:14px;margin:12px 0 6px;color:var(--blue)">{{ g.dimension }}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px">
+      {% for item in g.items %}
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500">
+        <span style="flex:1">{{ item.name }}</span>
+        <input class="inp" type="number" name="score_{{ item.id }}" min="0" max="{{ item.max_score }}"
+               data-max="{{ item.max_score }}" placeholder="0-{{ item.max_score }}" style="max-width:86px;padding:6px 8px" required>
+      </label>
+      {% endfor %}
+    </div>
+    {% endfor %}
+
+    <div style="margin-top:14px;display:flex;align-items:center;gap:12px">
+      <button class="submit" type="submit">创建评估单（待定级）</button>
+      <span style="color:var(--ink3);font-size:13px">定级确认在看板「待定级」区操作</span>
+    </div>
+  </form>
+</div>
+
+{{ badge|json_script:"badge-data" }}
+<script>
+// 实时总分角标 — 纯预览（Math.round 半取整；种子目录满分 190 时不存在 .5 端点，
+// 与后端 round 一致；目录改到别的满分可能出现 ±1 预览差，落库仍以 recalculate 为准）。
+var cfg = JSON.parse(document.getElementById('badge-data').textContent);
+var inputs = document.querySelectorAll('input[name^="score_"]');
+function upd() {
+  var el = document.getElementById('badge'), raw = 0, filled = 0, valid = true;
+  inputs.forEach(function (i) {
+    var v = i.value.trim();
+    if (v === '') return;
+    filled++;
+    var n = parseInt(v, 10);
+    if (isNaN(n) || n < 0 || n > parseInt(i.dataset.max, 10)) { valid = false; return; }
+    raw += n;
+  });
+  if (!filled) { el.textContent = '尚未打分'; el.style.color = ''; return; }
+  if (!valid) { el.textContent = '有分值超限，请修正'; el.style.color = 'var(--red)'; return; }
+  el.style.color = '';
+  if (filled < inputs.length) { el.textContent = '已填 ' + filled + '/' + inputs.length + ' 项'; return; }
+  var total = Math.round(raw * 100 / cfg.total_max), grade = null;
+  for (var i = 0; i < cfg.bands.length; i++) {
+    var b = cfg.bands[i];
+    if (total >= b[0] && total <= b[1]) { grade = b[2]; break; }
+  }
+  var lvl = grade === null ? '' : (cfg.level_map[String(grade)] || '映射未配置');
+  el.innerHTML = '当前 <b style="font-size:16px">' + total + '</b> 分 · ' +
+    (grade === null ? '' : cfg.labels[String(grade)] + ' · 建议 <b>' + lvl + '</b>');
+}
+inputs.forEach(function (i) { i.addEventListener('input', upd); });
+upd();
+</script>
+{% endblock %}
