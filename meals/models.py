@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.db import models
 
 from nursing_erp.staff_fk import StaffFkMixin
@@ -190,7 +192,12 @@ class MealFinance(models.Model):
         return f"{self.resident.name} — {self.month} ¥{self.amount}"
 
     @classmethod
-    def generate_monthly(cls, resident, month: str, price_per_meal: float = 15):
+    def generate_monthly(cls, resident, month: str, price_per_meal: Decimal | float):
+        """生成/刷新月结行（update_or_create 幂等）。
+
+        单价由调用方显式传入——真源是 billing.FeeRule.get_meal_price()。
+        不设默认值：防止新调用点悄悄回落到硬编码 15 元。
+        """
         orders = MealOrder.objects.filter(resident=resident, date__startswith=month)
         total = orders.count()
         cancelled_count = orders.filter(status="cancelled").count()

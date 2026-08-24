@@ -191,16 +191,25 @@ def list_meal_finance(request, month: Optional[str] = Query(None, description="�
 
 @router.post("/meal-finance/generate/", response=dict)
 def generate_meal_finance(request, month: str, resident_id: int | None = None):
-    """生成月度餐费对账单"""
+    """生成月度餐费对账单。
+
+    单价读 billing 价目表（FeeRule）——后台改价即生效，缺行 400 指引补配；
+    不按楼栋过滤——财务出账全院口径（对齐 /api/billing/generate/）。
+    """
+    from billing.models import FeeRule, FeeRuleMissing
     from residents.models import Resident
+    try:
+        price = FeeRule.get_meal_price()
+    except FeeRuleMissing as exc:
+        raise HttpError(400, str(exc)) from exc
     qs = Resident.objects.all()
     if resident_id:
         qs = qs.filter(id=resident_id)
     count = 0
     for resident in qs:
-        MealFinance.generate_monthly(resident, month)
+        MealFinance.generate_monthly(resident, month, price_per_meal=price)
         count += 1
-    return {"status": "generated", "count": count}
+    return {"status": "generated", "count": count, "price_per_meal": float(price)}
 
 
 # ---- Helper ----

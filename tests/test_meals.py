@@ -285,3 +285,51 @@ def test_weekmenu_admin_default_week_and_filter(client):
     resp = client.get("/admin/meals/weekmenu/", {"week": last_monday.isoformat()})
     weeks = {o.week_start for o in resp.context["cl"].result_list}
     assert weeks == {last_monday}
+
+
+# ---- 餐费单价读价目表（2026-08-24）----
+# /api/meal-finance/generate/ 不再硬编码 15 元：单价真源 billing.FeeRule，
+# 后台改价即生效；缺行 fail-loud 400 指引补配置（billing 同款口径）。
+
+
+@pytest.mark.django_db
+def test_meal_finance_generate_reads_fee_rule(client):
+    """出账单价随价目表走（改 20 → 金额 = 有效餐数×20），响应回显单价"""
+    from billing.models import FeeRule
+    from meals.models import MealOrder
+    from residents.models import Resident
+
+    FeeRule.objects.filter(fee_type=FeeRule.FeeType.MEAL).update(monthly_amount=20)
+    resident = Resident.objects.create(
+        name="张国栋", building="1号楼", floor="1层", room="101",
+        care_level="自理", id_card="330100194801011234"
+    )
+    MealOrder.objects.create(resident=resident, date="2026-08-04", meal_type="午餐")
+    MealOrder.objects.create(
+        resident=resident, date="2026-08-04", meal_type="晚餐", status="cancelled"
+    )
+
+    resp = client.post("/api/meal-finance/generate/?month=2026-08")
+    assert resp.status_code == 200
+    assert resp.json()["price_per_meal"] == 20.0
+    finance = resident.meal_finances.get(month="2026-08")
+    assert finance.total_meals == 2 and finance.cancelled == 1
+    assert finance.amount == 20  # 有效 1 餐 × 20
+
+
+@pytest.mark.django_db
+def test_meal_finance_generate_missing_fee_rule_400(client):
+    """价目表删掉餐费行 → 400 报"价目表缺行"，一条月结行都不写"""
+    from billing.models import FeeRule
+    from meals.models import MealFinance
+    from residents.models import Resident
+
+    FeeRule.objects.filter(fee_type=FeeRule.FeeType.MEAL).delete()
+    Resident.objects.create(
+        name="张国栋", building="1号楼", floor="1层", room="101",
+        care_level="自理", id_card="330100194801011234"
+    )
+    resp = client.post("/api/meal-finance/generate/?month=2026-08")
+    assert resp.status_code == 400
+    assert "价目表缺行" in resp.json()["detail"]
+    assert MealFinance.objects.count() == 0
