@@ -1,9 +1,56 @@
+import re
+from datetime import date, timedelta
+
 from django.contrib import admin
+from django.db.models import Case, IntegerField, When
+from django.shortcuts import redirect
 from unfold.admin import ModelAdmin
 from unfold.decorators import action
+
 from nursing_erp.admin_mixins import BuildingScopeMixin
 
-from .models import Dish, WeekMenu, MealOrder, MealModificationLog, MealFinance
+from .models import Dish, MealFinance, MealModificationLog, MealOrder, WeekMenu
+
+
+def _monday(d: date) -> date:
+    return d - timedelta(days=d.weekday())
+
+
+# 汉字码点序是乱的（一三二五四六日），排序必须映射成数字；
+# Meta.ordering 不支持表达式，故在 ModelAdmin.ordering 上声明
+_DAY_ORDER = Case(
+    *[When(day=v, then=i) for i, v in enumerate(WeekMenu.Day.values, 1)],
+    output_field=IntegerField(),
+)
+_MEAL_ORDER = Case(
+    *[When(meal_type=v, then=i) for i, v in enumerate(WeekMenu.MealType.values, 1)],
+    output_field=IntegerField(),
+)
+
+
+class WeekOfFilter(admin.SimpleListFilter):
+    """按周筛选：候选 = 库里有菜单的最近 12 周（本周/上周打标），选中即锁定。"""
+
+    title = "周"
+    parameter_name = "week"
+
+    def lookups(self, request, model_admin):
+        this_monday = _monday(date.today())
+        tags = {
+            this_monday: "（本周）",
+            this_monday - timedelta(days=7): "（上周）",
+        }
+        return [
+            (ws.isoformat(),
+             f"{ws:%m-%d} ~ {(ws + timedelta(days=6)):%m-%d}{tags.get(ws, '')}")
+            for ws in (WeekMenu.objects.order_by("-week_start")
+                       .values_list("week_start", flat=True).distinct()[:12])
+        ]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(week_start=self.value())
+        return queryset
 
 
 @admin.register(Dish)
@@ -14,13 +61,38 @@ class DishAdmin(ModelAdmin):
     list_per_page = 50
 
 
+_DATE_Q_RE = re.compile(r"^\s*(\d{4})[-/.年]?(\d{1,2})[-/.月]?(\d{1,2})日?\s*$")
+
+
 @admin.register(WeekMenu)
 class WeekMenuAdmin(ModelAdmin):
     list_display = ["week_start", "day", "meal_type", "dishes_list"]
-    list_filter = ["week_start", "day", "meal_type"]
+    list_filter = [WeekOfFilter, "day", "meal_type"]
     search_fields = ["dishes__name"]
+    search_help_text = "菜品名，或该周任一日期（2026-08-24 / 8/24 / 2026年8月24日）→ 查当周菜单"
     list_per_page = 30
     filter_horizontal = ["dishes"]
+    ordering = ["week_start", _DAY_ORDER, _MEAL_ORDER]
+
+    def get_search_results(self, request, queryset, search_term):
+        """搜索框输入该周任意一天 → 直接锁定那一周（与已选周筛选取交集）。"""
+        m = _DATE_Q_RE.match(search_term)
+        if m:
+            try:
+                d = date(int(m[1]), int(m[2]), int(m[3]))
+            except ValueError:  # 2026-13-40 之类非法日期 → 回退普通菜品搜索
+                pass
+            else:
+                return queryset.filter(week_start=_monday(d)), False
+        return super().get_search_results(request, queryset, search_term)
+
+    def changelist_view(self, request, extra_context=None):
+        # 无任何筛选条件时默认聚焦本周（打开即看本周菜单，而不是最早一周）
+        if request.method == "GET" and not set(request.GET) & {"week", "q", "day", "meal_type"}:
+            monday = _monday(date.today())
+            if WeekMenu.objects.filter(week_start=monday).exists():
+                return redirect(f"{request.path}?week={monday.isoformat()}")
+        return super().changelist_view(request, extra_context)
 
     @admin.display(description="菜品")
     def dishes_list(self, obj):

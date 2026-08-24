@@ -224,3 +224,64 @@ def test_ocr_batch_create_rejects_duplicate(client):
     # 整批拒绝：周一晚餐也没建
     assert MealOrder.objects.count() == 1
     assert not MealOrder.objects.filter(date="2026-08-17", meal_type="晚餐").exists()
+
+
+# ---- 周菜单后台查询优化（2026-08-24）----
+# 搜索框输入该周任意一天 → 锁定当周；行序 周一→周日 / 早餐→晚餐；
+# 无筛选打开时默认聚焦本周。
+
+
+@pytest.mark.django_db
+def test_weekmenu_admin_date_search_and_order(client):
+    """输入周三的日期 → 查出整周 21 槽位中已建的行，且 周一→周日/早→晚 有序"""
+    from datetime import date, timedelta
+
+    from django.contrib.auth.models import User
+
+    from meals.models import Dish, WeekMenu
+
+    boss = User.objects.create_user("boss", password="x", is_superuser=True, is_staff=True)
+    d = Dish.objects.create(name="小米粥", category="主食")
+    ws = date(2026, 8, 17)  # 周一
+    # 故意乱序建：周日午餐、周一早餐、周三晚餐，另有上一周的一行
+    rows = [(ws, "周日", "午餐"), (ws, "周一", "早餐"), (ws, "周三", "晚餐"),
+            (ws - timedelta(days=7), "周一", "早餐")]
+    for w, day, meal in rows:
+        m = WeekMenu.objects.create(week_start=w, day=day, meal_type=meal)
+        m.dishes.add(d)
+
+    client.force_login(boss)
+    resp = client.get("/admin/meals/weekmenu/", {"q": "2026-08-19"})  # 该周三
+    assert resp.status_code == 200
+    got = [(o.day, o.meal_type) for o in resp.context["cl"].result_list]
+    assert got == [("周一", "早餐"), ("周三", "晚餐"), ("周日", "午餐")]
+
+    # 非日期关键词仍走菜品名搜索；非法日期回退不炸
+    assert client.get("/admin/meals/weekmenu/", {"q": "小米粥"}).status_code == 200
+    assert client.get("/admin/meals/weekmenu/", {"q": "2026-13-40"}).status_code == 200
+
+
+@pytest.mark.django_db
+def test_weekmenu_admin_default_week_and_filter(client):
+    """无筛选打开 → 302 聚焦本周；?week= 精确锁定某周"""
+    from datetime import date, timedelta
+
+    from django.contrib.auth.models import User
+
+    from meals.models import Dish, WeekMenu
+
+    boss = User.objects.create_user("boss", password="x", is_superuser=True, is_staff=True)
+    d = Dish.objects.create(name="小米粥", category="主食")
+    this_monday = date.today() - timedelta(days=date.today().weekday())
+    last_monday = this_monday - timedelta(days=7)
+    for w, day in [(this_monday, "周一"), (this_monday, "周二"), (last_monday, "周一")]:
+        WeekMenu.objects.create(week_start=w, day=day, meal_type="早餐").dishes.add(d)
+
+    client.force_login(boss)
+    # 无参数 → 默认跳本周
+    resp = client.get("/admin/meals/weekmenu/")
+    assert resp.status_code == 302 and f"week={this_monday.isoformat()}" in resp["Location"]
+    # 周筛选：选上周 → 只剩上周一行
+    resp = client.get("/admin/meals/weekmenu/", {"week": last_monday.isoformat()})
+    weeks = {o.week_start for o in resp.context["cl"].result_list}
+    assert weeks == {last_monday}
