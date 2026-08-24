@@ -432,3 +432,17 @@ def test_bed_dropdown_scoped_for_employee():
     )
     locs = sorted(b.full_location for b in field.queryset)
     assert locs == ["3号楼 2层 201室 1床", "3号楼 2层 202室 1床"]
+
+
+def test_unfold_sidebar_lists_beds_group():
+    """回归钉：unfold SIDEBAR 是点名制（show_all_applications=False），
+    漏列的 app 整组不显示——床位组曾静默漏配（2026-08-24 用户发现）。"""
+    from django.conf import settings
+
+    nav = settings.UNFOLD["SIDEBAR"]["navigation"]
+    group = next((g for g in nav if g["title"] == "床位管理"), None)
+    assert group is not None, "侧边栏缺少「床位管理」组"
+    links = [i["link"] for i in group["items"]]
+    assert "/beds/" in links  # 床位看板
+    for model in ("building", "floor", "room", "bed"):
+        assert f"/admin/beds/{model}/" in links  # 四级台账

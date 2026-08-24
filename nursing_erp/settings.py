@@ -206,6 +206,13 @@ UNFOLD = {
                 {"title": "评估记录", "icon": "assignment_turned_in", "link": "/admin/assessments/assessment/"},
                 {"title": "等级映射表", "icon": "tune", "link": "/admin/assessments/gradelevelmap/"},
             ]},
+            {"title": "床位管理", "icon": "bed", "collapsible": True, "items": [
+                {"title": "床位看板", "icon": "grid_view", "link": "/beds/"},
+                {"title": "楼栋台账", "icon": "apartment", "link": "/admin/beds/building/"},
+                {"title": "楼层台账", "icon": "layers", "link": "/admin/beds/floor/"},
+                {"title": "房间台账", "icon": "meeting_room", "link": "/admin/beds/room/"},
+                {"title": "床位台账", "icon": "bed", "link": "/admin/beds/bed/"},
+            ]},
             {"title": "人员管理", "icon": "groups", "collapsible": True, "items": [
                 {"title": "员工档案", "icon": "badge", "link": "/admin/staff/employee/"},
                 {"title": "排班表", "icon": "calendar_month", "link": "/admin/staff/schedule/"},
