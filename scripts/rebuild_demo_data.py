@@ -17,8 +17,10 @@
 4. 月份深度：前两月 + 当月逐月出账，往月全额核销、当月部分核销 → 欠费名单有戏
 5. 剧本：
    · 吴桂英(7)·失智 欠费三月 —— 欠费名单榜首
-   · 张国栋(1) 护理等级 自理→半护(上月1日)→全护(本月1日)，变更/转区留痕；
+   · 张国栋(1) 护理等级 自理→半护(上月1日)→全护(本月1日)——走真实评估定级：
+     create_assessment(26 项国标打分)→confirm() 自动翻转档案+生成关联变更行；
      出账按"当月生效等级"整月计费（先按旧等级出往月账，再升级出当月账）
+   · 稳定自理老人补录 400 天前的已确认评估单（from==to 也留痕）→ 盘点"待复评"
    · 杨国华(10) 上月20日身故离院 —— 上月账照出（在世期间），当月起释放
      床位（入住率 35/36）不再出账
    · 尿不湿L码 低于安全线（档案层数量本就如此）+ 待批采购申请
@@ -49,6 +51,8 @@ from django.db import connection, transaction  # noqa: E402
 from django.db.models import Count, Sum  # noqa: E402
 from django.utils import timezone as djtz  # noqa: E402
 
+from assessments.models import Assessment, AssessmentItem, GradeLevelMap  # noqa: E402
+from assessments.services import create_assessment, review_lists  # noqa: E402
 from beds.models import Bed  # noqa: E402
 from billing.models import FeeRule, MonthlyBill  # noqa: E402
 from billing.services import arrears_stats, generate_month_bills, month_summary  # noqa: E402
@@ -129,13 +133,19 @@ def check(cond, msg: str):
 
 
 def level_timeline(anchor: date):
-    """等级变更时间线（相对锚点）：(resident_id, 日期, from, to, 原因, 经办人)。"""
+    """评估定级时间线（相对锚点）：(resident_id, 日期, 目标档, 目标总分, 原因, 经办人)。
+
+    每行 = 一张评估单：synth_scores(目标总分) 打 26 项 → 建议档应恰为目标档
+    （55→2级半护 / 75→3级全护，±1 舍入不跨段），confirm(final_level=目标档)。
+    from 档不再手写——confirm 时取老人当时档位，链条自然衔接。
+    """
     return [
-        (2, shift_month(anchor, -2).replace(day=15), "自理", "半护",
+        (2, shift_month(anchor, -2).replace(day=15), "半护", 55,
          "术后康复期，需协助起居", "张主任"),
-        (PROMOTION_ID, shift_month(anchor, -1).replace(day=1), "自理", "半护",
+        (PROMOTION_ID, shift_month(anchor, -1).replace(day=1), "半护", 55,
          "行动能力下降，需部分生活协助", "刘主任"),
-        (PROMOTION_ID, anchor.replace(day=1), "半护", "全护", "病情加重，需全天照护", "刘主任"),
+        (PROMOTION_ID, anchor.replace(day=1), "全护", 75,
+         "病情加重，需全天照护", "刘主任"),
     ]
 
 
@@ -195,13 +205,23 @@ def main() -> None:
         u = User.objects.filter(username=uname).first()
         check(u is not None and u.check_password("123456"), f"账号 {uname} 缺失或密码不对")
     check(User.objects.filter(username="admin").exists(), "admin 账号缺失")
-    print(f"  预检通过：36 老老 / {len(employees)} 员工 / 价目 床{bed_fee} 餐{meal_price}")
+    catalog = list(AssessmentItem.objects.filter(is_active=True))
+    check(len(catalog) == 26, f"评估目录应 26 项（国标），实际 {len(catalog)}")
+    check(GradeLevelMap.objects.count() == 5, "等级映射表应 5 行")
+
+    def synth_scores(target: int) -> dict[int, int]:
+        """按目标总分等比例打 26 项——建单算出的建议档即目标档。"""
+        return {i.id: round(i.max_score * target / 100) for i in catalog}
+
+    print(f"  预检通过：36 老老 / {len(employees)} 员工 / 价目 床{bed_fee} 餐{meal_price}"
+          " / 评估目录 26 项·映射 5 行")
 
     with transaction.atomic():
         # ── 1. 清空动态层（ORM delete 走级联，M2M/日志一并清）─────
         for model in (
             MealOrder, MealFinance, WeekMenu, MonthlyBill,
             NursingLog, HealthRecord, MedicationRecord, ResidentRoutine,
+            Assessment,  # 级联清 AssessmentScore 明细
             CareLevelChange, TransferRecord, DischargeRecord,
             Task, Attendance, Schedule, Performance,
             StockIn, StockOut, MaintenanceOrder, Inspection, Approval,
@@ -221,10 +241,9 @@ def main() -> None:
                     fixed += 1
                     break
         promo = Resident.objects.get(pk=PROMOTION_ID)
-        base_level = next(c[2] for c in level_timeline(anchor) if c[0] == PROMOTION_ID)
-        promo.care_level = base_level  # 每轮重灌从时间线起点（自理）重新走
+        promo.care_level = "自理"  # 每轮重灌回到时间线起点（首评前基线）重新走
         promo.save(update_fields=["care_level"])
-        print(f"  档案校正：菜品重分类 {fixed} 道；{promo.name} 等级重置为 {base_level}")
+        print(f"  档案校正：菜品重分类 {fixed} 道；{promo.name} 等级重置为 自理")
 
         # ── 3. 周菜单（覆盖整个点餐跨度）──────────────────────────
         dish_pools = {
@@ -388,20 +407,24 @@ def main() -> None:
                     reason="随护理等级由半护转全护，迁入介护区",
                 )
             m_end = month_end(date.fromisoformat(m + "-01"))
-            for idx, (rid, cdate, from_l, to_l, reason, by) in enumerate(timeline):
+            for idx, (rid, cdate, to_l, target, reason, by) in enumerate(timeline):
                 if idx in applied or cdate > m_end:
                     continue
                 r = Resident.objects.get(pk=rid)
-                r.care_level = to_l
-                r.save(update_fields=["care_level"])
+                # 走真实评估定级：26 项打分 → 建议档=目标档 → confirm 原子翻转
+                # 档案 + 生成关联变更行（from 取当时档位，链条自然衔接）
+                a = create_assessment(r, cdate, "李护士", "王护士", synth_scores(target))
+                check(a.suggested_level == to_l,
+                      f"{r.name} 目标总分 {target} 算出建议 {a.suggested_level}，"
+                      f"应为 {to_l}（目标分漂移跨段？）")
+                a.confirm(operator=by, final_level=to_l, reason=reason)
+                # StaffFkMixin 遇重名（刘主任×2）留空 → 按既有定夺回填员工档案
                 emp = (Employee.objects.filter(name=by).exclude(building="")
-                       .order_by("id").first())  # 刘主任重名 → 按既有定夺取 1号楼
-                CareLevelChange.objects.create(
-                    resident=r, from_level=from_l, to_level=to_l, change_date=cdate,
-                    reason=reason, changed_by=by, changed_by_emp=emp,
-                )
+                       .order_by("id").first())
+                CareLevelChange.objects.filter(assessment=a).update(changed_by_emp=emp)
                 applied.add(idx)
-                print(f"  等级变更：{r.name} {from_l}→{to_l}（{cdate}，出账 {m} 前）")
+                print(f"  评估定级：{r.name} {a.total_score}分·{a.grade}级 → {to_l}"
+                      f"（{cdate}，出账 {m} 前）")
             stats = generate_month_bills(m)
             bills = list(MonthlyBill.objects.filter(month=m).select_related("resident"))
             settle_ids, settle_rids = [], []
@@ -426,8 +449,20 @@ def main() -> None:
             print(f"  出账 {m}：{stats['generated']} 单 合计 ¥{stats['total']}"
                   f"（核销 {len(settle_ids)} / 跳过已缴 {stats['skipped_paid']}）")
 
+        # ── 6.4 复评剧本：稳定自理老人 400 天前已定级（from==to 也留痕）──
+        # 目标 10 分=0级→建议自理==现档，不扰动已出的账；盘点页「待复评」有内容
+        stale = (Resident.objects.exclude(bed=None)
+                 .exclude(id__in=(PROMOTION_ID, 2, ARREARS_ID, DISCHARGE_ID))
+                 .filter(care_level="自理").order_by("id").first())
+        check(stale is not None, "找不到可补录复评的自理在住老人")
+        a_stale = create_assessment(stale, anchor - timedelta(days=400),
+                                    "李护士", "王护士", synth_scores(10))
+        a_stale.confirm(operator="刘主任")
+        print(f"  复评补录：{stale.name} 400 天前已定级"
+              f"（{a_stale.total_score}分·{a_stale.grade}级 自理，from==to 留痕）")
+
         # ── 6.5 自检断言（留在事务内：失败即整体回滚，生产库不留半套数据）─
-        run_assertions(anchor, months, meal_price, bed_fee, discharge_date)
+        run_assertions(anchor, months, meal_price, bed_fee, discharge_date, stale.name)
 
     # ── 8. 数字面板 ────────────────────────────────────────────
     print("\n=== 数字面板 ===")
@@ -440,6 +475,9 @@ def main() -> None:
     for row in arr["rows"][:3]:
         print(f"    {row['resident__name']}（{row['resident__building']} {row['resident__room']}）"
               f" 欠 {row['unpaid_months']} 个月 ¥{row['outstanding']} 最早 {row['oldest_month']}")
+    rv = review_lists()
+    print(f"  评估盘点：待评估 {len(rv['pending_first'])} / 待复评 {len(rv['due_review'])}"
+          f" / 期内已评 {len(rv['ok'])}")
     occ = Resident.objects.exclude(bed=None).count()
     total_beds = Bed.objects.count()
     low = [i.name for i in InventoryItem.objects.all() if i.is_low_stock]
@@ -674,7 +712,7 @@ def gen_other_domains(anchor, residents, employees, cgs_by_building) -> None:
 
 
 def run_assertions(anchor: date, months: list, meal_price: Decimal, bed_fee: Decimal,
-                   discharge_date: date) -> None:
+                   discharge_date: date, stale_name: str = "") -> None:
     print("\n=== 自检断言 ===")
     # 1. 无有效重复槽位
     dup = (MealOrder.objects.exclude(status="cancelled")
@@ -747,6 +785,17 @@ def run_assertions(anchor: date, months: list, meal_price: Decimal, bed_fee: Dec
 
     # 9. 档案层无损：床位目录 36 张不动
     check(Bed.objects.count() == 36, f"床位目录应 36，实际 {Bed.objects.count()}")
+
+    # 10. 评估剧本：张国栋 2 张已确认单各恰关联 1 条变更行；补录老人在待复评
+    promo_as = Assessment.objects.filter(
+        resident_id=PROMOTION_ID, status=Assessment.Status.CONFIRMED)
+    check(promo_as.count() == 2,
+          f"张国栋已确认评估单应 2 张，实际 {promo_as.count()}")
+    for a in promo_as:
+        linked = a.level_changes.count()
+        check(linked == 1, f"评估单 {a.id} 应恰关联 1 条变更行，实际 {linked}")
+    due = {row["resident"].name for row in review_lists()["due_review"]}
+    check(stale_name in due, f"补录老人 {stale_name} 未出现在待复评（实际：{due or '空'}）")
     print("  全部通过 ✓")
 
 

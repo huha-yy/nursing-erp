@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "meals.apps.MealsConfig",
     "beds.apps.BedsConfig",
     "billing.apps.BillingConfig",
+    "assessments.apps.AssessmentsConfig",
 ]
 
 MIDDLEWARE = [
@@ -201,6 +202,9 @@ UNFOLD = {
                 {"title": "健康记录", "icon": "monitor_heart", "link": "/admin/residents/healthrecord/"},
                 {"title": "用药记录", "icon": "medication", "link": "/admin/residents/medicationrecord/"},
                 {"title": "作息记录", "icon": "bedtime", "link": "/admin/residents/residentroutine/"},
+                {"title": "入住评估", "icon": "fact_check", "link": "/assessments/"},
+                {"title": "评估记录", "icon": "assignment_turned_in", "link": "/admin/assessments/assessment/"},
+                {"title": "等级映射表", "icon": "tune", "link": "/admin/assessments/gradelevelmap/"},
             ]},
             {"title": "人员管理", "icon": "groups", "collapsible": True, "items": [
                 {"title": "员工档案", "icon": "badge", "link": "/admin/staff/employee/"},

@@ -1,0 +1,159 @@
+{% extends "base_light.html" %}{% block nav_assess %}on{% endblock %}
+
+{% block content %}
+<div class="wrap">
+  <div class="title">
+    <span class="material-symbols-outlined">fact_check</span> 入住评估
+    <span class="sub">GB/T 42195-2022 · 26 项能力评估 → 定级</span>
+  </div>
+
+  <div class="stats">
+    <div class="stat -warn"><div class="num">{{ review.pending_first|length }}</div><div class="lbl">待评估</div></div>
+    <div class="stat -warn"><div class="num">{{ review.due_review|length }}</div><div class="lbl">待复评（超12个月）</div></div>
+    <div class="stat"><div class="num">{{ drafts|length }}</div><div class="lbl">待定级</div></div>
+    <div class="stat"><div class="num">{{ total_confirmed }}</div><div class="lbl">累计已定级</div></div>
+  </div>
+
+  {% if error %}
+  <div class="c" style="border-color:var(--red)">
+    <div style="color:var(--red);font-weight:600">⚠ {{ error }}</div>
+  </div>
+  {% endif %}
+
+  <div class="c">
+    <div class="c-h">评估状态盘点<span class="cnt">{{ review.pending_first|length }}<span> 待评估 · {{ review.due_review|length }} 待复评</span></span></div>
+    {% if review.pending_first or review.due_review or review.ok %}
+    <table><thead><tr>
+      <th>老人</th><th>楼栋房号</th><th>当前等级</th><th>最近评估</th><th>状态</th>
+    </tr></thead><tbody>
+    {% for row in review.pending_first %}
+    <tr>
+      <td style="font-weight:600"><a href="?resident_id={{ row.resident.id }}" style="color:inherit;text-decoration:none">{{ row.resident.name }} ›</a></td>
+      <td>{{ row.resident.building }} {{ row.resident.room }}</td>
+      <td>{{ row.resident.get_care_level_display }}</td>
+      <td>—</td>
+      <td><span class="b b-err">待评估</span></td>
+    </tr>
+    {% endfor %}
+    {% for row in review.due_review %}
+    <tr>
+      <td style="font-weight:600"><a href="?resident_id={{ row.resident.id }}" style="color:inherit;text-decoration:none">{{ row.resident.name }} ›</a></td>
+      <td>{{ row.resident.building }} {{ row.resident.room }}</td>
+      <td>{{ row.resident.get_care_level_display }}</td>
+      <td>{{ row.last_assessed|date:"Y-m-d" }}</td>
+      <td><span class="b b-warn">待复评</span></td>
+    </tr>
+    {% endfor %}
+    {% for row in review.ok %}
+    <tr>
+      <td><a href="?resident_id={{ row.resident.id }}" style="color:inherit;text-decoration:none">{{ row.resident.name }} ›</a></td>
+      <td>{{ row.resident.building }} {{ row.resident.room }}</td>
+      <td>{{ row.resident.get_care_level_display }}</td>
+      <td>{{ row.last_assessed|date:"Y-m-d" }}</td>
+      <td><span class="b b-ok">期内已评</span></td>
+    </tr>
+    {% endfor %}
+    </tbody></table>
+    {% else %}<div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">inbox</span></div><p>暂无在住老人</p></div>{% endif %}
+  </div>
+
+  <div class="c">
+    <div class="c-h">新建评估单{% if focus %}<span class="cnt">{{ focus.name }}<span> · {{ focus.building }} {{ focus.room }}</span></span>{% endif %}</div>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="create">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+        {% if focus %}
+        <input type="hidden" name="resident_id" value="{{ focus.id }}">
+        <span class="b b-ok">{{ focus.name }}</span>
+        {% else %}
+        <select class="inp" name="resident_id" required style="max-width:220px">
+          <option value="">— 选择老人（待评估/待复评优先）—</option>
+          {% for row in review.pending_first %}
+          <option value="{{ row.resident.id }}">{{ row.resident.name }}（待评估）</option>
+          {% endfor %}
+          {% for row in review.due_review %}
+          <option value="{{ row.resident.id }}">{{ row.resident.name }}（待复评）</option>
+          {% endfor %}
+        </select>
+        {% endif %}
+        <input class="inp" type="date" name="assess_date" value="{% now 'Y-m-d' %}" style="max-width:170px" required>
+        <input class="inp" name="assessor1" placeholder="评估员1（医护）" style="max-width:170px" required>
+        <input class="inp" name="assessor2" placeholder="评估员2" style="max-width:170px" required>
+      </div>
+      {% for g in groups %}
+      <div style="font-weight:700;font-size:14px;margin:12px 0 6px;color:var(--blue)">{{ g.dimension }}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px">
+        {% for item in g.items %}
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500">
+          <span style="flex:1">{{ item.name }}</span>
+          <input class="inp" type="number" name="score_{{ item.id }}" min="0" max="{{ item.max_score }}"
+                 placeholder="0-{{ item.max_score }}" style="max-width:86px;padding:6px 8px" required>
+        </label>
+        {% endfor %}
+      </div>
+      {% endfor %}
+      <div style="margin-top:14px">
+        <button class="submit" type="submit">创建评估单（待定级）</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="c">
+    <div class="c-h">待定级<span class="cnt">{{ drafts|length }}<span> 单</span></span></div>
+    {% if drafts %}
+    <table><thead><tr>
+      <th>老人</th><th>评估日</th><th>总分</th><th>能力等级</th><th>建议档</th><th>评估员</th><th>定级 / 原因</th>
+    </tr></thead><tbody>
+    {% for a in drafts %}
+    <tr>
+      <td style="font-weight:600">{{ a.resident.name }}</td>
+      <td>{{ a.assess_date|date:"Y-m-d" }}</td>
+      <td style="font-weight:700">{{ a.total_score }}</td>
+      <td>{{ a.grade }}级</td>
+      <td><span class="b b-ok">{{ a.suggested_level }}</span></td>
+      <td>{{ a.assessor1 }}/{{ a.assessor2 }}</td>
+      <td>
+        <form method="post" style="display:flex;gap:6px;align-items:center" onsubmit="return confirm('确认 {{ a.resident.name }} 定级？将更新护理等级并留痕')">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="confirm">
+          <input type="hidden" name="assessment_id" value="{{ a.id }}">
+          <select class="inp" name="final_level" style="max-width:110px;padding:6px 8px">
+            {% for value, label in care_levels %}
+            <option value="{{ value }}" {% if value == a.suggested_level %}selected{% endif %}>{{ value }}</option>
+            {% endfor %}
+          </select>
+          <input class="inp" name="reason" placeholder="改判须填原因" style="max-width:170px;padding:6px 8px">
+          <button class="btn" style="padding:6px 16px;font-size:13px;white-space:nowrap" type="submit">定级</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody></table>
+    {% else %}<div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">task_alt</span></div><p>无待定级评估单</p></div>{% endif %}
+  </div>
+
+  <div class="c">
+    <div class="c-h">定级历史<span class="cnt">近 {{ history|length }}<span> 单</span></span></div>
+    {% if history %}
+    <table><thead><tr>
+      <th>老人</th><th>评估日</th><th>总分</th><th>能力等级</th><th>建议 → 定级</th><th>定级人</th>
+    </tr></thead><tbody>
+    {% for a in history %}
+    <tr>
+      <td style="font-weight:600">{{ a.resident.name }}</td>
+      <td>{{ a.assess_date|date:"Y-m-d" }}</td>
+      <td>{{ a.total_score }}</td>
+      <td>{{ a.grade }}级</td>
+      <td>
+        {{ a.suggested_level }} → <b>{{ a.final_level }}</b>
+        {% if a.suggested_level != a.final_level %}<span class="b b-warn">改判</span>{% endif %}
+      </td>
+      <td>{{ a.confirmed_by|default:"—" }}</td>
+    </tr>
+    {% endfor %}
+    </tbody></table>
+    {% else %}<div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">inbox</span></div><p>暂无定级记录</p></div>{% endif %}
+  </div>
+</div>
+{% endblock %}

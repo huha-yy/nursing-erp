@@ -4,6 +4,7 @@ from ninja import NinjaAPI
 
 from nursing_erp.api_auth import erp_auth
 from nursing_erp.views import (
+    assessments_board,
     bed_board,
     billing_board,
     finance_monthly,
@@ -18,6 +19,7 @@ from nursing_erp.views import (
 api = NinjaAPI(title="养老院管理系统 API", version="1.0.0", auth=erp_auth)
 
 # Phase 1-A API routers
+from assessments.api import router as assessments_router
 from beds.api import router as beds_router
 from billing.api import router as billing_router
 from incidents.api import router as incidents_router
@@ -33,6 +35,7 @@ api.add_router("/", operations_router)
 api.add_router("/", meals_router)
 api.add_router("/", beds_router)
 api.add_router("/", billing_router)
+api.add_router("/", assessments_router)
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -40,6 +43,7 @@ urlpatterns = [
     path("kitchen/", kitchen_today, name="kitchen_today"),
     path("beds/", bed_board, name="bed_board"),
     path("billing/", billing_board, name="billing_board"),
+    path("assessments/", assessments_board, name="assessments_board"),
     path("finance/", finance_monthly, name="finance_monthly"),
     path("quick-log/", quick_log, name="quick_log"),
     path("weekly-order/", weekly_order, name="weekly_order"),

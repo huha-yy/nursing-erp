@@ -5,10 +5,13 @@ from datetime import date, timedelta
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 
+from assessments.models import Assessment, AssessmentItem
+from assessments.services import create_assessment, review_lists
 from beds.services import occupancy_stats
 from billing.models import MonthlyBill
 from billing.services import arrears_stats, current_month, generate_month_bills, month_summary
 from meals.models import MealFinance, MealOrder, WeekMenu
+from residents.models import Resident
 
 
 @login_required
@@ -115,11 +118,103 @@ def billing_board(request):
 
 
 def _operator_name(request) -> str:
-    """核销人：session 员工姓名（无档案退回用户名）。"""
+    """核销人/定级人：session 员工姓名（无档案退回用户名）。"""
     try:
         return request.user.employee.name
     except Exception:
         return request.user.username
+
+
+@login_required
+def assessments_board(request):
+    """入住评估看板 — 评估状态盘点 / 26 项评估单 / 待定级确认 / 定级历史。
+
+    与 /billing/ 同口径：登录即可见全院（无 session 楼栋强制——演示阶段可接受，
+    API 侧已有严格 scope，页面如需收紧再对齐）。
+    """
+
+    def _parse_date(s):
+        try:
+            return date.fromisoformat(s or "")
+        except ValueError:
+            return None
+
+    error = ""
+    if request.method == "POST":
+        action = request.POST.get("action", "")
+        if action == "create":
+            resident = Resident.objects.filter(pk=request.POST.get("resident_id", 0)).first()
+            assess_date = _parse_date(request.POST.get("assess_date", ""))
+            scores: dict[int, int] = {}
+            for key, value in request.POST.items():
+                if key.startswith("score_") and value.strip():
+                    try:
+                        scores[int(key[6:])] = int(value)
+                    except ValueError:
+                        error = f"分值须为整数，收到：{value!r}"
+                        break
+            if resident is None:
+                error = error or "老人不存在"
+            elif assess_date is None:
+                error = error or "评估日期格式须为 YYYY-MM-DD"
+            if not error:
+                try:
+                    a = create_assessment(
+                        resident, assess_date,
+                        request.POST.get("assessor1", ""), request.POST.get("assessor2", ""),
+                        scores,
+                    )
+                    return redirect(f"{request.path}?resident_id={a.resident_id}")
+                except ValueError as exc:
+                    error = str(exc)  # fail-loud 回显，不跳转
+        elif action == "confirm":
+            a = Assessment.objects.select_related("resident").filter(
+                pk=request.POST.get("assessment_id", 0)
+            ).first()
+            if a is None:
+                error = "评估单不存在"
+            else:
+                try:
+                    a.confirm(
+                        operator=_operator_name(request),
+                        final_level=request.POST.get("final_level", ""),
+                        reason=request.POST.get("reason", ""),
+                    )
+                except ValueError as exc:
+                    error = str(exc)
+                if not error:
+                    return redirect(f"{request.path}?resident_id={a.resident_id}")
+
+    # GET 渲染（POST 失败也回到这里带 error 回显）
+    review = review_lists()
+    focus = Resident.objects.filter(
+        pk=request.GET.get("resident_id", 0)
+    ).select_related("bed").first()
+    by_dim: dict[str, list] = {}
+    for item in AssessmentItem.objects.filter(is_active=True):
+        by_dim.setdefault(item.dimension, []).append(item)
+    groups = [
+        {"dimension": AssessmentItem.Dimension(dim).label, "items": rows}
+        for dim, rows in by_dim.items()
+    ]
+    drafts = Assessment.objects.filter(
+        status=Assessment.Status.DRAFT
+    ).select_related("resident")
+    history = Assessment.objects.filter(
+        status=Assessment.Status.CONFIRMED
+    ).select_related("resident")[:20]
+    return render(request, "assessments_board.html", {
+        "review": review,
+        "focus": focus,
+        "groups": groups,
+        "drafts": drafts,
+        "history": history,
+        "total_confirmed": Assessment.objects.filter(
+            status=Assessment.Status.CONFIRMED
+        ).count(),
+        "care_levels": Resident.CareLevel.choices,
+        "error": error,
+    })
 
 
 @login_required
@@ -160,7 +255,7 @@ def resident_lifecycle(request, resident_id):
     COLORS = {
         "入住": "#27ae60", "护理": "#3b82f6", "健康": "#14b8a6", "用药": "#8b5cf6",
         "作息": "#94a3b8", "异常": "#ef4444", "等级变更": "#f59e0b", "转区": "#f59e0b",
-        "离院": "#6b7280",
+        "评估": "#0ea5e9", "离院": "#6b7280",
     }
 
     def add(d, kind, icon, title, detail=""):
@@ -193,6 +288,12 @@ def resident_lifecycle(request, resident_id):
     for o in resident.level_changes.all():
         add(o.change_date, "等级变更", "📈",
             f"{o.get_from_level_display()} → {o.get_to_level_display()}", o.reason)
+
+    for o in resident.assessments.all():
+        add(o.assess_date, "评估", "📋",
+            f"能力评估 {o.total_score}分·{Assessment.GRADE_LABELS[o.grade]}",
+            f"评估员 {o.assessor1}/{o.assessor2}"
+            + (f"·定级 {o.final_level}" if o.final_level else "·待定级"))
 
     for o in resident.transfers.all():
         add(o.transfer_date, "转区", "🚚",

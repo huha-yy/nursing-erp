@@ -4,6 +4,7 @@ from import_export.admin import ImportExportModelAdmin
 from nursing_erp.admin_mixins import BuildingScopeMixin
 
 from .models import Resident, NursingLog, HealthRecord, MedicationRecord, ResidentRoutine, CareLevelChange, TransferRecord, DischargeRecord
+from assessments.models import Assessment
 from incidents.models import IncidentReport
 
 
@@ -50,6 +51,15 @@ class CareLevelChangeInline(admin.TabularInline):
     ordering = ("-change_date",)
 
 
+class AssessmentInline(admin.TabularInline):
+    """评估单查阅入口——建单/定级走 /assessments/ 看板或评估记录 admin。"""
+    model = Assessment
+    extra = 0
+    fields = ("assess_date", "total_score", "suggested_level", "status", "final_level")
+    ordering = ("-assess_date",)
+    show_change_link = True
+
+
 class TransferRecordInline(admin.TabularInline):
     model = TransferRecord
     extra = 0
@@ -80,6 +90,7 @@ class ResidentAdmin(BuildingScopeMixin, ModelAdmin, ImportExportModelAdmin):
         ResidentRoutineInline,
         IncidentReportInline,
         CareLevelChangeInline,
+        AssessmentInline,
         TransferRecordInline,
         DischargeRecordInline,
     ]
@@ -161,6 +172,7 @@ class CareLevelChangeAdmin(BuildingScopeMixin, ModelAdmin, ImportExportModelAdmi
     search_fields = ["resident__name"]
     date_hierarchy = "change_date"
     autocomplete_fields = ["resident", "changed_by_emp"]
+    readonly_fields = ["assessment"]  # 定级自动回填的关联，后台不可手改
 
 
 @admin.register(TransferRecord)

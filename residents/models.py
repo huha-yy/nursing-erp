@@ -234,6 +234,11 @@ class CareLevelChange(StaffFkMixin, models.Model):
         "staff.Employee", on_delete=models.SET_NULL, null=True, blank=True,
         related_name="care_level_changes", verbose_name="经办人档案",
     )
+    assessment = models.ForeignKey(
+        "assessments.Assessment", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="level_changes", verbose_name="关联评估",
+        help_text="入住评估定级自动生成时回填；手工变更留空",
+    )
 
     class Meta:
         verbose_name = "护理等级变更"
