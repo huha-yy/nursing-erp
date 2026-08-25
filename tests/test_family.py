@@ -621,6 +621,18 @@ def test_login_wrong_password_rerenders():
 
 
 @pytest.mark.django_db
+def test_login_pages_cross_linked():
+    """双入口互链（2026-08-25）：后台登录页给家属入口，家属页给员工入口。"""
+    resp = Client().get("/admin/login/")
+    assert resp.status_code == 200
+    body = resp.content.decode()
+    assert "/family/login/" in body and "家属服务登录" in body
+
+    resp = Client().get("/family/login/")
+    assert "/admin/login/" in resp.content.decode()
+
+
+@pytest.mark.django_db
 def test_all_pages_anonymous_redirect_to_login():
     urls = ("/family/", "/family/care/", "/family/care/1/", "/family/order/",
             "/family/billing/", "/family/password/")

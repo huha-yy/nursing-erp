@@ -1,0 +1,20 @@
+{% extends "admin/login.html" %}
+{% comment %}
+  后台登录页加「家属服务登录」跳转（2026-08-25）——家属页此前只有
+  直达 URL 没有可发现的入口。同名 extends 沿 base_site.html 惯例：
+  解析时跳过自身，落 到 UNFOLD 的 admin/login.html，只覆写
+  login_after 扩展块，UNFOLD 升级不牵连。
+{% endcomment %}
+{% load i18n unfold %}
+
+{% block login_after %}
+    <div class="mt-6">
+        {% component "unfold/components/button.html" with href="/family/login/" variant="secondary" class="w-full" %}
+            <span class="material-symbols-outlined relative right-0 transition-all group-hover:-right-1 text-sm">family_restroom</span>
+            家属服务登录
+        {% endcomponent %}
+        <div class="mt-3 text-center text-xs opacity-60">
+            家属请从「家属服务登录」进入；本页为员工后台登录
+        </div>
+    </div>
+{% endblock %}
