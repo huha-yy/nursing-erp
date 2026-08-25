@@ -233,6 +233,25 @@ def main() -> None:
             seed_family()
         return
 
+    # 外科手术模式：只补种告警演示数据（2026-08-25，告警页主从改造后加密度）
+    # ——纯增量 INSERT，不动其他域，与常驻 runserver 并行安全。幂等：库中
+    # 已超出 BASE 数量即视为补过，直接跳过（全量重灌走 gen_other_domains）
+    if "--seed-incidents-extra" in sys.argv:
+        if IncidentReport.objects.count() > len(INCIDENT_BASE):
+            print(f"✓ 告警演示数据已补过（现有 {IncidentReport.objects.count()} 条），跳过")
+            return
+        residents = list(Resident.objects.order_by("id"))
+        employees = list(Employee.objects.order_by("id"))
+        cgs_by_building: dict[str, list[Employee]] = {}
+        for e in employees:
+            if e.is_caregiver and e.building:
+                cgs_by_building.setdefault(e.building, []).append(e)
+        with transaction.atomic():
+            n = seed_incidents(date.today(), djtz.now(), residents,
+                               cgs_by_building, INCIDENT_EXTRA)
+        print(f"✓ 补种异常上报 {n} 条（待处理 {sum(1 for x in INCIDENT_EXTRA if not x[4])}）")
+        return
+
     # runserver 守卫只管默认库（生产 db.sqlite3）；NURSING_DB 指向临时库时
     # 写的是另一个文件，与运行中的服务互不相扰，放行
     if "--force" not in sys.argv and not os.environ.get("NURSING_DB"):
@@ -547,6 +566,122 @@ def main() -> None:
     print("=== 重灌完成 ===")
 
 
+# ── 异常上报（健康告警）剧本 ──────────────────────────────────────────
+# 口径：真实养老院告警呈金字塔（危急少、一般多）；类别与护理等级匹配
+# （失智→走失/情绪，全护→摔倒/皮肤/病情，自理→慢病指标/情绪）。时间铺
+# 近两周、时段贴事件节律（起夜/餐后/日落后徘徊）。元组：
+# (老人id, 类别, 严重度, 说明, 已处理, 距今天数, 时, 分, 处理耗时分钟, 处理人覆盖|None)
+INCIDENT_BASE = [
+    # 首版 6 条（2026-08-24）——老页面的原始底子
+    (7, "refuse_eat", "warning", "午餐拒食，护理人员耐心劝导后进食少量", True, 1, 12, 25, 95, None),
+    (4, "fall", "danger", "走廊不慎跌倒，已送医检查，无骨折", True, 1, 10, 10, 130, None),
+    (19, "mood", "info", "思念家属情绪低落，已联系家属视频", True, 1, 15, 0, 60, None),
+    (26, "skin", "warning", "骶尾部皮肤发红，已开始减压护理", True, 2, 10, 5, 160, None),
+    (7, "refuse_eat", "info", "早餐进食少，持续观察", False, 0, 7, 20, 0, None),
+    (11, "wander", "warning", "在楼道徘徊寻找出口，已引导回房", False, 0, 9, 40, 0, None),
+]
+INCIDENT_EXTRA = [
+    # 2026-08-25 加密：告警页主从改造后 6 条太稀，补近两周 19 条。
+    # 待处理留 1 危急 + 3 紧急 + 2 一般（连同 BASE 未处理共 7 条），让
+    # 待处理三档徽章都有内容；1/3 号楼有分布（楼长会话与院长周报口径）。
+    # —— 待处理 ——
+    (13, "fall", "danger",
+     "凌晨起夜在卫生间滑倒，右髋部着地，意识清醒诉局部疼痛，已冰敷制动并联系家属送外院拍片",
+     False, 0, 5, 40, 0, None),
+    (10, "wander", "warning",
+     "晚饭后反复在楼层出口徘徊欲外出，劝返后仍不安定，已加强晚间巡视频率",
+     False, 1, 19, 25, 0, None),
+    (35, "skin", "warning",
+     "骶尾部皮肤破损约2×2cm（II期），已上报护士长更换减压床垫并落实定时翻身",
+     False, 1, 10, 5, 0, None),
+    (1, "illness", "warning",
+     "晨间血压 182/104 mmHg 伴头晕，复测仍高，已按医嘱加药并持续监测",
+     False, 0, 8, 15, 0, None),
+    (9, "mood", "info",
+     "午后情绪烦躁不愿参加集体活动，护理员陪同散步聊天后缓解",
+     False, 0, 14, 50, 0, None),
+    (22, "refuse_eat", "info",
+     "午餐进食约一半，主诉饭菜偏咸，已反馈厨房调整口味",
+     False, 1, 12, 40, 0, None),
+    # —— 已处理（处理耗时从半小时到次日晨，处理人为本楼护理员或主任）——
+    (16, "illness", "danger",
+     "晨起胸闷气促、血氧饱和度 88%，即转诊区医院，诊断慢性心衰急性加重，对症治疗后返院观察，现平稳",
+     True, 8, 6, 30, 45, "吴主任"),
+    (30, "fall", "warning",
+     "康复训练收尾时重心不稳踉跄，未倒地，右膝轻微擦伤，已消毒包扎",
+     True, 5, 16, 20, 35, None),
+    (17, "illness", "warning",
+     "晚间诉心悸，心率 102 次/分，静卧休息半小时后复测 88 次/分，继续观察",
+     True, 9, 20, 50, 55, None),
+    (31, "refuse_eat", "warning",
+     "连续两餐进食不足三分之一，体重较上月下降 1.5kg，已预约吞咽功能评估",
+     True, 4, 11, 50, 180, None),
+    (29, "wander", "warning",
+     "下午在5号楼门厅徘徊欲外出，门禁刷脸提醒后引导回房，已电话告知家属",
+     True, 6, 15, 10, 40, None),
+    (25, "skin", "warning",
+     "足跟部压红未破损（Ⅰ期），已佩戴减压足套并落实 q2h 翻身",
+     True, 10, 9, 30, 65, None),
+    (12, "fall", "warning",
+     "浴室门口地面湿滑踉跄未跌倒，扶住扶手，已加铺防滑垫并张贴警示标识",
+     True, 14, 8, 50, 30, None),
+    (8, "illness", "info",
+     "午间测血糖 8.9 mmol/L 偏高，告知控制甜食摄入，晚餐前复测 7.2",
+     True, 2, 13, 40, 70, None),
+    (27, "mood", "info",
+     "因同屋老人出院情绪低落回避交流，社工介入陪伴两次后好转",
+     True, 7, 10, 30, 240, None),
+    (19, "wander", "info",
+     "傍晚定向障碍，坚称要回家，安抚引导后情绪稳定",
+     True, 12, 18, 5, 50, None),
+    (6, "mood", "info",
+     "家属临时取消探视后情绪低落，当晚安排视频通话后平复",
+     True, 3, 19, 45, 120, None),
+    (21, "skin", "info",
+     "左前臂抓痕（自行搔抓），已修剪指甲并外用止痒药膏",
+     True, 13, 14, 20, 45, None),
+    (36, "refuse_eat", "info",
+     "晚餐食欲差进食少，次晨早餐恢复良好",
+     True, 11, 18, 30, 660, None),
+]
+
+
+def seed_incidents(anchor, now, residents, cgs_by_building, rows) -> int:
+    """异常上报播种 + auto_now_add 时间回填。
+
+    created_at 是 auto_now_add，bulk_create 的 pre_save 会覆盖构造参数，
+    须事后 raw UPDATE 回填（与点餐 created_at 同一陷阱）。处理人默认
+    本楼护理员（cg_of），剧本可点名覆盖（如转诊类由主任处理）。
+    """
+    by_id = {r.id: r for r in residents}
+    incs, times = [], []
+    for rid, cat, sev, desc, handled, off, hh, mm, delay, op in rows:
+        r = by_id[rid]
+        created = min(aware(anchor - timedelta(days=off), hh, mm), now - timedelta(minutes=5))
+        handled_at = min(created + timedelta(minutes=delay), now) if handled else None
+        cgs = cgs_by_building.get(r.building, [])
+        cg = cgs[r.id % len(cgs)] if cgs else None
+        # 未处理行不带处理人——口径干净：没有"处理"就没人署名（旧演示
+        # 数据有 pending 行自带处理人的瑕疵，详情页只在 handled 时展示
+        # 才没露馅，新数据从源头改掉）
+        by = (op or (cg.name if cg else ""))[:30] if handled else ""
+        incs.append(IncidentReport(
+            resident=r, category=cat, severity=sev, description=desc,
+            handled=handled,
+            handled_by=by,
+            handled_by_emp=cg if (cg and handled and not op) else None,
+            handled_at=handled_at,
+        ))
+        times.append((created, handled_at))
+    IncidentReport.objects.bulk_create(incs, batch_size=100)
+    with connection.cursor() as cur:
+        cur.executemany(
+            "UPDATE incidents_incidentreport SET created_at=?, handled_at=? WHERE id=?",
+            [(c, h, i.pk) for (c, h), i in zip(times, incs, strict=True)],
+        )
+    return len(incs)
+
+
 def gen_other_domains(anchor, residents, employees, cgs_by_building) -> None:
     """护理日志/健康/作息/用药/任务/排班/考勤/绩效/出入库/审批/巡检/报修/异常。"""
     p = random.Random(f"{SEED}-misc")
@@ -750,24 +885,9 @@ def gen_other_domains(anchor, residents, employees, cgs_by_building) -> None:
             ("呼叫器", "5号楼2层", "呼叫器无响应", "钱小红", "pending"),
         ]
     ], batch_size=100)
-    incs = []
-    for r, cat, sev, desc, handled in [
-        (residents[ARREARS_ID - 1], "refuse_eat", "warning",
-         "午餐拒食，护理人员耐心劝导后进食少量", True),
-        (residents[3], "fall", "danger", "走廊不慎跌倒，已送医检查，无骨折", True),
-        (residents[18], "mood", "info", "思念家属情绪低落，已联系家属视频", True),
-        (residents[25], "skin", "warning", "骶尾部皮肤发红，已开始减压护理", True),
-        (residents[ARREARS_ID - 1], "refuse_eat", "info", "早餐进食少，持续观察", False),
-        (residents[10], "wander", "warning", "在楼道徘徊寻找出口，已引导回房", False),
-    ]:
-        cg = cg_of(r)
-        incs.append(IncidentReport(
-            resident=r, category=cat, severity=sev, description=desc,
-            handled=handled, handled_by=cg.name if cg else "",
-            handled_by_emp=cg if cg else None,
-            handled_at=djtz.now() - timedelta(hours=3) if handled else None,
-        ))
-    IncidentReport.objects.bulk_create(incs, batch_size=100)
+    rows_all = INCIDENT_BASE + INCIDENT_EXTRA
+    incs = seed_incidents(anchor, djtz.now(), residents, cgs_by_building, rows_all)
+    print(f"  异常上报：{incs} 条（待处理 {sum(1 for x in rows_all if not x[4])}）")
 
 
 def run_assertions(anchor: date, months: list, meal_price: Decimal, bed_fee: Decimal,
