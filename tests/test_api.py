@@ -155,3 +155,69 @@ def test_create_health_record_via_api(client):
 
     hr = HealthRecord.objects.get(id=data["id"])
     assert hr.blood_pressure == "135/85"
+
+
+@pytest.mark.django_db
+def test_handle_incident_marks_and_stamps(client):
+    """POST /api/incidents/{id}/handle/：置 handled + 记处理人/时间（2026-08-25）"""
+    import json
+
+    from residents.models import Resident
+    from incidents.models import IncidentReport
+
+    r = Resident.objects.create(
+        name="测试老人", building="1号楼", floor="1层", room="101",
+        care_level="自理", id_card="330100194801019999"
+    )
+    inc = IncidentReport.objects.create(
+        resident=r, category="wander", severity="warning", description="在楼道徘徊"
+    )
+
+    resp = client.post(
+        f"/api/incidents/{inc.id}/handle/",
+        data=json.dumps({"operator": "王建国"}),
+        content_type="application/json",
+    )
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "handled"
+
+    inc.refresh_from_db()
+    assert inc.handled is True
+    assert inc.handled_by == "王建国"
+    assert inc.handled_at is not None
+
+    # 列表输出带处理人/时间（告警详情面板用）
+    item = client.get("/api/incidents/").json()["items"][0]
+    assert item["handled_by"] == "王建国"
+    assert item["handled_at"]
+
+
+@pytest.mark.django_db
+def test_handle_incident_idempotent_and_404(client):
+    """重复 handle 不改写首次时间；未知 id 404"""
+    import json
+
+    from residents.models import Resident
+    from incidents.models import IncidentReport
+
+    r = Resident.objects.create(
+        name="测试老人2", building="1号楼", floor="1层", room="102",
+        care_level="自理", id_card="330100194801018888"
+    )
+    inc = IncidentReport.objects.create(resident=r, category="fall", severity="danger")
+
+    client.post(f"/api/incidents/{inc.id}/handle/",
+                data=json.dumps({"operator": "第一人"}),
+                content_type="application/json")
+    first_at = IncidentReport.objects.get(id=inc.id).handled_at
+
+    resp = client.post(f"/api/incidents/{inc.id}/handle/",
+                       data=json.dumps({"operator": "第二人"}),
+                       content_type="application/json")
+    assert resp.json()["status"] == "already_handled"
+    inc.refresh_from_db()
+    assert inc.handled_by == "第一人"  # 首次署名不被覆盖
+    assert inc.handled_at == first_at
+
+    assert client.post("/api/incidents/99999/handle/",
+                       data="{}", content_type="application/json").status_code == 404
