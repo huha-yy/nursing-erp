@@ -15,6 +15,7 @@ from ninja import NinjaAPI, Router, Schema
 from ninja.errors import HttpError
 
 from assessments.models import Assessment
+from auditlog.record import record
 from billing.models import MonthlyBill
 from billing.services import current_month
 from meals.api import _assert_no_active_duplicate, _format_order
@@ -385,6 +386,11 @@ def family_meal_batch(request, payload: list[FamilyMealOrderIn]):
             )
             order.dishes.set(item.dish_ids)
             created += 1
+    names = list(Resident.objects.filter(
+        id__in={i.resident_id for i in payload}).values_list("name", flat=True)[:5])
+    record(request, action="家属代点餐",
+           target=f"{created} 单（{'、'.join(names)}{'等' if len(names) == 5 else ''}）",
+           target_model="meals.MealOrder")
     return {"status": "created", "count": created}
 
 
@@ -395,4 +401,7 @@ def family_meal_cancel(request, order_id: int, payload: CancelIn | None = None):
     order = _order_for_write(fm, order_id)
     reason = (payload.reason if payload else "") or "家属代退"
     order.cancel(reason, operator=_attribution(fm, order.resident_id))
+    record(request, action="家属退餐",
+           target=f"{fm.name} 代 {order.resident.name} {order.date} {order.meal_type}",
+           detail=f"原因：{reason}", target_model="meals.MealOrder", target_id=order.id)
     return {"id": order.id, "status": "cancelled"}

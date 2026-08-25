@@ -11,6 +11,7 @@ from ninja import Router, Schema
 from ninja.errors import HttpError
 from ninja.pagination import PageNumberPagination, paginate
 
+from auditlog.record import record
 from nursing_erp.api_scope import (
     resident_for_write,
     resolve_building_scope,
@@ -175,4 +176,9 @@ def confirm_assessment(request, assessment_id: int, payload: ConfirmIn | None = 
         )
     except ValueError as exc:
         raise HttpError(400, str(exc)) from exc
+    record(request, action="评估定级确认",
+           target=f"{a.resident.name}（{a.resident.building}{a.resident.room}）→ "
+                  f"{payload.final_level or a.suggested_level}",
+           detail=f"总分 {a.total_score} · {payload.reason or '无备注'}",
+           target_model="assessments.Assessment", target_id=a.id)
     return _assessment_out(a)

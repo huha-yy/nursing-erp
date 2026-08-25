@@ -1,15 +1,21 @@
-from typing import List, Optional
+import base64
+import json
+import logging
+import os
+import re
 from datetime import date, timedelta
-import base64, os, re, json, logging
+from typing import List, Optional
 
-from ninja import Router, Query, Schema
+from ninja import Query, Router, Schema
 from ninja.errors import HttpError
-from ninja.pagination import paginate, PageNumberPagination
+from ninja.pagination import PageNumberPagination, paginate
 
+from auditlog.record import record
 from nursing_erp.api_scope import resident_for_write, resolve_building_scope, scope_filter
-
-from .models import Dish, WeekMenu, MealOrder, MealFinance
 from nursing_erp.llm import chat as llm_chat
+from residents.models import Resident
+
+from .models import Dish, MealFinance, MealOrder, WeekMenu
 
 router = Router(tags=["点餐送餐"])
 
@@ -126,6 +132,11 @@ def create_meal_order(request, payload: MealOrderIn):
         ordered_by=payload.ordered_by,
     )
     order.dishes.set(payload.dish_ids)
+    r = Resident.objects.filter(pk=payload.resident_id).first()
+    record(request, action="点餐下单",
+           target=f"{r.name}（{r.building}{r.room}）{payload.date} {payload.meal_type}" if r else "",
+           detail=payload.special_requests[:200] or "", target_model="meals.MealOrder",
+           target_id=order.id)
     return {"id": order.id, "status": "created"}
 
 
@@ -157,6 +168,11 @@ def create_meal_orders_batch(request, payload: list[MealOrderIn]):
         )
         order.dishes.set(item.dish_ids)
         created += 1
+    names = list(Resident.objects.filter(
+        id__in={i.resident_id for i in payload}).values_list("name", flat=True)[:5])
+    record(request, action="批量点餐",
+           target=f"{created} 单（{'、'.join(names)}{'等' if len(names) == 5 else ''}）",
+           detail=f"归属：{payload[0].ordered_by or '-'}", target_model="meals.MealOrder")
     return {"status": "created", "count": created}
 
 
@@ -170,6 +186,11 @@ def cancel_meal_order(request, order_id: int, reason: str = ""):
     if scope and order.resident.building != scope:
         raise HttpError(403, f"无权操作 {order.resident.building} 的订单（当前范围：{scope}）")
     order.cancel(reason)
+    record(request, action="退餐",
+           target=f"{order.resident.name}（{order.resident.building}{order.resident.room}）"
+                  f"{order.date} {order.meal_type}",
+           detail=f"原因：{reason or '未填'}", target_model="meals.MealOrder",
+           target_id=order.id)
     return {"id": order.id, "status": "cancelled"}
 
 

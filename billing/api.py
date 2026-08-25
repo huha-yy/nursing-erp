@@ -13,6 +13,7 @@ from ninja import Router, Schema
 from ninja.errors import HttpError
 from ninja.pagination import PageNumberPagination, paginate
 
+from auditlog.record import record
 from nursing_erp.api_scope import resolve_building_scope, scope_filter
 
 from .models import MonthlyBill
@@ -150,7 +151,13 @@ def generate_bills(
     """生成月账单（财务全院口径，不按调用方楼栋范围收窄——见模块 docstring）。"""
     if not _MONTH_RE.match(month or ""):
         raise HttpError(400, f"month 格式须为 YYYY-MM，收到：{month!r}")
-    return generate_month_bills(month, resident_id=resident_id, building=building or None)
+    rv = generate_month_bills(month, resident_id=resident_id, building=building or None)
+    record(request, action="账单生成",
+           target=f"{month}{' · ' + building if building else ''}"
+                  f"{' · 指定老人' if resident_id else ''}",
+           detail=f"出账 {rv['generated']} 单（含刷新），已核销跳过 {rv['skipped_paid']} 单",
+           target_model="billing.MonthlyBill")
+    return rv
 
 
 @router.post("/billing/{bill_id}/settle/", response=dict)
@@ -158,7 +165,17 @@ def settle_bill(request, bill_id: int, payload: SettleIn | None = None):
     """全额核销（幂等）。"""
     bill = _bill_for_write(request, bill_id)
     payload = payload or SettleIn()
-    bill.settle(operator=_operator_name(request, payload.settled_by), note=payload.note)
+    operator = _operator_name(request, payload.settled_by)
+    already = bill.status == MonthlyBill.Status.PAID
+    bill.settle(operator=operator, note=payload.note)
+    record(request, action="账单核销",
+           target=f"{bill.resident.name}（{bill.resident.building}{bill.resident.room}）"
+                  f"{bill.month} ¥{bill.total}",
+           detail=(f"重复核销（幂等命中） · 经手人：{bill.settled_by}"
+                   if already else f"经手人：{operator}"
+                   + (f" · 备注：{payload.note}" if payload.note else "")),
+           target_model="billing.MonthlyBill", target_id=bill.id,
+           actor_name=operator)  # 署名可能经 dl-control 转发：台账查到记员工，查不到记 AI
     return _bill_out(bill)
 
 
@@ -166,5 +183,12 @@ def settle_bill(request, bill_id: int, payload: SettleIn | None = None):
 def unsettle_bill(request, bill_id: int):
     """撤销核销（幂等）——回 pending 后可再生成刷新金额。"""
     bill = _bill_for_write(request, bill_id)
+    was_paid = bill.status == MonthlyBill.Status.PAID
+    prev_by = bill.settled_by
     bill.unsettle()
+    record(request, action="撤销核销",
+           target=f"{bill.resident.name}（{bill.resident.building}{bill.resident.room}）"
+                  f"{bill.month} ¥{bill.total}",
+           detail=(f"原核销人：{prev_by}" if was_paid else "重复撤销（幂等命中，本就是待收）"),
+           target_model="billing.MonthlyBill", target_id=bill.id)
     return _bill_out(bill)

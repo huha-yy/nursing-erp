@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "billing.apps.BillingConfig",
     "assessments.apps.AssessmentsConfig",
     "family.apps.FamilyConfig",
+    "auditlog.apps.AuditlogConfig",
 ]
 
 MIDDLEWARE = [
@@ -56,6 +57,9 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # 审计兜底：/api/* 写请求自动留痕（放最后＝响应链最先执行，
+    # 此时 ninja 已把凭据挂在 request.auth 上，能区分 员工/家属/AI）
+    "auditlog.middleware.AuditMiddleware",
 ]
 
 ROOT_URLCONF = "nursing_erp.urls"
@@ -253,6 +257,12 @@ UNFOLD = {
                 {"title": "家属账号", "icon": "family_restroom",
                  "link": "/admin/family/familymember/"},
                 {"title": "绑定台账", "icon": "link", "link": "/admin/family/familybinding/"},
+            ]},
+            {"title": "审计留痕", "icon": "history", "collapsible": True, "items": [
+                {"title": "操作日志", "icon": "history",
+                 "link": "/admin/auditlog/operationlog/"},
+                {"title": "后台操作日志", "icon": "manage_history",
+                 "link": "/admin/admin/logentry/"},
             ]},
             {"title": "系统管理", "icon": "settings", "collapsible": True, "items": [
                 {"title": "用户账号", "icon": "manage_accounts", "link": "/admin/auth/user/"},

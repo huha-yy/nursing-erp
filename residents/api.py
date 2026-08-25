@@ -1,12 +1,13 @@
-from typing import List, Optional
 from datetime import date, datetime
+from typing import List, Optional
 
-from ninja import Router, Query, Schema
-from ninja.pagination import paginate, PageNumberPagination
+from ninja import Query, Router, Schema
+from ninja.pagination import PageNumberPagination, paginate
 
+from auditlog.record import record
 from nursing_erp.api_scope import resident_for_write, scope_filter, scope_get_or_404
 
-from .models import Resident, NursingLog, HealthRecord, MedicationRecord
+from .models import HealthRecord, MedicationRecord, NursingLog, Resident
 
 router = Router(tags=["老人照护"])
 
@@ -125,7 +126,7 @@ def list_resident_medications(request, resident_id: int):
 @router.post("/nursing-logs/", response=dict)
 def create_nursing_log(request, payload: NursingLogIn):
     """创建护理日志 — Agent 通过对话写入"""
-    resident_for_write(request, payload.resident_id)  # 404/403 楼栋守卫
+    r = resident_for_write(request, payload.resident_id)  # 404/403 楼栋守卫
     log_date = payload.log_date or date.today()
     log = NursingLog.objects.create(
         resident_id=payload.resident_id,
@@ -134,6 +135,11 @@ def create_nursing_log(request, payload: NursingLogIn):
         detail=payload.detail,
         staff_name=payload.staff_name,
     )
+    record(request, action="护理日志录入",
+           target=f"{r.name}（{r.building}{r.room}）{log_date} "
+                  f"{dict(NursingLog.Category.choices).get(payload.category, payload.category)}",
+           detail=payload.detail[:200] or "（无明细）",
+           target_model="residents.NursingLog", target_id=log.id)
     return {"id": log.id, "status": "created", "log_date": str(log_date)}
 
 
