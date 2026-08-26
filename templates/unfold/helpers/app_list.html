@@ -27,8 +27,9 @@
                     <ol class="flex flex-col px-6" {% if group.collapsible %}x-show="navigationOpen"{% endif %}>
                         {% for item in group.items %}
                             {% if item.has_permission %}
-                                <li>
-                                    <a href="{% if item.link_callback %}{{ item.link_callback }}{% else %}{{ item.link }}{% endif %}" class="flex h-[38px] items-center -mx-3 px-3 rounded-default hover:text-primary-600 dark:hover:text-primary-500 {% if item.active or item.items|nav_deep_active %}bg-base-100 font-semibold text-primary-600 dark:bg-white/[.06] dark:text-primary-500 active{% endif %}" {% if item.link_attrs %}{% include "unfold/helpers/attrs.html" with attrs=item.link_attrs %}{% endif %}>
+                                {# 三级目录：父项镜像组级折叠手法（x-data + x-show + chevron）——默认收起，停在子页 nav_deep_active 自动展开 #}
+                                <li {% if item.items|is_nav_children %}x-data="{navigationOpen: {% if item.items|nav_deep_active %}true{% else %}false{% endif %}}"{% endif %}>
+                                    <a href="{% if item.link_callback %}{{ item.link_callback }}{% else %}{{ item.link }}{% endif %}" class="flex h-[38px] items-center -mx-3 px-3 rounded-default hover:text-primary-600 dark:hover:text-primary-500 {% if item.active or item.items|nav_deep_active %}bg-base-100 font-semibold text-primary-600 dark:bg-white/[.06] dark:text-primary-500 active{% endif %}" {% if item.link_attrs %}{% include "unfold/helpers/attrs.html" with attrs=item.link_attrs %}{% endif %} {% if item.items|is_nav_children %}x-on:click.prevent="navigationOpen = !navigationOpen"{% endif %}>
                                         {% if item.icon_template %}
                                             {% include item.icon_template with item=item %}
                                         {% elif item.icon %}
@@ -40,10 +41,14 @@
                                         <span>{{ item.title|safe }}</span>
 
                                         {% include "unfold/helpers/app_list_badge.html" with item=item %}
+
+                                        {% if item.items|is_nav_children %}
+                                            <span class="material-symbols-outlined ml-auto transition-transform" x-bind:class="{'rotate-90': navigationOpen}">chevron_right</span>
+                                        {% endif %}
                                     </a>
-                                    {# 三级目录：item.items 嵌套子项（缩进 + 竖线，默认平铺不折叠） #}
-                                    {% if item.items %}
-                                        <ol class="flex flex-col ml-7 my-0.5 border-l border-base-200 dark:border-base-800">
+                                    {# 三级目录：item.items 嵌套子项（缩进 + 竖线），受 navigationOpen 折叠控制 #}
+                                    {% if item.items|is_nav_children %}
+                                        <ol class="flex flex-col ml-7 my-0.5 border-l border-base-200 dark:border-base-800" x-show="navigationOpen">
                                             {% for sub in item.items %}
                                                 {% if sub.has_permission %}
                                                     <li>

@@ -10,7 +10,10 @@ UNFOLD 点名制 sidebar 漏配导致导航不可达。二轮按用户要求收�
 2. 离院/转区记录表补列（楼栋/原因）生效；老人档案含入住日期列
 3. 入住记录（AdmissionRecord 代理模型）只读台账：列头/倒序/无新增
 4. 覆写的 app_list.html 真渲染出嵌套子项
+5. 三级目录可折叠：默认收起、停在子页自动展开（当日三轮）
 """
+
+import re
 
 import pytest
 from django.contrib.auth.models import User
@@ -146,3 +149,26 @@ def test_sidebar_renders_nested_items(client):
     assert "入离院记录" in body
     for title in ("入住记录", "离院记录", "转区记录"):
         assert title in body
+
+
+def _parent_open_state(body):
+    """从渲染 HTML 里取「入离院记录」父项 li 的 navigationOpen 初值。"""
+    m = re.search(
+        r'<li x-data="\{navigationOpen: (true|false)\}"[^>]*>(?s:.{0,900}?)入离院记录', body
+    )
+    assert m, "父项 li 的折叠 x-data 未渲染"
+    return m.group(1) == "true"
+
+
+@pytest.mark.django_db
+def test_sidebar_nested_collapsible(client):
+    """三级目录折叠：默认收起（点击父项切换），停在子页自动展开。"""
+    superuser = User.objects.create_superuser("lcsup7", "s7@x.com", "123456")
+    client.force_login(superuser)
+    home = client.get("/admin/").content.decode()
+    # 父项是折叠开关（.prevent 不跳转）；子列表受 navigationOpen 控制
+    assert 'x-on:click.prevent="navigationOpen = !navigationOpen"' in home
+    assert 'x-show="navigationOpen"' in home
+    assert _parent_open_state(home) is False  # 非子页 → 默认收起
+    child = client.get("/admin/residents/dischargerecord/").content.decode()
+    assert _parent_open_state(child) is True  # 停在离院记录页 → 自动展开
