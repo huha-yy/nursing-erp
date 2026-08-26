@@ -268,6 +268,65 @@ def main() -> None:
         print(f"✓ 入住日期回填 {filled} 位（库内共 {Resident.objects.count()} 位，已有日期的跳过）")
         return
 
+    # 幂等补未来数周周菜单：周选点餐默认锚「下周一」、家属点下周餐同源，
+    # 没有菜单两端都会显示「该周暂无菜单」。已有该周数据则整周跳过，
+    # 轮换锚用周序号（toordinal//7），重跑同一周生成一致
+    if "--seed-menus-ahead" in sys.argv:
+        _i = sys.argv.index("--seed-menus-ahead")
+        try:
+            weeks_ahead = max(1, int(sys.argv[_i + 1]))
+        except (IndexError, ValueError):
+            weeks_ahead = 4
+        dish_pools = {
+            c: list(Dish.objects.filter(category=c, is_available=True)
+                    .values_list("id", "name"))
+            for c in ("荤菜", "素菜", "主食", "汤", "小菜")
+        }
+        this_monday = date.today() - timedelta(days=date.today().weekday())
+        targets = [this_monday + timedelta(weeks=k) for k in range(weeks_ahead + 1)]
+        existing = set(WeekMenu.objects.filter(
+            week_start__in=targets).values_list("week_start", flat=True))
+        rows = 0
+        with transaction.atomic():
+            for ws in targets:
+                if ws in existing:
+                    continue
+                wk = ws.toordinal() // 7
+                menus, links = [], []
+                for di, day_name in enumerate(
+                    ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+                ):
+                    for mi, meal in enumerate(MEALS):
+                        rot = (wk * 7 + di) * 3 + mi
+                        if meal == "早餐":
+                            picks = (pool_pick(dish_pools, "主食", rot, 2)
+                                     + pool_pick(dish_pools, "小菜", rot, 1))
+                        elif meal == "午餐":
+                            picks = (pool_pick(dish_pools, "荤菜", rot, 2)
+                                     + pool_pick(dish_pools, "素菜", rot, 2)
+                                     + pool_pick(dish_pools, "主食", rot, 1)
+                                     + pool_pick(dish_pools, "汤", rot, 1))
+                        else:
+                            picks = (pool_pick(dish_pools, "荤菜", rot, 1)
+                                     + pool_pick(dish_pools, "素菜", rot, 2)
+                                     + pool_pick(dish_pools, "主食", rot, 1)
+                                     + pool_pick(dish_pools, "汤", rot, 1))
+                        m = WeekMenu(week_start=ws, day=day_name, meal_type=meal)
+                        menus.append(m)
+                        links.append((m, picks))
+                WeekMenu.objects.bulk_create(menus)
+                WeekMenu.dishes.through.objects.bulk_create(
+                    [WeekMenu.dishes.through(weekmenu_id=m.pk, dish_id=d)
+                     for m, picks in links for d in picks]
+                )
+                rows += len(menus)
+        skipped = len(existing)
+        latest = WeekMenu.objects.order_by(
+            "-week_start").values_list("week_start", flat=True).first()
+        print(f"✓ 周菜单补 {rows} 行（本周起共 {weeks_ahead + 1} 周窗口，"
+              f"已有 {skipped} 周跳过，库内最新至 {latest}）")
+        return
+
     # runserver 守卫只管默认库（生产 db.sqlite3）；NURSING_DB 指向临时库时
     # 写的是另一个文件，与运行中的服务互不相扰，放行
     if "--force" not in sys.argv and not os.environ.get("NURSING_DB"):
