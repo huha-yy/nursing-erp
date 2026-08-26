@@ -252,6 +252,22 @@ def main() -> None:
         print(f"✓ 补种异常上报 {n} 条（待处理 {sum(1 for x in INCIDENT_EXTRA if not x[4])}）")
         return
 
+    # 外科手术模式：回填档案层入住日期（2026-08-26，入离院记录台账上线后）——
+    # 纯 UPDATE 只填 NULL 幂等，不动动态层，与常驻 runserver 并行安全。口径：
+    # 建院以来陆续入住（约 3 个月～3 年 3 个月前）；确定性散布按 id 派生不靠
+    # 随机，重跑稳定。统一 ≥90 天前：人人早于账期起点(-2 月)、杨国华身故
+    # 离院(上月 20 日)与张国栋转区(本月 1 日)等所有已造事件
+    if "--seed-admission-dates" in sys.argv:
+        anchor = date.today()
+        filled = 0
+        with transaction.atomic():
+            for r in Resident.objects.filter(admission_date__isnull=True).order_by("id"):
+                r.admission_date = anchor - timedelta(days=90 + (r.id * 263) % 1095)
+                r.save(update_fields=["admission_date"])
+                filled += 1
+        print(f"✓ 入住日期回填 {filled} 位（库内共 {Resident.objects.count()} 位，已有日期的跳过）")
+        return
+
     # runserver 守卫只管默认库（生产 db.sqlite3）；NURSING_DB 指向临时库时
     # 写的是另一个文件，与运行中的服务互不相扰，放行
     if "--force" not in sys.argv and not os.environ.get("NURSING_DB"):
