@@ -210,3 +210,10 @@ def test_sidebar_taxonomy_pins():
     assert meal["餐费结算"]["items"][1] == \
         {"title": "餐费对账", "icon": "price_check", "link": "/finance/"}
     assert "/finance/" not in {i["link"] for i in groups["财务账单"]["items"]}
+
+
+def test_login_redirect_pin():
+    """登录成功必须落后台首页——Django 默认 /accounts/profile/ 无路由，
+    登录后闪 404（录屏镜头会带到，2026-08-26 修）。"""
+    from django.conf import settings
+    assert settings.LOGIN_REDIRECT_URL == "/admin/"

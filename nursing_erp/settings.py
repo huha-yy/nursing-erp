@@ -25,6 +25,8 @@ CSRF_TRUSTED_ORIGINS = [o for o in os.environ.get("CSRF_TRUSTED_ORIGINS", "").sp
 ERP_API_KEY = os.environ.get("ERP_API_KEY", "")
 # 轻量页 @login_required 未登录时跳转 admin 登录页，登录后回跳原地址
 LOGIN_URL = "/admin/login/"
+# 登录成功落后台首页——Django 默认 /accounts/profile/ 无此路由，登录后闪 404
+LOGIN_REDIRECT_URL = "/admin/"
 
 INSTALLED_APPS = [
     "unfold",                           # Must be before django.contrib.admin
