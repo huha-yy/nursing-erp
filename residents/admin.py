@@ -8,6 +8,14 @@ from assessments.models import Assessment
 from incidents.models import IncidentReport
 
 
+def _text_short(text, limit=20):
+    """列表页长文本截断（离院/转区原因等）；空值显示占位符。"""
+    text = (text or "").strip()
+    if not text:
+        return "—"
+    return text[:limit] + "…" if len(text) > limit else text
+
+
 class NursingLogInline(admin.TabularInline):
     model = NursingLog
     extra = 0
@@ -77,7 +85,7 @@ class DischargeRecordInline(admin.TabularInline):
 @admin.register(Resident)
 class ResidentAdmin(BuildingScopeMixin, ModelAdmin, ImportExportModelAdmin):
     building_field = "building"
-    list_display = ["name", "gender", "age", "building", "floor", "room",
+    list_display = ["name", "gender", "age", "building", "floor", "room", "admission_date",
                     "care_level", "contact_name", "contact_phone", "lifecycle_link"]
     list_filter = ["building", "floor", "care_level", "gender"]
     search_fields = ["name", "id_card", "diagnosis"]
@@ -178,18 +186,36 @@ class CareLevelChangeAdmin(BuildingScopeMixin, ModelAdmin, ImportExportModelAdmi
 @admin.register(TransferRecord)
 class TransferRecordAdmin(BuildingScopeMixin, ModelAdmin, ImportExportModelAdmin):
     building_field = "resident__building"
-    list_display = ["resident", "from_zone", "to_zone", "transfer_date"]
-    list_filter = ["transfer_date"]
+    list_display = ["resident", "from_zone", "to_zone", "transfer_date",
+                    "resident_building", "reason_short"]
+    list_filter = ["resident__building", "transfer_date"]
     search_fields = ["resident__name"]
     date_hierarchy = "transfer_date"
     autocomplete_fields = ["resident"]
+
+    @admin.display(description="楼栋")
+    def resident_building(self, obj):
+        return obj.resident.building
+
+    @admin.display(description="原因")
+    def reason_short(self, obj):
+        return _text_short(obj.reason)
 
 
 @admin.register(DischargeRecord)
 class DischargeRecordAdmin(BuildingScopeMixin, ModelAdmin, ImportExportModelAdmin):
     building_field = "resident__building"
-    list_display = ["resident", "discharge_type", "discharge_date"]
-    list_filter = ["discharge_type", "discharge_date"]
+    list_display = ["resident", "discharge_type", "discharge_date",
+                    "resident_building", "reason_short"]
+    list_filter = ["discharge_type", "resident__building", "discharge_date"]
     search_fields = ["resident__name"]
     date_hierarchy = "discharge_date"
     autocomplete_fields = ["resident"]
+
+    @admin.display(description="楼栋")
+    def resident_building(self, obj):
+        return obj.resident.building
+
+    @admin.display(description="原因")
+    def reason_short(self, obj):
+        return _text_short(obj.reason)
