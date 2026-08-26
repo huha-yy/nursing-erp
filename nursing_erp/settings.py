@@ -196,28 +196,50 @@ UNFOLD = {
         "show_search": True,
         "show_all_applications": False,
         "navigation": [
+            # ── 侧栏目录规范（2026-08-26 整理，详见 tests/test_lifecycle_nav.py 规范钉）──
+            # 层级：平铺优先，一组超 ~7 条才收拢三级父项（父项 2~4 子，必带 link——
+            #   UNFOLD sites.py 丢弃无 link 项；渲染依赖覆写的 app_list.html）
+            # 命名后缀：档案=人/物主数据 台账/库/表=配置清单 记录=事件流水
+            #   单/账单=业务单据 看板=可视化页
             {"title": "AI 院长助手", "icon": "smart_toy", "collapsible": True, "items": [
                 {"title": "打开 AI Chat", "icon": "smart_toy", "link": "https://chat.eldcare.cn:8443/chat"},
                 {"title": "快速记录", "icon": "edit_note", "link": "/quick-log/"},
-                {"title": "周选点餐", "icon": "calendar_month", "link": "/weekly-order/"},
             ]},
             {"title": "老人照护", "icon": "elderly", "collapsible": True, "items": [
                 {"title": "老人档案", "icon": "person", "link": "/admin/residents/resident/"},
-                {"title": "护理日志", "icon": "edit_note", "link": "/admin/residents/nursinglog/"},
-                {"title": "健康记录", "icon": "monitor_heart", "link": "/admin/residents/healthrecord/"},
-                {"title": "用药记录", "icon": "medication", "link": "/admin/residents/medicationrecord/"},
-                {"title": "作息记录", "icon": "bedtime", "link": "/admin/residents/residentroutine/"},
-                # 三级目录：父项必须带 link（UNFOLD sites.py 丢弃无 link 项），指向首个子项；
-                # 子项渲染依赖项目覆写的 unfold/helpers/app_list.html（支持 item.items 嵌套）
-                {"title": "入离院记录", "icon": "swap_horiz", "link": "/admin/residents/admissionrecord/",
+                {"title": "照护记录", "icon": "volunteer_activism",
+                 "link": "/admin/residents/nursinglog/",
                  "items": [
-                     {"title": "入住记录", "icon": "login", "link": "/admin/residents/admissionrecord/"},
-                     {"title": "离院记录", "icon": "logout", "link": "/admin/residents/dischargerecord/"},
-                     {"title": "转区记录", "icon": "cached", "link": "/admin/residents/transferrecord/"},
+                     {"title": "护理记录", "icon": "edit_note",
+                      "link": "/admin/residents/nursinglog/"},
+                     {"title": "健康记录", "icon": "monitor_heart",
+                      "link": "/admin/residents/healthrecord/"},
+                     {"title": "用药记录", "icon": "medication",
+                      "link": "/admin/residents/medicationrecord/"},
+                     {"title": "作息记录", "icon": "bedtime",
+                      "link": "/admin/residents/residentroutine/"},
                  ]},
-                {"title": "入住评估", "icon": "fact_check", "link": "/assessments/"},
-                {"title": "评估记录", "icon": "assignment_turned_in", "link": "/admin/assessments/assessment/"},
-                {"title": "等级映射表", "icon": "tune", "link": "/admin/assessments/gradelevelmap/"},
+                {"title": "入离院记录", "icon": "swap_horiz",
+                 "link": "/admin/residents/admissionrecord/",
+                 "items": [
+                     {"title": "入住记录", "icon": "login",
+                      "link": "/admin/residents/admissionrecord/"},
+                     {"title": "离院记录", "icon": "logout",
+                      "link": "/admin/residents/dischargerecord/"},
+                     {"title": "转区记录", "icon": "cached",
+                      "link": "/admin/residents/transferrecord/"},
+                 ]},
+                {"title": "评估管理", "icon": "checklist", "link": "/assessments/",
+                 "items": [
+                     {"title": "入住评估", "icon": "fact_check", "link": "/assessments/"},
+                     {"title": "评估记录", "icon": "assignment_turned_in",
+                      "link": "/admin/assessments/assessment/"},
+                     {"title": "等级映射表", "icon": "tune",
+                      "link": "/admin/assessments/gradelevelmap/"},
+                 ]},
+                # 原「异常上报」独立组并入：IncidentReport 挂 resident 外键，属照护域
+                {"title": "异常记录", "icon": "warning",
+                 "link": "/admin/incidents/incidentreport/"},
             ]},
             {"title": "床位管理", "icon": "bed", "collapsible": True, "items": [
                 {"title": "床位看板", "icon": "grid_view", "link": "/beds/"},
@@ -225,6 +247,41 @@ UNFOLD = {
                 {"title": "楼层台账", "icon": "layers", "link": "/admin/beds/floor/"},
                 {"title": "房间台账", "icon": "meeting_room", "link": "/admin/beds/room/"},
                 {"title": "床位台账", "icon": "bed", "link": "/admin/beds/bed/"},
+            ]},
+            {"title": "膳食点餐", "icon": "restaurant", "collapsible": True, "items": [
+                {"title": "食堂看板", "icon": "soup_kitchen", "link": "/kitchen/"},
+                {"title": "菜品库", "icon": "menu_book", "link": "/admin/meals/dish/"},
+                {"title": "周菜单", "icon": "event_note", "link": "/admin/meals/weekmenu/"},
+                {"title": "点餐工具", "icon": "touch_app",
+                 "link": "/weekly-order/",
+                 "items": [
+                     {"title": "周选点餐", "icon": "calendar_month",
+                      "link": "/weekly-order/"},
+                     {"title": "菜单 OCR", "icon": "photo_camera",
+                      "link": "/menu-ocr/"},
+                     {"title": "点餐 OCR", "icon": "receipt_long",
+                      "link": "/meal-order-ocr/"},
+                 ]},
+                {"title": "订单台账", "icon": "receipt_long",
+                 "link": "/admin/meals/mealorder/",
+                 "items": [
+                     {"title": "点餐订单", "icon": "restaurant",
+                      "link": "/admin/meals/mealorder/"},
+                     {"title": "改退餐记录", "icon": "change_circle",
+                      "link": "/admin/meals/mealmodificationlog/"},
+                 ]},
+                # 餐费对账 = 原「财务月结」(/finance/，MealFinance 对账看板)，与餐费月结同数据
+                {"title": "餐费结算", "icon": "calculate", "link": "/admin/meals/mealfinance/",
+                 "items": [
+                     {"title": "餐费月结", "icon": "payments", "link": "/admin/meals/mealfinance/"},
+                     {"title": "餐费对账", "icon": "price_check", "link": "/finance/"},
+                 ]},
+            ]},
+            {"title": "财务账单", "icon": "account_balance_wallet", "collapsible": True, "items": [
+                {"title": "应收月账单", "icon": "receipt_long",
+                 "link": "/admin/billing/monthlybill/"},
+                {"title": "价目表", "icon": "price_change", "link": "/admin/billing/feerule/"},
+                {"title": "账单看板", "icon": "account_balance_wallet", "link": "/billing/"},
             ]},
             {"title": "人员管理", "icon": "groups", "collapsible": True, "items": [
                 {"title": "员工档案", "icon": "badge", "link": "/admin/staff/employee/"},
@@ -234,32 +291,22 @@ UNFOLD = {
                 {"title": "绩效考核", "icon": "trending_up", "link": "/admin/staff/performance/"},
             ]},
             {"title": "院内事务", "icon": "domain", "collapsible": True, "items": [
-                {"title": "库存管理", "icon": "inventory", "link": "/admin/operations/inventoryitem/"},
-                {"title": "入库记录", "icon": "add_shopping_cart", "link": "/admin/operations/stockin/"},
-                {"title": "领用记录", "icon": "remove_shopping_cart", "link": "/admin/operations/stockout/"},
-                {"title": "报修工单", "icon": "build", "link": "/admin/operations/maintenanceorder/"},
-                {"title": "卫生巡检", "icon": "cleaning_services", "link": "/admin/operations/inspection/"},
-                {"title": "审批流程", "icon": "approval", "link": "/admin/operations/approval/"},
-            ]},
-            {"title": "异常上报", "icon": "warning", "collapsible": True, "items": [
-                {"title": "异常记录", "icon": "warning", "link": "/admin/incidents/incidentreport/"},
-            ]},
-            {"title": "点餐送餐", "icon": "restaurant", "collapsible": True, "items": [
-                {"title": "菜品库", "icon": "menu_book", "link": "/admin/meals/dish/"},
-                {"title": "周菜单", "icon": "event_note", "link": "/admin/meals/weekmenu/"},
-                {"title": "菜单 OCR", "icon": "photo_camera", "link": "/menu-ocr/"},
-                {"title": "点餐 OCR", "icon": "receipt_long", "link": "/meal-order-ocr/"},
-                {"title": "点餐订单", "icon": "restaurant", "link": "/admin/meals/mealorder/"},
-                {"title": "改退餐记录", "icon": "change_circle", "link": "/admin/meals/mealmodificationlog/"},
-                {"title": "餐费月结", "icon": "payments", "link": "/admin/meals/mealfinance/"},
-                {"title": "食堂看板", "icon": "soup_kitchen", "link": "/kitchen/"},
-                {"title": "财务月结", "icon": "account_balance", "link": "/finance/"},
-            ]},
-            {"title": "财务账单", "icon": "account_balance_wallet", "collapsible": True, "items": [
-                {"title": "应收月账单", "icon": "receipt_long",
-                 "link": "/admin/billing/monthlybill/"},
-                {"title": "价目表", "icon": "price_change", "link": "/admin/billing/feerule/"},
-                {"title": "账单看板", "icon": "account_balance_wallet", "link": "/billing/"},
+                {"title": "物资管理", "icon": "warehouse",
+                 "link": "/admin/operations/inventoryitem/",
+                 "items": [
+                     {"title": "库存台账", "icon": "inventory",
+                      "link": "/admin/operations/inventoryitem/"},
+                     {"title": "入库记录", "icon": "add_shopping_cart",
+                      "link": "/admin/operations/stockin/"},
+                     {"title": "领用记录", "icon": "remove_shopping_cart",
+                      "link": "/admin/operations/stockout/"},
+                 ]},
+                {"title": "报修工单", "icon": "build",
+                 "link": "/admin/operations/maintenanceorder/"},
+                {"title": "卫生巡检", "icon": "cleaning_services",
+                 "link": "/admin/operations/inspection/"},
+                {"title": "审批流程", "icon": "approval",
+                 "link": "/admin/operations/approval/"},
             ]},
             {"title": "家属服务", "icon": "family_restroom", "collapsible": True, "items": [
                 {"title": "家属账号", "icon": "family_restroom",
@@ -267,9 +314,9 @@ UNFOLD = {
                 {"title": "绑定台账", "icon": "link", "link": "/admin/family/familybinding/"},
             ]},
             {"title": "审计留痕", "icon": "history", "collapsible": True, "items": [
-                {"title": "操作日志", "icon": "history",
+                {"title": "业务操作日志", "icon": "history",
                  "link": "/admin/auditlog/operationlog/"},
-                {"title": "后台操作日志", "icon": "manage_history",
+                {"title": "后台变更日志", "icon": "manage_history",
                  "link": "/admin/admin/logentry/"},
             ]},
             {"title": "系统管理", "icon": "settings", "collapsible": True, "items": [

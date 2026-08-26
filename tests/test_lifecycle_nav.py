@@ -11,6 +11,8 @@ UNFOLD 点名制 sidebar 漏配导致导航不可达。二轮按用户要求收�
 3. 入住记录（AdmissionRecord 代理模型）只读台账：列头/倒序/无新增
 4. 覆写的 app_list.html 真渲染出嵌套子项
 5. 三级目录可折叠：默认收起、停在子页自动展开（当日三轮）
+6. 全站侧栏规范钉（当日四轮整理）：无单项组 / 平铺≤7条才收拢 /
+   三级父项 2~4 子必带 link / 餐费对账归膳食组、异常记录并照护组
 """
 
 import re
@@ -175,3 +177,36 @@ def test_sidebar_nested_collapsible(client):
     assert _parent_open_state(home) is False  # 非子页 → 默认收起
     child = client.get("/admin/residents/dischargerecord/").content.decode()
     assert _parent_open_state(child) is True  # 停在离院记录页 → 自动展开
+
+
+@pytest.mark.django_db
+def test_sidebar_taxonomy_pins():
+    """全站侧栏规范钉（2026-08-26 整理）：分组口径与层级策略不被悄悄破坏。"""
+    from django.conf import settings
+
+    nav = settings.UNFOLD["SIDEBAR"]["navigation"]
+    groups = {g["title"]: g for g in nav}
+    # 无单项组：原「异常上报」已并入老人照护（IncidentReport 挂 resident）
+    assert "异常上报" not in groups
+    for g in nav:
+        assert len(g["items"]) >= 2, f"分组「{g['title']}」仅 {len(g['items'])} 条，单项组违规"
+        # 平铺优先：不含三级父项的平铺条目超 7 条就该收拢
+        flat = [i for i in g["items"] if "items" not in i]
+        assert len(flat) <= 7, f"「{g['title']}」平铺 {len(flat)} 条超规，应收拢三级父项"
+        # 三级父项：2~4 子、必带 link（无 link 会被 UNFOLD sites.py 整枝丢弃）
+        for i in g["items"]:
+            if "items" in i:
+                assert i.get("link"), f"父项「{i['title']}」缺 link，整枝会被丢弃"
+                assert 2 <= len(i["items"]) <= 4, f"父项「{i['title']}」子项数违规"
+    # 老人照护两大父项在册
+    care = {i["title"]: i for i in groups["老人照护"]["items"]}
+    assert [s["title"] for s in care["照护记录"]["items"]] == \
+        ["护理记录", "健康记录", "用药记录", "作息记录"]
+    assert [s["title"] for s in care["评估管理"]["items"]] == \
+        ["入住评估", "评估记录", "等级映射表"]
+    assert "异常记录" in care  # 并入的照护域安全事件
+    # 餐费对账（原「财务月结」/finance/）归膳食组；财务组只留账单域
+    meal = {i["title"]: i for i in groups["膳食点餐"]["items"]}
+    assert meal["餐费结算"]["items"][1] == \
+        {"title": "餐费对账", "icon": "price_check", "link": "/finance/"}
+    assert "/finance/" not in {i["link"] for i in groups["财务账单"]["items"]}
