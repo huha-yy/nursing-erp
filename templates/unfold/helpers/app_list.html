@@ -48,13 +48,13 @@
                                     </a>
                                     {# 三级目录：item.items 嵌套子项（缩进 + 竖线），受 navigationOpen 折叠控制 #}
                                     {% if item.items|is_nav_children %}
-                                        <ol class="flex flex-col ml-7 my-0.5 border-l border-base-200 dark:border-base-800" x-show="navigationOpen">
+                                        <ol class="flex flex-col gap-1 ml-9 my-1 mr-10 border-l border-base-200 dark:border-base-800" x-show="navigationOpen">
                                             {% for sub in item.items %}
                                                 {% if sub.has_permission %}
                                                     <li>
-                                                        <a href="{{ sub.link }}" class="flex h-[32px] items-center -mx-3 px-3 rounded-default text-font-default-light text-sm dark:text-font-default-dark hover:text-primary-600 dark:hover:text-primary-500 {% if sub.active %}font-semibold text-primary-600 dark:text-primary-500{% endif %}">
+                                                        <a href="{{ sub.link }}" class="flex h-8 items-center -mx-3 px-3 rounded-default text-font-default-light text-sm dark:text-font-default-dark hover:text-primary-600 dark:hover:text-primary-500 {% if sub.active %}font-semibold text-primary-600 dark:text-primary-500{% endif %}">
                                                             {% if sub.icon %}
-                                                                <span class="material-symbols-outlined md-16 mr-2.5 w-[16px]">
+                                                                <span class="material-symbols-outlined md-16 mr-2">
                                                                     {{ sub.icon }}
                                                                 </span>
                                                             {% endif %}
