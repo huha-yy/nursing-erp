@@ -130,6 +130,9 @@ def test_admission_changelist_columns_and_order(client):
     for col in ("入住日期", "楼栋", "护理等级"):
         assert col in body
     assert body.find("晚入住") < body.find("早入住")  # 倒序
+    # 列宽钉（per-model 覆写模板 extrahead）：auto 表格下首列会吞掉全部富余宽度，
+    # 日期与姓名间出现大空隙——覆写丢失即此断言失败
+    assert "th.column-admission_date" in body
 
 
 @pytest.mark.django_db

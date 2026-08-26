@@ -1,0 +1,10 @@
+{% extends "admin/change_list.html" %}
+{# 入住记录台账列宽钉：table-layout:auto 下剩余宽度按列内容宽度成比例分配，
+   日期串（约 111px）是最宽内容 → 首列吃掉全部富余（实测 260px），日期与
+   姓名之间出现大段空隙。把首列钉在内容宽度（111 + px-3 双侧 24 = 135px），
+   富余摊给其余列。升级 unfold 需复核 extrahead 块仍在。 #}
+{% block extrahead %}{{ block.super }}
+  <style>
+    #result_list th.column-admission_date { width: 135px; }
+  </style>
+{% endblock %}
