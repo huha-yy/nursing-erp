@@ -3,7 +3,8 @@ from unfold.admin import ModelAdmin
 from import_export.admin import ImportExportModelAdmin
 from nursing_erp.admin_mixins import BuildingScopeMixin
 
-from .models import Resident, NursingLog, HealthRecord, MedicationRecord, ResidentRoutine, CareLevelChange, TransferRecord, DischargeRecord
+from .models import (AdmissionRecord, CareLevelChange, DischargeRecord, HealthRecord,
+                     MedicationRecord, NursingLog, Resident, ResidentRoutine, TransferRecord)
 from assessments.models import Assessment
 from incidents.models import IncidentReport
 
@@ -219,3 +220,28 @@ class DischargeRecordAdmin(BuildingScopeMixin, ModelAdmin, ImportExportModelAdmi
     @admin.display(description="原因")
     def reason_short(self, obj):
         return _text_short(obj.reason)
+
+
+@admin.register(AdmissionRecord)
+class AdmissionRecordAdmin(BuildingScopeMixin, ModelAdmin):
+    """入住记录 — 只读台账（入院 = 建档挂床；新增入院走老人档案）。
+
+    view-only：有 view 权限可看列表与只读详情；增删改一律关死，
+    防止与老人档案形成两个写入入口。
+    """
+
+    building_field = "building"
+    list_display = ["admission_date", "name", "gender", "age",
+                    "building", "floor", "room", "care_level"]
+    list_filter = ["building", "care_level"]
+    search_fields = ["name", "id_card"]
+    date_hierarchy = "admission_date"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

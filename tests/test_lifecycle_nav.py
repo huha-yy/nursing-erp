@@ -1,29 +1,48 @@
-"""入离院记录导航钉 — 2026-08-26.
+"""入离院记录导航钉 — 2026-08-26（当日二轮：收拢为三级目录）.
 
 用户在床位看板发现二号楼空闲床（杨国华身故离院释放），追问入离院记录为何
 没有查询入口：DischargeRecord / TransferRecord 两张 admin 表一直存在，但
-UNFOLD 点名制 sidebar 漏配导致导航不可达。本文件钉住三件事，防再漏：
+UNFOLD 点名制 sidebar 漏配导致导航不可达。二轮按用户要求收拢为一个
+「入离院记录」父目录，下挂 入住/离院/转区 三个子项。本文件钉住：
 
-1. sidebar 老人照护组含离院记录 / 转区记录链接
-2. 离院记录表页可访问且补列（楼栋 / 原因）生效
-3. 老人档案列表含入住日期列（"入院记录"的呈现位——入院即建档挂床，
-   无独立事件表，档案列即查询口径）
+1. sidebar 老人照护组的入离院三级目录在册且父项带 link
+   （UNFOLD sites.py 丢弃无 link 项——嵌套整枝消失的坑）
+2. 离院/转区记录表补列（楼栋/原因）生效；老人档案含入住日期列
+3. 入住记录（AdmissionRecord 代理模型）只读台账：列头/倒序/无新增
+4. 覆写的 app_list.html 真渲染出嵌套子项
 """
 
 import pytest
 from django.contrib.auth.models import User
 
 
+def _collect_links(items):
+    """递归收集导航树所有 link（含嵌套 item.items）。"""
+    links = set()
+    for item in items:
+        if item.get("link"):
+            links.add(item["link"])
+        links |= _collect_links(item.get("items", []))
+    return links
+
+
 @pytest.mark.django_db
 def test_sidebar_pins_lifecycle_links():
-    """UNFOLD 点名制 sidebar：离院/转区记录必须在册（床组曾静默漏配）。"""
+    """UNFOLD 点名制 sidebar：入离院三级目录必须在册（床组曾静默漏配）。"""
     from django.conf import settings
 
     groups = {g["title"]: g for g in settings.UNFOLD["SIDEBAR"]["navigation"]}
     assert "老人照护" in groups
-    links = {i["link"] for i in groups["老人照护"]["items"]}
-    assert "/admin/residents/dischargerecord/" in links
-    assert "/admin/residents/transferrecord/" in links
+    items = {i["title"]: i for i in groups["老人照护"]["items"]}
+    # 父项「入离院记录」必须带 link——UNFOLD sites.py 丢弃无 link 项，嵌套会整枝消失
+    parent = items["入离院记录"]
+    assert parent["link"] == "/admin/residents/admissionrecord/"
+    sub_links = _collect_links([parent])
+    assert sub_links == {
+        "/admin/residents/admissionrecord/",
+        "/admin/residents/dischargerecord/",
+        "/admin/residents/transferrecord/",
+    }
 
 
 @pytest.mark.django_db
@@ -87,3 +106,43 @@ def test_resident_changelist_has_admission_date(client):
     body = resp.content.decode()
     # L10N 中文日期格式（2026年3月12日），非 ISO 串
     assert "入住日期" in body and "3月12日" in body
+
+
+# ---- 入住记录（AdmissionRecord 代理模型）----
+
+@pytest.mark.django_db
+def test_admission_changelist_columns_and_order(client):
+    """入住记录表：列头渲染 + 按入住日期倒序（最新在前）。"""
+    from residents.models import Resident
+
+    superuser = User.objects.create_superuser("lcsup4", "s4@x.com", "123456")
+    client.force_login(superuser)
+    Resident.objects.create(name="早入住", building="1号楼", floor="1层", room="101",
+                            id_card="330100194801016661", admission_date="2025-01-10")
+    Resident.objects.create(name="晚入住", building="1号楼", floor="1层", room="102",
+                            id_card="330100194801016662", admission_date="2026-08-01")
+    resp = client.get("/admin/residents/admissionrecord/")
+    assert resp.status_code == 200
+    body = resp.content.decode()
+    for col in ("入住日期", "楼栋", "护理等级"):
+        assert col in body
+    assert body.find("晚入住") < body.find("早入住")  # 倒序
+
+
+@pytest.mark.django_db
+def test_admission_viewonly(client):
+    """入住记录 view-only：无新增入口（superuser 亦 403，权限钩子关死）。"""
+    superuser = User.objects.create_superuser("lcsup5", "s5@x.com", "123456")
+    client.force_login(superuser)
+    assert client.get("/admin/residents/admissionrecord/add/").status_code == 403
+
+
+@pytest.mark.django_db
+def test_sidebar_renders_nested_items(client):
+    """覆写的 app_list.html 渲染嵌套子项：侧栏出现三个子目录标题。"""
+    superuser = User.objects.create_superuser("lcsup6", "s6@x.com", "123456")
+    client.force_login(superuser)
+    body = client.get("/admin/").content.decode()
+    assert "入离院记录" in body
+    for title in ("入住记录", "离院记录", "转区记录"):
+        assert title in body

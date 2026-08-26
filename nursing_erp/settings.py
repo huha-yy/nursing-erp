@@ -207,8 +207,14 @@ UNFOLD = {
                 {"title": "健康记录", "icon": "monitor_heart", "link": "/admin/residents/healthrecord/"},
                 {"title": "用药记录", "icon": "medication", "link": "/admin/residents/medicationrecord/"},
                 {"title": "作息记录", "icon": "bedtime", "link": "/admin/residents/residentroutine/"},
-                {"title": "离院记录", "icon": "logout", "link": "/admin/residents/dischargerecord/"},
-                {"title": "转区记录", "icon": "swap_horiz", "link": "/admin/residents/transferrecord/"},
+                # 三级目录：父项必须带 link（UNFOLD sites.py 丢弃无 link 项），指向首个子项；
+                # 子项渲染依赖项目覆写的 unfold/helpers/app_list.html（支持 item.items 嵌套）
+                {"title": "入离院记录", "icon": "swap_horiz", "link": "/admin/residents/admissionrecord/",
+                 "items": [
+                     {"title": "入住记录", "icon": "login", "link": "/admin/residents/admissionrecord/"},
+                     {"title": "离院记录", "icon": "logout", "link": "/admin/residents/dischargerecord/"},
+                     {"title": "转区记录", "icon": "cached", "link": "/admin/residents/transferrecord/"},
+                 ]},
                 {"title": "入住评估", "icon": "fact_check", "link": "/assessments/"},
                 {"title": "评估记录", "icon": "assignment_turned_in", "link": "/admin/assessments/assessment/"},
                 {"title": "等级映射表", "icon": "tune", "link": "/admin/assessments/gradelevelmap/"},

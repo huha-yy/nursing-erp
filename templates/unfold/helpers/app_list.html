@@ -1,24 +1,17 @@
-{% load i18n unfold %}
+{% load i18n unfold residents_tags %}{# 复制自 django-unfold 0.104.1 并扩展：嵌套 item.items 渲染 + nav_deep_active 递归激活；升级 unfold 需重新对照。 #}
 
 {% if sidebar_navigation %}
     <div id="nav-sidebar-apps" class="h-0 grow overflow-auto scrollbar-default-hover">
         {% for group in sidebar_navigation %}
             {% if group.items %}
-                {% has_nav_item_active group.items as has_active %}
-
-                <div class="hidden mb-1.5 has-[ol]:has-[li]:block" {% if group.collapsible %}x-data="{navigationOpen: {% if has_active %}true{% else %}false{% endif %}}"{% endif %}>
+                {# 原版 has_nav_item_active 只看一层；nav_deep_active 递归进嵌套子项，停在子页时组自动展开 #}
+                <div class="hidden mb-1.5 has-[ol]:has-[li]:block" {% if group.collapsible %}x-data="{navigationOpen: {% if group.items|nav_deep_active %}true{% else %}false{% endif %}}"{% endif %}>
                     {% if group.separator %}
                         <hr class="border-t border-base-200 mx-6 my-2 dark:border-base-800" />
                     {% endif %}
 
                     {% if group.title %}
                         <h2 class="font-semibold flex flex-row group items-center mb-1 mx-3 py-1.5 px-3 select-none text-font-important-light text-sm dark:text-font-important-dark {% if group.collapsible %}cursor-pointer hover:text-primary-600 dark:hover:text-primary-500{% endif %}" {% if group.collapsible %}x-on:click="navigationOpen = !navigationOpen"{% endif %}>
-                            {% if group.icon %}
-                                <span class="material-symbols-outlined md-18 mr-3">
-                                    {{ group.icon }}
-                                </span>
-                            {% endif %}
-
                             {{ group.title }}
 
                             {% include "unfold/helpers/app_list_badge.html" with item=group %}
@@ -31,12 +24,14 @@
                         </h2>
                     {% endif %}
 
-                    <ol class="flex flex-col gap-0.5 px-6" {% if group.collapsible %}x-show="navigationOpen"{% endif %}>
+                    <ol class="flex flex-col px-6" {% if group.collapsible %}x-show="navigationOpen"{% endif %}>
                         {% for item in group.items %}
                             {% if item.has_permission %}
                                 <li>
-                                    <a href="{% if item.link_callback %}{{ item.link_callback }}{% else %}{{ item.link }}{% endif %}" class="flex h-[38px] items-center -mx-3 px-3 rounded-default hover:text-primary-600 dark:hover:text-primary-500 {% if item.active %}bg-base-100 font-semibold text-primary-600 dark:bg-white/[.06] dark:text-primary-500 active{% endif %}">
-                                        {% if item.icon %}
+                                    <a href="{% if item.link_callback %}{{ item.link_callback }}{% else %}{{ item.link }}{% endif %}" class="flex h-[38px] items-center -mx-3 px-3 rounded-default hover:text-primary-600 dark:hover:text-primary-500 {% if item.active or item.items|nav_deep_active %}bg-base-100 font-semibold text-primary-600 dark:bg-white/[.06] dark:text-primary-500 active{% endif %}" {% if item.link_attrs %}{% include "unfold/helpers/attrs.html" with attrs=item.link_attrs %}{% endif %}>
+                                        {% if item.icon_template %}
+                                            {% include item.icon_template with item=item %}
+                                        {% elif item.icon %}
                                             <span class="material-symbols-outlined md-18 mr-3 w-[18px]">
                                                 {{ item.icon }}
                                             </span>
@@ -46,6 +41,25 @@
 
                                         {% include "unfold/helpers/app_list_badge.html" with item=item %}
                                     </a>
+                                    {# 三级目录：item.items 嵌套子项（缩进 + 竖线，默认平铺不折叠） #}
+                                    {% if item.items %}
+                                        <ol class="flex flex-col ml-7 my-0.5 border-l border-base-200 dark:border-base-800">
+                                            {% for sub in item.items %}
+                                                {% if sub.has_permission %}
+                                                    <li>
+                                                        <a href="{{ sub.link }}" class="flex h-[32px] items-center -mx-3 px-3 rounded-default text-font-default-light text-sm dark:text-font-default-dark hover:text-primary-600 dark:hover:text-primary-500 {% if sub.active %}font-semibold text-primary-600 dark:text-primary-500{% endif %}">
+                                                            {% if sub.icon %}
+                                                                <span class="material-symbols-outlined md-16 mr-2.5 w-[16px]">
+                                                                    {{ sub.icon }}
+                                                                </span>
+                                                            {% endif %}
+                                                            <span>{{ sub.title|safe }}</span>
+                                                        </a>
+                                                    </li>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </ol>
+                                    {% endif %}
                                 </li>
                             {% endif %}
                         {% endfor %}
@@ -58,7 +72,7 @@
     {% include "unfold/helpers/app_list_all.html" %}
 {% else %}
     <p>
-        {% trans "You don't have permission to view or edit anything." as error_message %}
+        {% trans "You don’t have permission to view or edit anything." as error_message %}
         {% include "unfold/helpers/messages/error.html" with error=error_message %}
     </p>
 {% endif %}

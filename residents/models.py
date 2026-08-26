@@ -308,3 +308,18 @@ class DischargeRecord(models.Model):
         super().save(*args, **kwargs)
         if is_new and self.resident_id:
             Resident.objects.filter(pk=self.resident_id, bed__isnull=False).update(bed=None)
+
+
+class AdmissionRecord(Resident):
+    """入住记录 — Resident 的只读投影（按入住日期倒序的入院台账视图）。
+
+    入院不是独立事件表：入院 = 建档挂床（admission_date 是档案属性）。
+    代理模型只为给侧栏「入离院记录」目录一个与离院/转区记录同形态的
+    入院台账页；数据与 Resident 完全同源，不建新表。
+    """
+
+    class Meta:
+        proxy = True
+        verbose_name = "入住记录"
+        verbose_name_plural = "入住记录"
+        ordering = ["-admission_date"]
