@@ -206,9 +206,12 @@ def test_sidebar_taxonomy_pins():
         ["入住评估", "评估记录", "等级映射表"]
     assert "异常记录" in care  # 并入的照护域安全事件
     # 餐费对账（原「财务月结」/finance/）归膳食组；财务组只留账单域
+    from nursing_erp import nav_perms
+
     meal = {i["title"]: i for i in groups["膳食点餐"]["items"]}
     assert meal["餐费结算"]["items"][1] == \
-        {"title": "餐费对账", "icon": "price_check", "link": "/finance/"}
+        {"title": "餐费对账", "icon": "price_check", "link": "/finance/",
+         "permission": nav_perms.mealfinance}
     assert "/finance/" not in {i["link"] for i in groups["财务账单"]["items"]}
 
 

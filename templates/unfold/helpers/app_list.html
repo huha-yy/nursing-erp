@@ -3,7 +3,8 @@
 {% if sidebar_navigation %}
     <div id="nav-sidebar-apps" class="h-0 grow overflow-auto scrollbar-default-hover">
         {% for group in sidebar_navigation %}
-            {% if group.items %}
+            {# 组级权限过滤：整组无任一 has_permission 子项时连容器隐藏（unfold 服务端不丢弃组） #}
+            {% if group.items and group.items|nav_deep_visible %}
                 {# 原版 has_nav_item_active 只看一层；nav_deep_active 递归进嵌套子项，停在子页时组自动展开 #}
                 <div class="hidden mb-1.5 has-[ol]:has-[li]:block" {% if group.collapsible %}x-data="{navigationOpen: {% if group.items|nav_deep_active %}true{% else %}false{% endif %}}"{% endif %}>
                     {% if group.separator %}

@@ -40,3 +40,25 @@ def nav_deep_active(items):
         return False
 
     return walk(items)
+
+
+@register.filter
+def nav_deep_visible(items):
+    """组级权限过滤：items 树中是否存在任一 has_permission 节点。
+
+    unfold sites.py 对每个导航项（含嵌套子项）都设置 has_permission
+    （无 permission 键时恒 True），但只在 item 级模板生效、组级不判——
+    组壳渲染条件须用本 filter，整组无权限时连容器一起隐藏。
+    """
+
+    def walk(nodes):
+        for node in nodes or []:
+            if not isinstance(node, dict):
+                continue
+            if node.get("has_permission"):
+                return True
+            if node.get("items") and walk(node["items"]):
+                return True
+        return False
+
+    return walk(items)
