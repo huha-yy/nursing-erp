@@ -128,12 +128,12 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 # 敏感 token 在 .env 中，这里只放非敏感的默认 URL
 os.environ.setdefault("DL_OCR_URL", "http://192.168.10.247:18080")
 
-# DeepSeek LLM (用于 OCR 结果的结构化与纠错)
-# API key 在 .env 中，这里只放非敏感的默认 URL 和模型名
-# 注意：用非推理模型 deepseek-chat——推理模型(v4-flash)会把 token 耗在思维链上，
-# max_tokens 小时 content 会被截断为空，导致 OCR 结构化偶发失败。
-os.environ.setdefault("DEEPSEEK_BASE_URL", "https://api.deepseek.com/chat/completions")
-os.environ.setdefault("DEEPSEEK_MODEL", "deepseek-chat")
+# LLM (用于 OCR 结果的结构化与纠错) — 与 ai-nursing-home 同源 Moonshot kimi-k2.6
+# API key (LLM_API_KEY) 在 .env 中，这里只放非敏感默认值。
+# 2026-08-27 从 DeepSeek 切换（原 key 402 欠费）；llm.py 里 kimi 不传 temperature
+# （推理模型只接受默认 1），max_tokens 需预算思维链（调用方传 4000）。
+os.environ.setdefault("LLM_BASE_URL", "https://api.moonshot.cn/v1/chat/completions")
+os.environ.setdefault("LLM_MODEL", "kimi-k2.6")
 
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
