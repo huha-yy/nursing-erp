@@ -4,4 +4,4 @@ from django.apps import AppConfig
 class AssessmentsConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "assessments"
-    verbose_name = "入住评估"
+    verbose_name = "评估管理"

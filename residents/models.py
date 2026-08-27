@@ -119,7 +119,7 @@ class NursingLog(StaffFkMixin, models.Model):
     )
 
     class Meta:
-        verbose_name = "护理日志"
+        verbose_name = "护理记录"
         verbose_name_plural = verbose_name
         ordering = ["-log_date", "-log_time"]
         indexes = [
@@ -208,7 +208,7 @@ class ResidentRoutine(models.Model):
     mood = models.CharField(max_length=20, blank=True, verbose_name="情绪状态")
 
     class Meta:
-        verbose_name = "老人作息"
+        verbose_name = "作息记录"
         verbose_name_plural = verbose_name
         ordering = ["-log_date"]
         indexes = [models.Index(fields=["resident", "log_date"])]
@@ -241,7 +241,7 @@ class CareLevelChange(StaffFkMixin, models.Model):
     )
 
     class Meta:
-        verbose_name = "护理等级变更"
+        verbose_name = "护理等级变更记录"
         verbose_name_plural = verbose_name
         ordering = ["-change_date"]
 

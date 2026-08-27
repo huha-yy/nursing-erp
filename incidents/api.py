@@ -10,7 +10,7 @@ from nursing_erp.api_scope import resident_for_write, scope_filter
 
 from .models import IncidentReport
 
-router = Router(tags=["异常上报"])
+router = Router(tags=["异常记录"])
 
 
 class IncidentIn(Schema):

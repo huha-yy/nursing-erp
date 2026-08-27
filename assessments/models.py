@@ -69,7 +69,7 @@ class GradeLevelMap(models.Model):
     )
 
     class Meta:
-        verbose_name = "等级映射"
+        verbose_name = "等级映射表"
         verbose_name_plural = "等级映射表"
         ordering = ["grade"]
 

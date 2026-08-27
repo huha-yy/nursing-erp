@@ -3,4 +3,4 @@ from django.apps import AppConfig
 class IncidentsConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "incidents"
-    verbose_name = "异常上报"
+    verbose_name = "异常记录"

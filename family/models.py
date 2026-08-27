@@ -78,7 +78,7 @@ class FamilyBinding(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="绑定时间")
 
     class Meta:
-        verbose_name = "家属绑定"
+        verbose_name = "绑定台账"
         verbose_name_plural = verbose_name
         ordering = ["family__name", "resident__name"]
         constraints = [

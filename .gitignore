@@ -28,3 +28,6 @@ logs/
 
 # pytest
 .pytest_cache/
+
+# 生产库改名迁移前的手工备份（含真实数据，绝不入库）
+db.sqlite3.bak-*

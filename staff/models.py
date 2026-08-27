@@ -50,7 +50,7 @@ class Schedule(models.Model):
     task_note = models.CharField(max_length=200, blank=True, verbose_name="任务备注")
 
     class Meta:
-        verbose_name = "排班"
+        verbose_name = "排班表"
         verbose_name_plural = verbose_name
         unique_together = [("employee", "date", "shift")]
         ordering = ["date", "shift"]

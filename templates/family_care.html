@@ -54,8 +54,8 @@ function block(r){
     :'<div class="empty" style="padding:20px"><p>暂无健康记录</p></div>';
   html+='</div>';
 
-  // 近 7 日护理日志
-  html+='<div class="c"><div class="c-h"><span class="material-symbols-outlined">edit_note</span> 近 7 日护理日志<span class="cnt">'+r.logs_7d.length+'<span> 条</span></span></div>';
+  // 近 7 日护理记录
+  html+='<div class="c"><div class="c-h"><span class="material-symbols-outlined">edit_note</span> 近 7 日护理记录<span class="cnt">'+r.logs_7d.length+'<span> 条</span></span></div>';
   html+=r.logs_7d.length?('<table><thead><tr><th>日期</th><th>类别</th><th>内容</th><th>记录人</th></tr></thead><tbody>'+
     r.logs_7d.map(function(l){
       return '<tr><td>'+esc(l.log_date)+'</td><td><span class="b b-dim">'+esc(l.category_display)+'</span></td><td>'+esc(l.detail)+'</td><td>'+esc(l.staff_name||'—')+'</td></tr>';

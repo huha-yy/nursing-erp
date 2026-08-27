@@ -37,8 +37,8 @@ class OperationLog(models.Model):
     created_at = models.DateTimeField("时间", auto_now_add=True, db_index=True)
 
     class Meta:
-        verbose_name = "操作日志"
-        verbose_name_plural = "操作日志"
+        verbose_name = "业务操作日志"
+        verbose_name_plural = "业务操作日志"
         ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["actor_type", "created_at"]),

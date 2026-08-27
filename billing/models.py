@@ -41,7 +41,7 @@ class FeeRule(models.Model):
     )
 
     class Meta:
-        verbose_name = "价目"
+        verbose_name = "价目表"
         verbose_name_plural = "价目表"
         ordering = ["fee_type", "key"]
         constraints = [

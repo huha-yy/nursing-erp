@@ -4,7 +4,7 @@ from nursing_erp.staff_fk import StaffFkMixin
 
 
 class InventoryItem(models.Model):
-    """库存物品"""
+    """库存台账（InventoryItem）"""
 
     class Category(models.TextChoices):
         CONSUMABLE = "护理耗材", "护理耗材"
@@ -20,7 +20,7 @@ class InventoryItem(models.Model):
     safety_stock = models.IntegerField(default=10, verbose_name="安全库存")
 
     class Meta:
-        verbose_name = "库存物品"
+        verbose_name = "库存台账"
         verbose_name_plural = verbose_name
         ordering = ["category", "name"]
 
@@ -145,7 +145,7 @@ class Inspection(StaffFkMixin, models.Model):
 
 
 class Approval(StaffFkMixin, models.Model):
-    """审批单"""
+    """审批流程（Approval）"""
 
     staff_fk_fields = (("applicant_name", "applicant_emp"),)
 
@@ -169,7 +169,7 @@ class Approval(StaffFkMixin, models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="申请时间")
 
     class Meta:
-        verbose_name = "审批单"
+        verbose_name = "审批流程"
         verbose_name_plural = verbose_name
         ordering = ["-created_at"]
 

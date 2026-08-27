@@ -41,7 +41,7 @@ class IncidentReport(StaffFkMixin, models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="上报时间")
 
     class Meta:
-        verbose_name = "异常上报"
+        verbose_name = "异常记录"
         verbose_name_plural = verbose_name
         ordering = ["-created_at"]
         indexes = [

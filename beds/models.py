@@ -13,7 +13,7 @@ class Building(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
 
     class Meta:
-        verbose_name = "楼栋"
+        verbose_name = "楼栋台账"
         verbose_name_plural = verbose_name
         ordering = ["name"]
 
@@ -30,7 +30,7 @@ class Floor(models.Model):
     name = models.CharField(max_length=10, verbose_name="楼层名称")  # 如 "1层"
 
     class Meta:
-        verbose_name = "楼层"
+        verbose_name = "楼层台账"
         verbose_name_plural = verbose_name
         ordering = ["building__name", "name"]
         constraints = [
@@ -50,7 +50,7 @@ class Room(models.Model):
     number = models.CharField(max_length=10, verbose_name="房间号")  # 如 "101"
 
     class Meta:
-        verbose_name = "房间"
+        verbose_name = "房间台账"
         verbose_name_plural = verbose_name
         ordering = ["floor__building__name", "floor__name", "number"]
         constraints = [
@@ -81,7 +81,7 @@ class Bed(models.Model):
     )
 
     class Meta:
-        verbose_name = "床位"
+        verbose_name = "床位台账"
         verbose_name_plural = verbose_name
         ordering = [
             "room__floor__building__name", "room__floor__name", "room__number", "number",
