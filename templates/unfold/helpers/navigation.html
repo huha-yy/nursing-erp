@@ -1,0 +1,24 @@
+{% comment %}
+  复制自 unfold 0.104.1 templates/unfold/helpers/navigation.html 并修改，升级 unfold 需重新对照。
+  修改点：nav#nav-sidebar-inner 加内联 min-height:100dvh。
+  原因：原 min-h-screen（100vh）在 iOS Safari 上按「工具栏收起时的最大视口」计算，
+  比实际可见高度大 50~115px，导致钉在侧栏底部的用户卡（含退出登录）被顶出屏幕外，
+  且 fixed 侧栏不可滚动 → iPad 上永远看不到、无法登出。
+  100dvh 动态跟随可见区域；不支持 dvh 的旧浏览器丢弃该声明，回退 class 里的 min-h-screen。
+  （styles.css 无 min-h-dvh 工具类，故用内联 style——见 unfold 预编译 CSS 坑）
+{% endcomment %}
+{% load i18n unfold %}
+
+<nav id="nav-sidebar-inner" style="min-height: 100dvh" class="bg-base-50 flex flex-col min-h-screen dark:text-font-default-dark dark:bg-base-950/20 {% element_classes 'navigation_inner' %}">
+    {% include "unfold/helpers/navigation_header.html" %}
+
+    {% include "unfold/helpers/search.html" %}
+
+    {% if sidebar_navigation|length > 0 %}
+        {% include "unfold/helpers/app_list.html" with app_list=available_apps %}
+    {% else %}
+        {% include "admin/app_list.html" with app_list=available_apps show_changelinks=False %}
+    {% endif %}
+
+    {% include "unfold/helpers/navigation_user.html" %}
+</nav>
