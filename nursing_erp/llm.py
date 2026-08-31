@@ -3,8 +3,9 @@
 供应商由环境变量决定（.env 为真源）：
     LLM_API_KEY / LLM_BASE_URL(完整 endpoint) / LLM_MODEL
 旧键 DEEPSEEK_* 仍被读取作回退（2026-08 前的配置）。
-当前供应商：Moonshot kimi-k2.6（与 ai-nursing-home 同源，
-见 ai-nursing-home/infra/.env）。
+当前供应商：本地 DGX vLLM ocicek/Qwen3.6-27B-NVFP4（2026-08-31 起，
+服务端 dato-vision 已挂 no-think 模板 + max-model-len 32768）；
+kimi 原配置见 .env 注释块 / .env.kimi.bak-20260831。
 
 用法：
     from nursing_erp.llm import chat
@@ -57,6 +58,10 @@ def chat(system_prompt: str, user_prompt: str, temperature: float = 0.3,
         pass
     else:
         payload["temperature"] = temperature
+    if "qwen" in model.lower():
+        # 本地 Qwen3.6：该 NVFP4 构建默认开思考链（纯文本混在 content 里且可到 270s）。
+        # 服务端已挂 no-think 模板，这里显式关双保险（模板丢失时仍走空思考块）。
+        payload["chat_template_kwargs"] = {"enable_thinking": False}
 
     last_err = None
     for attempt in range(retries + 1):

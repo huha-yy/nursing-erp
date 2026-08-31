@@ -542,6 +542,35 @@ def _ocr_extract_multi(images: List[str]) -> str:
     return "\n\n".join(parts)
 
 
+def _repair_truncated_json(text: str) -> str:
+    """补全 LLM 输出尾部缺失的闭引号/闭括号。
+
+    本地 qwen no-think 模式的实测失败形态（2026-08-31 探针）：finish_reason=stop
+    但输出少最后一个 `}`（311 字符缺 1 括号，temp=0.1 下确定性复现）。
+    按字符串感知扫描数未闭合的 {[/"，从尾部补齐。
+    """
+    stack = []
+    in_str = False
+    esc = False
+    for ch in text:
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch in "{[":
+            stack.append("}" if ch == "{" else "]")
+        elif ch in "}]" and stack and stack[-1] == ch:
+            stack.pop()
+    repaired = text + ('"' if in_str else "") + "".join(reversed(stack))
+    return repaired
+
+
 def _llm_structure_menu(ocr_text: str, dish_names: List[str]) -> dict:
     """周菜单：LLM 结构化 + 纠错（不识别特殊要求）。"""
     return _llm_structure(ocr_text, dish_names, mode="menu")
@@ -592,22 +621,24 @@ def _llm_structure(ocr_text: str, dish_names: List[str], mode: str = "menu") -> 
     if not reply:
         return {}
 
-    # 解析 LLM 输出，容忍 markdown 代码块和多余字符
-    try:
-        cleaned = reply.strip()
-        if cleaned.startswith("```"):
-            cleaned = re.sub(r'^```(?:json)?\s*', '', cleaned)
-            cleaned = re.sub(r'\s*```$', '', cleaned)
-        data = json.loads(cleaned)
-    except Exception:
-        # 尝试提取第一个 {...} 块
-        m = re.search(r'\{.*\}', reply, re.DOTALL)
-        if not m:
-            return {}
+    # 解析 LLM 输出，容忍 markdown 代码块、多余字符、尾部缺失闭括号
+    cleaned = reply.strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r'^```(?:json)?\s*', '', cleaned)
+        cleaned = re.sub(r'\s*```$', '', cleaned)
+    m = re.search(r'\{.*\}', cleaned, re.DOTALL)
+    candidates = [cleaned, _repair_truncated_json(cleaned)]
+    if m:
+        candidates += [m.group(0), _repair_truncated_json(m.group(0))]
+    data = None
+    for cand in candidates:
         try:
-            data = json.loads(m.group(0))
+            data = json.loads(cand)
+            break
         except Exception:
-            return {}
+            continue
+    if data is None:
+        return {}
 
     # 只保留合法的星期和餐次，值转成字符串列表
     result = {}

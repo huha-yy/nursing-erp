@@ -11,6 +11,8 @@ staticfiles/
 # Environment
 infra/.env
 .env
+# 供应商切换前的 key 备份（含真实密钥，绝不入库）
+.env.kimi.bak-*
 
 # IDE
 .vscode/
