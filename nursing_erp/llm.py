@@ -62,6 +62,10 @@ def chat(system_prompt: str, user_prompt: str, temperature: float = 0.3,
         # 本地 Qwen3.6：该 NVFP4 构建默认开思考链（纯文本混在 content 里且可到 270s）。
         # 服务端已挂 no-think 模板，这里显式关双保险（模板丢失时仍走空思考块）。
         payload["chat_template_kwargs"] = {"enable_thinking": False}
+    if "minimax" in model.lower():
+        # MiniMax-M3 默认 adaptive 思考，思考文本以 <think> 标签混在 content 里；
+        # 结构化场景关掉（2026-08-31 实测：关后短答 45 tok/1.9s，开则 ~700 思考 tok）。
+        payload["thinking"] = {"type": "disabled"}
 
     last_err = None
     for attempt in range(retries + 1):

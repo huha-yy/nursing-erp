@@ -100,3 +100,11 @@ def test_chat_kimi_keeps_quirks(monkeypatch):
     p = _capture_chat("kimi-k2.6", monkeypatch)
     assert "temperature" not in p
     assert "chat_template_kwargs" not in p
+
+
+def test_chat_minimax_disables_thinking(monkeypatch):
+    """MiniMax-M3：带 temperature + thinking disabled（adaptive 思考会把
+    <think> 原文混进 content，结构化场景必须显式关）。"""
+    p = _capture_chat("MiniMax-M3", monkeypatch)
+    assert p["thinking"] == {"type": "disabled"}
+    assert p["temperature"] == 0.3
