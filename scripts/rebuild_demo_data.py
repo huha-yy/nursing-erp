@@ -357,6 +357,18 @@ def main() -> None:
         except (IndexError, ValueError):
             sys.exit("✗ --cover-until 需要 YYYY-MM-DD 参数")
         span_end = max(span_end, _until)
+    # 演示留白：这些老人锚定日后不预点（周选点餐/家属代点是"从零点起"的演示，
+    # 防重约束 (老人,日期,餐次) 下预点满会整批 400）。默认张国栋+李秀兰
+    # （录屏脚本两处点餐主角+家属双绑）；--demo-free 1,2,5 换名单，none 关闭。
+    demo_free: set[int] = {1, 2}
+    if "--demo-free" in sys.argv:
+        _i = sys.argv.index("--demo-free")
+        try:
+            _raw = sys.argv[_i + 1]
+        except IndexError:
+            sys.exit("✗ --demo-free 需要逗号分隔的老人 id（如 1,2；none 关闭）")
+        demo_free = set() if _raw.lower() in ("none", "-", "") else {
+            int(x) for x in _raw.split(",") if x.strip()}
     now = djtz.now()
     db_name = connection.settings_dict["NAME"]
     print(f"=== 演示数据重灌 anchor={anchor} 月份={months} 库={db_name} ===")
@@ -481,6 +493,8 @@ def main() -> None:
             for d in daterange(span_start, span_end):
                 if r.id == DISCHARGE_ID and d >= discharge_date:
                     continue  # 身故离院后不再点餐
+                if d > anchor and r.id in demo_free:
+                    continue  # 演示留白：锚定日后不预点，现场点餐演示有位
                 for meal in MEALS:
                     if p.random() < persona[r.id]["skip"][meal]:
                         continue
@@ -556,6 +570,9 @@ def main() -> None:
         n_cancel = sum(1 for o in orders if o.status == "cancelled")
         n_modify = sum(1 for o in orders if o.status == "modified")
         print(f"  点餐：{len(orders)} 单（退餐 {n_cancel} / 改餐 {n_modify}）")
+        if demo_free:
+            free_names = "、".join(r.name for r in residents if r.id in demo_free) or str(demo_free)
+            print(f"  演示留白：{free_names} 锚定日后未预点（周选/家属点餐演示位）")
 
         # ── 5. 其他域（轻量、相对日期）────────────────────────────
         gen_other_domains(anchor, residents, employees, cgs_by_building,
