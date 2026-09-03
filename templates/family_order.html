@@ -46,7 +46,10 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){retur
 function monday(d){d=new Date(d);d.setDate(d.getDate()-((d.getDay()+6)%7));return d.toISOString().slice(0,10)}
 
 function init(){
-  document.getElementById('weekStart').value=monday(new Date());
+  // 点餐原则：每周五点下周。默认目标周=最近的周五+3天（下周一），与 ERP 周选点餐
+  // 同语义——此前默认"本周"，周中打开必含已送达历史天，整批提交防重必 400。
+  var f=new Date();f.setDate(f.getDate()+((5-f.getDay()+7)%7)+3);
+  document.getElementById('weekStart').value=monday(f);
   document.getElementById('weekStart').addEventListener('change',load);
   load();
 }
