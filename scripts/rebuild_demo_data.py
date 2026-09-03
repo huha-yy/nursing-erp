@@ -151,11 +151,21 @@ def level_timeline(anchor: date):
     ]
 
 
-def pool_pick(pools: dict, cat: str, rot: int, k: int) -> list:
-    """从分类池确定性取 k 道（轮转抽样）；池空则退回素菜池。"""
+def pool_pick(pools: dict, cat: str, rot: int, k: int, avoid: set | None = None) -> list:
+    """从分类池确定性取 k 道（轮转抽样）；池空则退回素菜池。
+    avoid：命中时顺位下移——改餐换入菜不得与本单已有菜重复，否则撞
+    meals_mealorder_dishes 的 (order, dish) 唯一约束（2026-09-03 锚 09-03 时炸出）。"""
     pool = pools.get(cat) or pools.get("素菜") or []
-    k = min(k, len(pool))
-    return [pool[(rot + i) % len(pool)][0] for i in range(k)]
+    avoid = avoid or set()
+    picks: list = []
+    for i in range(len(pool)):
+        cand = pool[(rot + i) % len(pool)][0]
+        if cand in avoid or cand in picks:
+            continue
+        picks.append(cand)
+        if len(picks) >= k:
+            break
+    return picks
 
 
 def status_for(d: date, meal: str, anchor: date, now) -> str:
@@ -482,7 +492,8 @@ def main() -> None:
                                 CANCEL_REASONS_WEEKEND if is_weekend else CANCEL_REASONS_WEEKDAY
                             )
                         elif p.random() < 0.025:
-                            swap = pool_pick(dish_pools, "素菜", d.day * 31 + r.id, 1)
+                            swap = pool_pick(dish_pools, "素菜", d.day * 31 + r.id, 1,
+                                             avoid=set(chosen[:-1]))
                             if swap:
                                 old = dish_names.get(chosen[-1], "?")
                                 chosen = chosen[:-1] + swap
