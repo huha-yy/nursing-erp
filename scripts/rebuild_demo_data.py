@@ -32,6 +32,8 @@
 运行（脚本会自查 runserver 并拒绝并行）：
     uv run python scripts/rebuild_demo_data.py                # 生产 db.sqlite3
     NURSING_DB=/tmp/x.sqlite3 uv run python scripts/rebuild_demo_data.py  # 临时库演练
+    uv run python scripts/rebuild_demo_data.py --cover-until 2026-09-30   # 点餐/周菜单/排班前铺到 09-30
+                                                              # （其余数据面保持过去式语义，不前铺）
 """
 import os
 import random
@@ -348,6 +350,13 @@ def main() -> None:
     months = [month_str(shift_month(anchor, k)) for k in (-2, -1, 0)]
     span_start = shift_month(anchor, -2)
     span_end = anchor + timedelta(days=2)
+    if "--cover-until" in sys.argv:  # 演示季覆盖：点餐/周菜单/排班前铺到指定日
+        _i = sys.argv.index("--cover-until")
+        try:
+            _until = date.fromisoformat(sys.argv[_i + 1])
+        except (IndexError, ValueError):
+            sys.exit("✗ --cover-until 需要 YYYY-MM-DD 参数")
+        span_end = max(span_end, _until)
     now = djtz.now()
     db_name = connection.settings_dict["NAME"]
     print(f"=== 演示数据重灌 anchor={anchor} 月份={months} 库={db_name} ===")
@@ -549,7 +558,8 @@ def main() -> None:
         print(f"  点餐：{len(orders)} 单（退餐 {n_cancel} / 改餐 {n_modify}）")
 
         # ── 5. 其他域（轻量、相对日期）────────────────────────────
-        gen_other_domains(anchor, residents, employees, cgs_by_building)
+        gen_other_domains(anchor, residents, employees, cgs_by_building,
+                          ahead_days=(span_end - anchor).days)
 
         # ── 6. 逐月出账：等级时间线 → 出账 → 核销 → 回填核销时间 ──
         timeline = level_timeline(anchor)
@@ -768,7 +778,8 @@ def seed_incidents(anchor, now, residents, cgs_by_building, rows) -> int:
     return len(incs)
 
 
-def gen_other_domains(anchor, residents, employees, cgs_by_building) -> None:
+def gen_other_domains(anchor, residents, employees, cgs_by_building,
+                      ahead_days: int = 3) -> None:
     """护理日志/健康/作息/用药/任务/排班/考勤/绩效/出入库/审批/巡检/报修/异常。"""
     p = random.Random(f"{SEED}-misc")
 
@@ -872,12 +883,12 @@ def gen_other_domains(anchor, residents, employees, cgs_by_building) -> None:
         ))
     Task.objects.bulk_create(tasks, batch_size=100)
 
-    # 排班+考勤：护理员近 7 天 + 未来 3 天（做六休一，白/夜轮换）
+    # 排班+考勤：护理员近 7 天 + 未来若干天（默认 3，--cover-until 可延长）
     scheds, atts = [], []
     for bld, cgs in cgs_by_building.items():
         floors = sorted({r.floor for r in residents if r.building == bld})
         for cg in cgs:
-            for off in range(-7, 4):
+            for off in range(-7, ahead_days + 1):
                 d = anchor + timedelta(days=off)
                 if (cg.id + d.toordinal()) % 7 == 6:
                     continue  # 休一天
