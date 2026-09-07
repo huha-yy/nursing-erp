@@ -171,11 +171,13 @@ def format_resident(r: Resident, detail: bool = False) -> dict:
         "floor": r.floor,
         "room": r.room,
         "care_level": r.care_level,
+        # 入列表投影（非 PII）：AI chat 预取 /api/residents/ 列表时靠它
+        # 判断"最近三天有无新入住"；id_card/notes 等仍留 detail-only
+        "admission_date": str(r.admission_date) if r.admission_date else None,
     }
     if detail:
         data.update({
             "id_card": r.id_card,
-            "admission_date": str(r.admission_date) if r.admission_date else None,
             "diagnosis": r.diagnosis,
             "allergies": r.allergies,
             "contact_name": r.contact_name,
