@@ -264,6 +264,27 @@ def main() -> None:
         print(f"✓ 补种异常上报 {n} 条（待处理 {sum(1 for x in INCIDENT_EXTRA if not x[4])}）")
         return
 
+    # 外科手术模式：滚动保鲜告警（2026-09-12，每日 cron 用）——异常上报的
+    # 日期锚定运行日近两周，几天后"最新告警"就变旧（demo_day_check 红项）。
+    # 本模式删全量重播 BASE+EXTRA 锚定今天，效果与全量重灌的异常域完全一致，
+    # 但不动其他域，与常驻 runserver 并行安全。注意：会清掉测试期手工上报
+    # 的真实行（演示库语义，与全量重灌相同）。
+    if "--refresh-incidents" in sys.argv:
+        residents = list(Resident.objects.order_by("id"))
+        employees = list(Employee.objects.order_by("id"))
+        cgs_by_building: dict[str, list[Employee]] = {}
+        for e in employees:
+            if e.is_caregiver and e.building:
+                cgs_by_building.setdefault(e.building, []).append(e)
+        rows_all = INCIDENT_BASE + INCIDENT_EXTRA
+        with transaction.atomic():
+            deleted, _ = IncidentReport.objects.all().delete()
+            n = seed_incidents(date.today(), djtz.now(), residents,
+                               cgs_by_building, rows_all)
+        print(f"✓ 告警滚动保鲜：删 {deleted} 条 → 重播 {n} 条"
+              f"（待处理 {sum(1 for x in rows_all if not x[4])}）锚定 {date.today()}")
+        return
+
     # 外科手术模式：回填档案层入住日期（2026-08-26，入离院记录台账上线后）——
     # 纯 UPDATE 只填 NULL 幂等，不动动态层，与常驻 runserver 并行安全。口径：
     # 建院以来陆续入住（约 3 个月～3 年 3 个月前）；确定性散布按 id 派生不靠
