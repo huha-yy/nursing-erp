@@ -1,0 +1,28 @@
+# 本地覆盖：Django 6 admin JS 组件（SelectFilter2 双栏选择器等）的
+# zh_Hans 官方翻译未跟上，这 7 条在浏览器里渲染成英文。LOCALE_PATHS
+# 优先级最高，改完跑 msgfmt 编译 .mo 再重启服务。
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: zh_Hans\n"
+
+msgid "(click to clear)"
+msgstr "（点击清除）"
+
+msgid "Choose %s by selecting them and then select the \"Choose\" arrow button."
+msgstr "在左侧列表选中要选择的%s，然后点击中间的“选择”箭头按钮。"
+
+msgid "Choose all %s"
+msgstr "选择全部%s"
+
+msgid "Choose selected %s"
+msgstr "选择选中的%s"
+
+msgid "Remove %s by selecting them and then select the \"Remove\" arrow button."
+msgstr "在右侧列表选中要移除的%s，然后点击中间的“移除”箭头按钮。"
+
+msgid "Remove all %s"
+msgstr "移除全部%s"
+
+msgid "Remove selected %s"
+msgstr "移除选中的%s"

@@ -114,6 +114,9 @@ AUTH_PASSWORD_VALIDATORS = [
 LANGUAGE_CODE = "zh-hans"
 TIME_ZONE = "Asia/Shanghai"
 USE_I18N = True
+# 本地翻译覆盖（优先级高于 Django 自带目录）——补 Django 6 admin JS
+# 组件（双栏选择器等）zh_Hans 未跟上的文案，见 locale/zh_Hans/
+LOCALE_PATHS = [BASE_DIR / "locale"]
 USE_L10N = True
 USE_TZ = True
 
