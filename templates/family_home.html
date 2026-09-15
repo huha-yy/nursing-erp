@@ -1,56 +1,78 @@
-{% extends "family_base.html" %}{% block nav_home %}on{% endblock %}
+{% extends "family_base.html" %}{% block nav_home %}on{% endblock %}{% load i18n %}
 
 {% block content %}
 <div class="wrap">
   <div class="title">
-    <span class="material-symbols-outlined">home</span> 家属首页
-    <span class="sub" id="hint">加载中…</span>
+    <span class="material-symbols-outlined">home</span> {% translate "家属首页" %}
+    <span class="sub" id="hint">{% translate "加载中…" %}</span>
   </div>
   <div id="list" style="display:flex;flex-direction:column;gap:12px">
-    <div class="empty"><p>加载中…</p></div>
+    <div class="empty"><p>{% translate "加载中…" %}</p></div>
   </div>
 </div>
 
 <script>
+var TZ = {
+  loading: '{% translate "加载中…" %}',
+  noBinding: '{% translate "暂未绑定老人，请联系院方" %}',
+  boundCount: '{% translate "共绑定 {} 位老人" %}',
+  arrears: '{% translate "欠费 {} 个月 · {}" %}',
+  oldestUnpaid: '{% translate "最早未缴月份" %}',
+  settled: '{% translate "费用已结清" %}',
+  latestAssess: '{% translate "最近评估 {} · {}（{} 分）" %}',
+  noAssess: '{% translate "暂无评估记录" %}',
+  latestActivity: '{% translate "最新动态：{} {} {}" %}',
+  noLog: '{% translate "近期暂无护理记录" %}',
+  todayMeals: '{% translate "今日已点 {} 餐（{}）" %}',
+  noMeal: '{% translate "今日尚未点餐" %}',
+  roomSuffix: '{% translate "室" %}',
+  ageSuffix: '{% translate "岁" %}',
+  careDetail: '{% translate "照护详情" %}',
+  loadFail: '{% translate "加载失败，请刷新重试" %}'
+};
+function trfmt(tpl) {
+  var vals = Array.prototype.slice.call(arguments, 1), i = 0;
+  return tpl.replace(/\{\}/g, function () { return vals[i++]; });
+}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function money(n){return n==null?'—':'¥'+Number(n).toFixed(2)}
 
 fetch('/api/family/overview/').then(function(r){return r.json()}).then(function(rows){
   if(!rows.length){
-    document.getElementById('list').innerHTML='<div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">family_restroom</span></div><p>暂未绑定老人，请联系院方</p></div>';
+    document.getElementById('list').innerHTML='<div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">family_restroom</span></div><p>'+TZ.noBinding+'</p></div>';
     document.getElementById('hint').textContent='';return;
   }
-  document.getElementById('hint').textContent='共绑定 '+rows.length+' 位老人';
+  document.getElementById('hint').textContent=trfmt(TZ.boundCount,rows.length);
   var html='';
   rows.forEach(function(r){
     var a=r.arrears;
     var badge = a
-      ? '<span class="b b-err" title="最早未缴月份：'+esc(a.oldest_month)+'">欠费 '+a.unpaid_months+' 个月 · '+money(a.outstanding)+'</span>'
-      : '<span class="b b-ok">费用已结清</span>';
+      ? '<span class="b b-err" title="'+TZ.oldestUnpaid+'：'+esc(a.oldest_month)+'">'+trfmt(TZ.arrears,a.unpaid_months,money(a.outstanding))+'</span>'
+      : '<span class="b b-ok">'+TZ.settled+'</span>';
     var asm=r.latest_assessment;
     var asmLine = asm
-      ? '最近评估 '+esc(asm.assess_date)+' · '+esc(asm.grade_display)+'（'+asm.total_score+' 分）'
-      : '暂无评估记录';
+      ? trfmt(TZ.latestAssess,esc(asm.assess_date),esc(asm.grade_display),asm.total_score)
+      : TZ.noAssess;
     var logLine = (r.recent_logs&&r.recent_logs.length)
-      ? '最新动态：'+esc(r.recent_logs[0].log_date)+' '+esc(r.recent_logs[0].category_display)+' '+esc(r.recent_logs[0].detail).slice(0,40)
-      : '近期暂无护理记录';
+      ? trfmt(TZ.latestActivity,esc(r.recent_logs[0].log_date),esc(r.recent_logs[0].category_display),esc(r.recent_logs[0].detail).slice(0,40))
+      : TZ.noLog;
     var mealLine=(r.today_meals&&r.today_meals.length)
-      ? '今日已点 '+r.today_meals.length+' 餐（'+r.today_meals.map(function(m){return esc(m.meal_type)}).join('、')+'）'
-      : '今日尚未点餐';
+      ? trfmt(TZ.todayMeals,r.today_meals.length,r.today_meals.map(function(m){return esc(m.meal_type)}).join('、'))
+      : TZ.noMeal;
     html+='<div class="rc" style="align-items:flex-start;cursor:default">'+
       '<div class="av">'+esc(r.name.charAt(0))+'</div>'+
       '<div class="inf">'+
         '<div class="n">'+esc(r.name)+' <span class="b b-dim">'+esc(r.care_level_display)+'</span> '+badge+'</div>'+
-        '<div class="m">'+esc(r.building)+esc(r.room)+'室 · '+esc(r.relation)+' · '+esc(r.age)+'岁 · '+asmLine+'</div>'+
+        '<div class="m">'+esc(r.building)+esc(r.room)+TZ.roomSuffix+' · '+esc(r.relation)+' · '+esc(r.age)+TZ.ageSuffix+' · '+asmLine+'</div>'+
         '<div class="m">'+esc(logLine)+'</div>'+
         '<div class="m">'+esc(mealLine)+'</div>'+
       '</div>'+
-      '<a class="btn" style="padding:8px 16px;white-space:nowrap" href="/family/care/'+r.id+'/">照护详情</a>'+
+      '<a class="btn" style="padding:8px 16px;white-space:nowrap" href="/family/care/'+r.id+'/">'+TZ.careDetail+'</a>'+
     '</div>';
   });
   document.getElementById('list').innerHTML=html;
 }).catch(function(){
-  document.getElementById('list').innerHTML='<div class="empty"><p>加载失败，请刷新重试</p></div>';
+  document.getElementById('list').innerHTML='<div class="empty"><p>'+TZ.loadFail+'</p></div>';
 });
 </script>
 {% endblock %}

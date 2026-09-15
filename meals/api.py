@@ -6,6 +6,7 @@ import re
 from datetime import date, timedelta
 from typing import List, Optional
 
+from django.utils.translation import gettext as _n
 from ninja import Query, Router, Schema
 from ninja.errors import HttpError
 from ninja.pagination import PageNumberPagination, paginate
@@ -71,14 +72,15 @@ def _assert_no_active_duplicate(items: list, batch: bool = False):
     再逐条查库中已有有效订单（cancelled 不算），命中即抛 400——
     批量路径整批拒绝，不留半批数据（与楼栋越权预检同语义）。
     """
-    suffix = "，整批拒绝" if batch else ""
+    suffix = _n("，整批拒绝") if batch else ""
     seen: dict = {}
     for i, key in enumerate(items):
         if key in seen:
             raise HttpError(
                 400,
-                f"第 {seen[key] + 1} 条与第 {i + 1} 条重复："
-                f"老人{key[0]} {key[1]} {key[2]} 一餐只能点一次{suffix}",
+                _n("第 {} 条与第 {} 条重复：老人{} {} {} 一餐只能点一次{}").format(
+                    seen[key] + 1, i + 1, key[0], key[1], key[2], suffix
+                ),
             )
         seen[key] = i
     for rid, d, mt in seen:
@@ -91,9 +93,9 @@ def _assert_no_active_duplicate(items: list, batch: bool = False):
         if dup:
             raise HttpError(
                 400,
-                f"{dup.resident.name} {d} {mt} 已有一张有效订单"
-                f"（id={dup.id}，{dup.get_status_display()}），"
-                f"请先改餐/退餐再重新点{suffix}",
+                _n("{} {} {} 已有一张有效订单（id={}，{}），请先改餐/退餐再重新点{}").format(
+                    dup.resident.name, d, mt, dup.id, dup.get_status_display(), suffix
+                ),
             )
 
 
@@ -152,7 +154,9 @@ def create_meal_orders_batch(request, payload: list[MealOrderIn]):
             resident_for_write(request, item.resident_id)
         except HttpError as e:
             if e.status_code == 403:
-                raise HttpError(403, f"第 {i + 1} 条越权，整批拒绝：{e.message}") from e
+                raise HttpError(
+                    403, _n("第 {} 条越权，整批拒绝：{}").format(i + 1, e.message)
+                ) from e
             raise
     _assert_no_active_duplicate(
         [(i.resident_id, i.date, i.meal_type) for i in payload], batch=True
@@ -181,10 +185,13 @@ def cancel_meal_order(request, order_id: int, reason: str = ""):
     """退餐"""
     order = MealOrder.objects.select_related("resident").filter(pk=order_id).first()
     if order is None:
-        raise HttpError(404, "订单不存在")
+        raise HttpError(404, _n("订单不存在"))
     scope = resolve_building_scope(request)
     if scope and order.resident.building != scope:
-        raise HttpError(403, f"无权操作 {order.resident.building} 的订单（当前范围：{scope}）")
+        raise HttpError(
+            403,
+            _n("无权操作 {} 的订单（当前范围：{}）").format(order.resident.building, scope),
+        )
     order.cancel(reason)
     record(request, action="退餐",
            target=f"{order.resident.name}（{order.resident.building}{order.resident.room}）"
@@ -271,7 +278,7 @@ def menu_ocr(request, payload: MenuOcrIn):
     ocr_text = _ocr_extract_multi(images)
     if not ocr_text:
         logger.warning("===== 菜单 OCR 未识别到文字 (图片数=%d) =====", len(images))
-        return {"error": "OCR 未识别到文字", "structured": {}, "unmatched": []}
+        return {"error": _n("OCR 未识别到文字"), "structured": {}, "unmatched": []}
 
     # 2. LLM 结构化 + 纠错
     dish_names = list(Dish.objects.filter(is_available=True).values_list("name", flat=True))
@@ -379,7 +386,7 @@ def meal_order_ocr(request, payload: MealOrderOcrIn):
     ocr_text = _ocr_extract_multi(images)
     if not ocr_text:
         logger.warning("===== 点餐 OCR 未识别到文字 (图片数=%d) =====", len(images))
-        return {"error": "OCR 未识别到文字", "structured": {}, "unmatched": []}
+        return {"error": _n("OCR 未识别到文字"), "structured": {}, "unmatched": []}
 
     dish_names = list(Dish.objects.filter(is_available=True).values_list("name", flat=True))
     raw = _llm_structure(ocr_text, dish_names, mode="order")
@@ -441,7 +448,7 @@ def meal_order_ocr_batch_create(request, payload: list[dict]):
             except HttpError as e:
                 if e.status_code == 403:
                     raise HttpError(
-                        403, f"第 {i + 1} 条越权，整批拒绝：{e.message}"
+                        403, _n("第 {} 条越权，整批拒绝：{}").format(i + 1, e.message)
                     ) from e
                 raise
 

@@ -34,6 +34,12 @@
     NURSING_DB=/tmp/x.sqlite3 uv run python scripts/rebuild_demo_data.py  # 临时库演练
     uv run python scripts/rebuild_demo_data.py --cover-until 2026-09-30   # 点餐/周菜单/排班前铺到 09-30
                                                               # （其余数据面保持过去式语义，不前铺）
+    uv run python scripts/rebuild_demo_data.py --lang en        # P5 英文演示：人名/菜名/库存品名
+                                                              # (含单位)/楼栋/楼层/自由文本英文化
+                                                              # （枚举值不动；zh 重灌可逆回中文）
+                                                              # ⚠ en 模式须同步跑 AI 侧
+                                                              # seed_pg_demo_en.py --lang en
+                                                              # （X-Building 权限链两边同值）
 """
 import os
 import random
@@ -56,7 +62,7 @@ from django.utils import timezone as djtz  # noqa: E402
 
 from assessments.models import Assessment, AssessmentItem, GradeLevelMap  # noqa: E402
 from assessments.services import create_assessment, review_lists  # noqa: E402
-from beds.models import Bed  # noqa: E402
+from beds.models import Bed, Building, Floor  # noqa: E402
 from billing.models import FeeRule, MonthlyBill  # noqa: E402
 from billing.services import arrears_stats, generate_month_bills, month_summary  # noqa: E402
 from family.models import FamilyBinding, FamilyMember  # noqa: E402
@@ -92,11 +98,7 @@ MEALS = ["早餐", "午餐", "晚餐"]
 MEAL_HOUR = {"早餐": 7, "午餐": 10, "晚餐": 16}
 WEEKEND_CANCEL_P, WEEKDAY_CANCEL_P = 0.15, 0.05
 
-STANDING_REQUESTS = {7: "糖尿病餐", 19: "软食", 2: "少盐", 23: "少油"}  # 固定口味画像
-OCCASIONAL_REQUESTS = ["少油", "软一点", "趁热", "分量少一些"]
-CANCEL_REASONS_WEEKDAY = ["身体不适没胃口", "不爱吃当天的菜", "体检需要空腹", "牙口不好吃不了"]
-CANCEL_REASONS_WEEKEND = ["家属接出去吃了", "回家过周末", "家属探视带了饭"]
-MODIFY_REASONS = ["老人要求换菜", "牙口不好换软食", "同菜吃腻了换口味"]
+# 固定口味画像 / 退改餐原因等自由文本模板移入 _T（P5 双语串表），经 T() 取用
 
 DISH_RULES = [  # 菜品库纠偏（档案层既有 94 道菜几乎全标"素菜"）——按关键词重分类
     ("粥", "主食"), ("饭", "主食"), ("馒头", "主食"),
@@ -106,6 +108,480 @@ DISH_RULES = [  # 菜品库纠偏（档案层既有 94 道菜几乎全标"素菜
     ("排骨", "荤菜"), ("蛋", "荤菜"),
     ("拌", "小菜"), ("凉", "小菜"),
 ]
+
+
+# ════════════════════════════════════════════════════════════════════
+# P5 双语串表（2026-09-15 广交会英文演示）
+#
+# 拍板口径：数据英文化 = 人名/菜名/楼栋/楼层/自由文本内容英文；
+# **枚举值不动**——护理等级（自理/半护/全护/失智）、餐次（早/午/晚）、
+# 班次、科室、状态、菜品分类、巡检结果保持中文原值
+# （UI 显示层 en 翻译目录已盖住）。
+#
+# 楼栋/楼层（P5b 2026-09-15 追加）：Building/Floor 台账 name 与
+# Resident/Employee/Schedule 字符串缓存列随 overlay 改名。X-Building
+# 权限链两边同步即保持匹配（dl-control 发 session.building → api_scope
+# 查 Building 表）；AI 侧 PG nursing_users/nursing_residents/
+# nursing_schedules 同值由 seed_pg_demo_en.py --lang en 同步 UPDATE。
+#
+# - 默认 zh 行为与旧版完全一致（每日 keepfresh cron 无感）
+# - --lang en：档案层人名/菜名/库存品名+单位/楼栋/楼层按固定映射英文化
+#   （overlay_archive，可逆——之后重跑 zh rebuild 即改回中文名）；
+#   动态层自由文本串源切 en 表
+# ════════════════════════════════════════════════════════════════════
+
+def _parse_lang() -> str:
+    if "--lang" in sys.argv:
+        i = sys.argv.index("--lang")
+        val = sys.argv[i + 1] if i + 1 < len(sys.argv) else "zh"
+    else:
+        val = next((a.split("=", 1)[1] for a in sys.argv if a.startswith("--lang=")), "zh")
+    if val not in ("zh", "en"):
+        raise SystemExit(f"✗ --lang 只支持 zh|en，收到 {val!r}")
+    return val
+
+
+LANG = _parse_lang()
+
+# 人名 zh→en：老人 36 + 员工 41 + 家属联系人 36（唯一字符串；员工"刘主任"×2
+# 同名同译）。en 模式 overlay 正向用，zh 模式反向改回——双向都必须一一对应。
+NAME_ZH_EN = {
+    # ── 老人（id 顺序）──
+    "张国栋": "Zhang Guodong", "李秀兰": "Li Xiulan", "陈永发": "Chen Yongfa",
+    "赵玉芬": "Zhao Yufen", "王淑珍": "Wang Shuzhen", "刘明德": "Liu Mingde",
+    "吴桂英": "Wu Guiying", "周德胜": "Zhou Desheng", "黄美华": "Huang Meihua",
+    "杨国华": "Yang Guohua", "徐秀英": "Xu Xiuying", "马德才": "Ma Decai",
+    "沈桂花": "Shen Guihua", "朱长福": "Zhu Changfu", "许美玲": "Xu Meiling",
+    "郑国平": "Zheng Guoping", "吕玉兰": "Lv Yulan", "何伟民": "He Weimin",
+    "胡秀珍": "Hu Xiuzhen", "林德茂": "Lin Demao", "孙玉梅": "Sun Yumei",
+    "高建平": "Gao Jianping", "郭秀英": "Guo Xiuying", "彭国栋": "Peng Guodong",
+    "唐玉芬": "Tang Yufen", "宋长贵": "Song Changgui", "田桂花": "Tian Guihua",
+    "范德明": "Fan Deming", "曹美凤": "Cao Meifeng", "廖永强": "Liao Yongqiang",
+    "许桂兰": "Xu Guilan", "袁建华": "Yuan Jianhua", "邓秀珍": "Deng Xiuzhen",
+    "苏国平": "Su Guoping", "万玉梅": "Wan Yumei", "石明远": "Shi Mingyuan",
+    # ── 员工（角色名按角色译：护士/主任/组长/总务…）──
+    "王建国": "Wang Jianguo", "张护士": "Nurse Zhang", "李护士": "Nurse Li",
+    "王护士": "Nurse Wang", "陈总务": "Logistics Officer Chen",
+    "赵总务": "Logistics Officer Zhao", "刘主任": "Director Liu",
+    "张主任": "Director Zhang", "李卫东": "Li Weidong", "吴主任": "Director Wu",
+    "周主任": "Director Zhou", "王组长": "Team Lead Wang",
+    "陈组长": "Team Lead Chen", "赵小明": "Zhao Xiaoming",
+    "孙组长": "Team Lead Sun", "钱小红": "Qian Xiaohong",
+    "黄组长": "Team Lead Huang", "刘行政": "Admin Liu", "冯医务": "Medical Officer Feng",
+    "孙财务": "Accountant Sun", "周安保": "Security Zhou",
+    "李芳": "Li Fang", "王强": "Wang Qiang", "刘小梅": "Liu Xiaomei",
+    "侯玉芬": "Hou Yufen", "陈建国": "Chen Jianguo", "张敏": "Zhang Min",
+    "赵丽华": "Zhao Lihua", "孙志明": "Sun Zhiming", "周玉英": "Zhou Yuying",
+    "吴秀丽": "Wu Xiuli", "郑文斌": "Zheng Wenbin", "杨桂兰": "Yang Guilan",
+    "冯德才": "Feng Decai", "钱玉兰": "Qian Yulan", "韩立明": "Han Liming",
+    "潘丽丽": "Pan Lili", "方永刚": "Fang Yonggang", "姚士杰": "Yao Shijie",
+    "蒋秀兰": "Jiang Xiulan",
+    # ── 家属联系人（紧急联系人，连带 FamilyMember.name / User.first_name）──
+    "王丽华": "Wang Lihua", "李建国": "Li Jianguo", "张伟": "Zhang Wei",
+    "刘芳": "Liu Fang", "陈志强": "Chen Zhiqiang", "杨秀英": "Yang Xiuying",
+    "赵永刚": "Zhao Yonggang", "黄晓梅": "Huang Xiaomei", "周建华": "Zhou Jianhua",
+    "吴桂芳": "Wu Guifang", "徐文斌": "Xu Wenbin", "孙丽娟": "Sun Lijuan",
+    "马国强": "Ma Guoqiang", "朱慧敏": "Zhu Huimin", "胡志明": "Hu Zhiming",
+    "郭雪梅": "Guo Xuemei", "何永平": "He Yongping", "林婉婷": "Lin Wanting",
+    "罗建平": "Luo Jianping", "高玉兰": "Gao Yulan", "郑文杰": "Zheng Wenjie",
+    "梁秀云": "Liang Xiuyun", "谢永强": "Xie Yongqiang", "宋美玲": "Song Meiling",
+    "唐志明": "Tang Zhiming", "许春燕": "Xu Chunyan", "韩立国": "Han Liguo",
+    "冯丽萍": "Feng Liping", "曹建华": "Cao Jianhua", "彭秀珍": "Peng Xiuzhen",
+    "邓永刚": "Deng Yonggang", "萧婉君": "Xiao Wanjun", "傅国平": "Fu Guoping",
+    "沈玉华": "Shen Yuhua", "曾志强": "Zeng Zhiqiang", "潘桂英": "Pan Guiying",
+}
+assert len(NAME_ZH_EN) == len(set(NAME_ZH_EN.values())), "NAME_ZH_EN en 值有重复，反向映射不可逆"
+
+# 菜名 zh→en（档案层 94 道；分类/价格/可用性等其余字段不动）
+DISH_ZH_EN = {
+    "丝瓜汤": "Sponge Gourd Soup", "八宝粥": "Eight-Treasure Porridge",
+    "冬瓜排骨": "Winter Melon with Ribs", "冬瓜汤": "Winter Melon Soup",
+    "凉拌木耳": "Black Fungus Salad", "凉拌菠菜": "Spinach Salad",
+    "凉拌黄瓜": "Cucumber Salad", "南瓜粥": "Pumpkin Porridge",
+    "卤蛋": "Marinated Egg", "土豆炖鸡": "Chicken Stew with Potatoes",
+    "小米粥": "Millet Porridge", "小米饭": "Millet Rice",
+    "山药汤": "Chinese Yam Soup", "拌三丝": "Three-Shred Salad",
+    "拌海带": "Kelp Salad", "拌莴笋丝": "Celtuce Salad",
+    "木耳炒蛋": "Egg with Black Fungus", "杂粮饭": "Mixed Grain Rice",
+    "清炒油麦菜": "Stir-Fried Leaf Lettuce", "清炒生菜": "Stir-Fried Lettuce",
+    "清炒芦笋": "Stir-Fried Asparagus", "清炒西蓝花": "Stir-Fried Broccoli",
+    "清炖羊肉": "Clear-Stewed Lamb", "清蒸鲈鱼": "Steamed Sea Bass",
+    "炒南瓜": "Stir-Fried Pumpkin", "炒空心菜": "Stir-Fried Water Spinach",
+    "炒胡萝卜丝": "Stir-Fried Carrot Strips", "炒花菜": "Stir-Fried Cauliflower",
+    "炒豆苗": "Stir-Fried Pea Sprouts", "炒青菜": "Stir-Fried Greens",
+    "炖牛肉": "Stewed Beef", "煎蛋": "Fried Egg", "煮蛋": "Hard-Boiled Egg",
+    "燕麦粥": "Oatmeal Porridge", "牛奶": "Milk",
+    "玉米馒头": "Corn Steamed Bun", "番茄汤": "Tomato Soup",
+    "白切鸡": "Poached Chicken", "白煮蛋": "Boiled Egg", "米饭": "Steamed Rice",
+    "粉丝蒸虾": "Steamed Shrimp with Glass Noodles", "糖醋鱼片": "Sweet & Sour Fish",
+    "素包子": "Vegetable Bun", "素炒秋葵": "Stir-Fried Okra",
+    "素炒茄子": "Stir-Fried Eggplant", "紫菜汤": "Seaweed Soup",
+    "紫薯包": "Purple Sweet Potato Bun", "红枣发糕": "Jujube Steamed Cake",
+    "红枣汤": "Jujube Soup", "红烧带鱼": "Braised Ribbonfish",
+    "红烧排骨": "Braised Spareribs", "红烧狮子头": "Braised Lion's Head Meatballs",
+    "红豆汤": "Red Bean Soup", "红豆浆": "Red Bean Soy Milk",
+    "红豆薏米粥": "Red Bean & Job's Tears Porridge", "绿豆汤": "Mung Bean Soup",
+    "肉末蒸蛋": "Steamed Egg with Minced Pork", "花卷": "Steamed Twisted Roll",
+    "芹菜花生": "Celery with Peanuts", "茶叶蛋": "Tea Egg",
+    "莲子汤": "Lotus Seed Soup", "菌菇汤": "Mushroom Soup",
+    "葱油鲳鱼": "Pomfret with Scallion Oil", "葱花卷": "Scallion Twisted Roll",
+    "蒜蓉菠菜": "Garlic Spinach", "蒸山药": "Steamed Chinese Yam",
+    "蒸玉米": "Steamed Corn", "蒸红薯": "Steamed Sweet Potato",
+    "蒸芋头": "Steamed Taro", "蒸蛋": "Steamed Egg",
+    "蒸蛋羹": "Steamed Egg Custard", "蒸饺": "Steamed Dumplings",
+    "薏米汤": "Job's Tears Soup", "薏米粥": "Job's Tears Porridge",
+    "虾仁豆腐": "Tofu with Shrimp", "蛋花汤": "Egg Drop Soup",
+    "西红柿炒蛋": "Scrambled Egg with Tomato", "西芹百合": "Celery with Lily Bulbs",
+    "豆沙包": "Red Bean Paste Bun", "豆浆": "Soy Milk", "豆腐汤": "Tofu Soup",
+    "酸奶": "Yogurt", "银耳汤": "Snow Fungus Soup",
+    "韭菜炒蛋": "Egg with Chives", "馒头": "Steamed Bun",
+    "香菇炖鸡": "Chicken Stew with Shiitake", "香菇青菜": "Greens with Shiitake",
+    "鱼香肉丝": "Yu-Xiang Shredded Pork", "鸡蛋": "Egg", "鹌鹑蛋": "Quail Egg",
+    "麻婆豆腐": "Mapo Tofu", "黄焖鸡": "Braised Chicken",
+    "黑米粥": "Black Rice Porridge", "米粥": "Rice Porridge",
+}
+assert len(DISH_ZH_EN) == len(set(DISH_ZH_EN.values())), "DISH_ZH_EN en 值有重复"
+
+# 库存品名 zh→en（档案层 InventoryItem 15 项，2026-09-15 从生产库快照逐个译；
+# 分类/数量/安全库存不动，低库存面板/库存页 en 演示不再露中文品名）
+INV_ZH_EN = {
+    "尿不湿L码": "Adult Diapers L", "尿不湿M码": "Adult Diapers M",
+    "尿不湿S码": "Adult Diapers S", "一次性手套": "Disposable Gloves",
+    "胃管": "Feeding Tubes", "口罩": "Surgical Masks",
+    "消毒液": "Disinfectant", "护理垫": "Underpads",
+    "轮椅": "Wheelchairs", "血压计": "BP Monitors",
+    "血糖试纸": "Blood Glucose Test Strips", "一次性注射器": "Disposable Syringes",
+    "吸痰管": "Suction Catheters", "医用胶带": "Medical Tape",
+    "纸尿裤": "Disposable Diapers",
+}
+assert len(INV_ZH_EN) == len(set(INV_ZH_EN.values())), "INV_ZH_EN en 值有重复，反向映射不可逆"
+
+# 库存单位 zh→en（InventoryItem.unit 数据列；en 值互异保证 zh 反向可逆——
+# "只"/"支" 不能都译 pcs，否则回译会并到同一个 zh）
+UNIT_ZH_EN = {
+    "包": "pack", "只": "pcs", "根": "tube", "瓶": "bottle",
+    "片": "pad", "台": "unit", "盒": "box", "支": "each",
+    "卷": "roll", "箱": "case", "套": "set",
+}
+assert len(UNIT_ZH_EN) == len(set(UNIT_ZH_EN.values())), "UNIT_ZH_EN en 值有重复，反向映射不可逆"
+
+# 楼栋 zh→en（P5b 2026-09-15）：Building.name 台账锚点 + Resident/Employee/
+# Schedule 字符串缓存列 + AI 侧 PG（nursing_users/nursing_residents/
+# nursing_schedules，seed_pg_demo_en.py 同步 UPDATE）——X-Building 权限链
+# 两边同值才不断。一对一映射，zh 重灌反向回译。
+BUILDING_ZH_EN = {f"{i}号楼": f"Building {i}" for i in range(1, 7)}
+assert len(set(BUILDING_ZH_EN.values())) == len(BUILDING_ZH_EN), \
+    "BUILDING_ZH_EN en 值有重复，反向映射不可逆"
+
+# 楼层 zh→en（Floor.name + Resident/Schedule 缓存列；生产值仅 1层/2层，
+# "3层" 为自由文本兜底位）。en 值互异保证 zh 反向可逆。
+FLOOR_ZH_EN = {"1层": "Floor 1", "2层": "Floor 2", "3层": "Floor 3"}
+assert len(set(FLOOR_ZH_EN.values())) == len(FLOOR_ZH_EN), \
+    "FLOOR_ZH_EN en 值有重复，反向映射不可逆"
+
+
+def tr(text: str) -> str:
+    """人名逐串翻译（en 模式命中串表才替换；zh 原样返回）。"""
+    return NAME_ZH_EN.get(text, text) if LANG == "en" else text
+
+
+def overlay_archive() -> None:
+    """档案层双语覆盖（可逆）：只改名字段，其余字段一律不动。
+
+    en：Resident.name / Employee.name / Dish.name / Resident.contact_name
+        / InventoryItem.name+unit 英文化（家属侧 FamilyMember.name 与登录
+        User.first_name 按手机号连带同步——家属端看到的人名跟老人档案保持
+        同语言；库存分类/数量/安全库存不动，出入库记录走外键无冗余品名）；
+        楼栋/楼层（P5b）：Building/Floor 台账 name + Resident/Employee
+        字符串缓存列改名（Schedule/巡检区域等动态层重造时直接写新值，
+        此处无行可改）。X-Building 权限链要求 AI 侧 PG 同步——en 重灌后
+        必须跑 seed_pg_demo_en.py --lang en（AI 仓库），否则 dl-control
+        楼长发头查无此名直接 400。
+    zh：en→zh 反向改回——英文演示后重跑 zh rebuild 名字复原（cron 无感）。
+    房间号/出生年月/护理等级/菜品分类等全部不动。
+    """
+    name_map = NAME_ZH_EN if LANG == "en" else {v: k for k, v in NAME_ZH_EN.items()}
+    dish_map = DISH_ZH_EN if LANG == "en" else {v: k for k, v in DISH_ZH_EN.items()}
+    inv_map = INV_ZH_EN if LANG == "en" else {v: k for k, v in INV_ZH_EN.items()}
+    unit_map = UNIT_ZH_EN if LANG == "en" else {v: k for k, v in UNIT_ZH_EN.items()}
+    bld_map = BUILDING_ZH_EN if LANG == "en" else {v: k for k, v in BUILDING_ZH_EN.items()}
+    flr_map = FLOOR_ZH_EN if LANG == "en" else {v: k for k, v in FLOOR_ZH_EN.items()}
+    n_r = n_e = n_d = n_f = n_i = n_b = 0
+    for r in Resident.objects.order_by("id"):
+        new = name_map.get(r.name, r.name)
+        contact = name_map.get(r.contact_name, r.contact_name) if r.contact_name else r.contact_name
+        if new != r.name or contact != r.contact_name:
+            r.name, r.contact_name = new, contact
+            r.save(update_fields=["name", "contact_name"])
+            n_r += 1
+        if r.contact_phone:
+            fam = FamilyMember.objects.filter(phone=r.contact_phone).first()
+            if fam and fam.name != contact and contact:
+                fam.name = contact
+                fam.save(update_fields=["name"])
+                n_f += 1
+            User.objects.filter(username=r.contact_phone).update(first_name=contact)
+    for e in Employee.objects.order_by("id"):
+        new = name_map.get(e.name, e.name)
+        if new != e.name:
+            e.name = new
+            e.save(update_fields=["name"])
+            n_e += 1
+    for d in Dish.objects.order_by("id"):
+        new = dish_map.get(d.name, d.name)
+        if new != d.name:
+            d.name = new
+            d.save(update_fields=["name"])
+            n_d += 1
+    for it in InventoryItem.objects.order_by("id"):
+        new = inv_map.get(it.name, it.name)
+        unit = unit_map.get(it.unit, it.unit)
+        if new != it.name or unit != it.unit:
+            it.name, it.unit = new, unit
+            it.save(update_fields=["name", "unit"])
+            n_i += 1
+    # 楼栋/楼层改名：台账 name + 字符串缓存列同表同值（一对一映射，UPDATE
+    # 逐值切换无唯一冲突）。Room.number/Bed 不动；Schedule 是动态层，重造时
+    # 自然写新值。漏改列会被 run_assertions 的台账一致性断言暴露。
+    n_b += sum(
+        Building.objects.filter(name=zh).update(name=en)
+        for zh, en in bld_map.items()
+    )
+    n_b += sum(
+        Floor.objects.filter(name=zh).update(name=en)
+        for zh, en in flr_map.items()
+    )
+    for zh, en in bld_map.items():
+        n_b += Resident.objects.filter(building=zh).update(building=en)
+        n_b += Employee.objects.filter(building=zh).update(building=en)
+    for zh, en in flr_map.items():
+        n_b += Resident.objects.filter(floor=zh).update(floor=en)
+    tag = "英文化" if LANG == "en" else "回译中文"
+    print(f"  档案层{tag}：老人(含联系人) {n_r} / 员工 {n_e} / 菜品 {n_d} /"
+          f" 库存(含单位) {n_i} / 家属账号 {n_f} / 楼栋楼层 {n_b}")
+
+
+# 自由文本模板（动态层）：zh 键与旧版字面量一致；en 为对译
+_T = {
+    "zh": {
+        "standing_requests": {7: "糖尿病餐", 19: "软食", 2: "少盐", 23: "少油"},
+        "occasional": ["少油", "软一点", "趁热", "分量少一些"],
+        "cancel_weekday": ["身体不适没胃口", "不爱吃当天的菜", "体检需要空腹", "牙口不好吃不了"],
+        "cancel_weekend": ["家属接出去吃了", "回家过周末", "家属探视带了饭"],
+        "modify_reasons": ["老人要求换菜", "牙口不好换软食", "同菜吃腻了换口味"],
+        "mod_fmt": "原: {old} → 新: {new} ({reason})",
+        "timeline_rows": [
+            (2, -2, 15, "半护", 55, "术后康复期，需协助起居", "张主任"),
+            (PROMOTION_ID, -1, 1, "半护", 55, "行动能力下降，需部分生活协助", "刘主任"),
+            (PROMOTION_ID, 0, 1, "全护", 75, "病情加重，需全天照护", "刘主任"),
+        ],
+        "couple": ("张国栋", "李秀兰"),
+        "discharge_reason": "因病离世",
+        "transfer_reason": "随护理等级由半护转全护，迁入介护区",
+        "log_details": ["情况平稳，按护理计划执行。", "进食正常，餐后协助漱口。",
+                        "协助如厕一次，无异常。", "按时翻身，皮肤完好。",
+                        "生命体征测量正常并记录。"],
+        "note_stable": "指标平稳",
+        "note_high": "血压偏高，持续关注",
+        "activities": ["散步", "打太极", "看电视", "做手工", "晒太阳"],
+        "moods": ["良好", "平稳", "愉悦", "一般"],
+        "meds": [("苯磺酸氨氯地平片", "5mg", "qd"), ("二甲双胍缓释片", "0.5g", "bid"),
+                 ("阿托伐他汀钙片", "20mg", "qd"), ("硝酸甘油片", "0.5mg", "prn"),
+                 ("奥美拉唑肠溶胶囊", "20mg", "qd"), ("复方丹参滴丸", "10丸", "tid"),
+                 ("格列美脲片", "2mg", "qd"), ("氢氯噻嗪片", "25mg", "qd")],
+        "med_stop_note": "疗程结束停用",
+        "task_seed": [
+            ("护送老人体检", "护送本楼 5 位老人到医务室体检", -1, True),
+            ("楼栋送餐", "午间为 3 层老人送餐", 0, True),
+            ("公共区域消毒", "对本楼公共区域进行消毒", -2, True),
+            ("整理老人档案", "更新本周老人用药记录", 1, False),
+            ("库存盘点", "盘点护理耗材库存并录入系统", 0, True),
+            ("组织老人活动", "下午组织老人在活动室做手工", 0, False),
+            ("维修跟进", "跟进本楼轮椅维修进度", -3, True),
+            ("新员工带教", "带教新入职护理员熟悉流程", 2, False),
+        ],
+        "sched_night": "夜间巡房两次",
+        "sched_day": "协助老人午晚餐",
+        "perf_comment": "工作认真负责",
+        "suppliers": ["杭州康养供应链有限公司", "浙江医疗器械批发", "洁达消毒用品"],
+        "approvals": [
+            ("陈总务", "purchase", "采购尿不湿L码",
+             "尿不湿L码库存低于安全线，申请采购 200 包。", "pending"),
+            ("赵总务", "purchase", "采购一次性口罩",
+             "全院口罩库存告急，申请采购 2000 只。", "pending"),
+            ("张护士", "leave", "张护士请假申请", "家中急事，申请下周三请假一天。", "approved"),
+            ("李护士", "leave", "李护士调休申请", "申请下周五调休。", "pending"),
+            ("王护士", "reimburse", "护理耗材费用报销",
+             "3号楼护理耗材采购垫付 860 元，申请报销。", "pending"),
+            ("陈总务", "purchase", "采购消毒液", "全院清洁消毒用品补充采购。", "approved"),
+        ],
+        "inspections": [
+            ("王建国", "1号楼餐厅", -1, "合格", "地面整洁，餐具消毒达标"),
+            ("李卫东", "3号楼公共区域", -1, "合格", "走廊扶手已消毒"),
+            ("王建国", "2号楼卫生间", -2, "不合格", "2楼男卫地面有水渍，已通知保洁"),
+            ("刘主任", "食堂后厨", -2, "合格", "生熟分区规范"),
+            ("吴主任", "1号楼活动室", -3, "合格", "通风良好"),
+            ("李卫东", "3号楼洗衣房", -3, "不合格", "角落堆放杂物，已整改"),
+        ],
+        "maintenance": [
+            ("轮椅", "3号楼2层", "轮椅左轮松动，推起来有异响", "张护士", "in_progress"),
+            ("血压计", "护理站", "血压计读数不准，需要校准", "李护士", "pending"),
+            ("热水器", "2号楼淋浴间", "热水器不出热水", "王护士", "done"),
+            ("电梯", "1号楼", "电梯按键不灵敏", "刘主任", "pending"),
+            ("制氧机", "3号楼3层", "制氧机报警灯常亮", "张护士", "in_progress"),
+            ("呼叫器", "5号楼2层", "呼叫器无响应", "钱小红", "pending"),
+        ],
+    },
+    "en": {
+        "standing_requests": {7: "Diabetic meal", 19: "Soft diet", 2: "Low salt", 23: "Low oil"},
+        "occasional": ["Less oil", "Softer food", "Serve while hot", "Smaller portion"],
+        "cancel_weekday": ["Feeling unwell, no appetite", "Doesn't like today's dishes",
+                           "Needs an empty stomach for a checkup", "Bad teeth, can't chew it"],
+        "cancel_weekend": ["Family took them out for a meal", "Home for the weekend",
+                           "Family brought food on a visit"],
+        "modify_reasons": ["Resident asked for a change", "Switched to soft food for bad teeth",
+                           "Tired of the same dish"],
+        "mod_fmt": "old: {old} → new: {new} ({reason})",
+        "timeline_rows": [
+            (2, -2, 15, "半护", 55, "Post-op recovery; needs help with daily living", "Director Zhang"),
+            (PROMOTION_ID, -1, 1, "半护", 55,
+             "Declining mobility; needs partial living assistance", "Director Liu"),
+            (PROMOTION_ID, 0, 1, "全护", 75,
+             "Condition worsened; needs full-day care", "Director Liu"),
+        ],
+        "couple": ("Zhang Guodong", "Li Xiulan"),
+        "discharge_reason": "Passed away due to illness",
+        "transfer_reason": "Moved to the skilled-care zone after care level changed from semi-care to full care",
+        "log_details": ["Stable; care plan carried out as usual.",
+                        "Ate normally; assisted with mouth rinse after the meal.",
+                        "Assisted with toileting once; nothing unusual.",
+                        "Turned on schedule; skin intact.",
+                        "Vital signs measured and recorded; all normal."],
+        "note_stable": "Vitals stable",
+        "note_high": "BP slightly high; monitoring",
+        "activities": ["Walking", "Tai Chi", "Watching TV", "Handcrafts", "Sunbathing"],
+        "moods": ["Good", "Calm", "Cheerful", "Average"],
+        "meds": [("Amlodipine Besylate", "5mg", "qd"), ("Metformin XR", "0.5g", "bid"),
+                 ("Atorvastatin", "20mg", "qd"), ("Nitroglycerin", "0.5mg", "prn"),
+                 ("Omeprazole", "20mg", "qd"), ("Compound Danshen Pills", "10 pills", "tid"),
+                 ("Glimepiride", "2mg", "qd"), ("Hydrochlorothiazide", "25mg", "qd")],
+        "med_stop_note": "Course completed; discontinued",
+        "task_seed": [
+            ("Escort residents to checkups", "Escort 5 residents to the clinic for checkups", -1, True),
+            ("Building meal delivery", "Deliver lunch to residents on floor 3", 0, True),
+            ("Common-area disinfection", "Disinfect common areas of the building", -2, True),
+            ("Update resident files", "Update this week's medication records", 1, False),
+            ("Inventory count", "Count nursing supplies and enter into the system", 0, True),
+            ("Organize resident activities", "Handcraft session in the activity room this afternoon", 0, False),
+            ("Repair follow-up", "Follow up on the wheelchair repair", -3, True),
+            ("New-staff mentoring", "Mentor the new caregiver on routines", 2, False),
+        ],
+        "sched_night": "Two night rounds",
+        "sched_day": "Assist with lunch and dinner",
+        "perf_comment": "Conscientious and dedicated",
+        "suppliers": ["Hangzhou Kangyang Supply Chain Co.",
+                      "Zhejiang Medical Devices Wholesale", "Jieda Disinfection Products"],
+        "approvals": [
+            ("陈总务", "purchase", "Purchase diapers (size L)",
+             "Diaper (L) stock is below the safety line; requesting 200 packs.", "pending"),
+            ("赵总务", "purchase", "Purchase disposable masks",
+             "Facility-wide mask stock is running low; requesting 2000 masks.", "pending"),
+            ("张护士", "leave", "Nurse Zhang leave request",
+             "Family emergency; requesting one day off next Wednesday.", "approved"),
+            ("李护士", "leave", "Nurse Li compensatory leave",
+             "Requesting compensatory leave next Friday.", "pending"),
+            ("王护士", "reimburse", "Nursing supplies reimbursement",
+             "Paid 860 yuan out of pocket for Bldg 3 nursing supplies; requesting reimbursement.", "pending"),
+            ("陈总务", "purchase", "Purchase disinfectant",
+             "Facility-wide cleaning & disinfection supplies replenishment.", "approved"),
+        ],
+        "inspections": [
+            ("王建国", "Bldg 1 Dining Hall", -1, "合格", "Floor clean; tableware disinfection up to standard"),
+            ("李卫东", "Bldg 3 Common Area", -1, "合格", "Corridor handrails disinfected"),
+            ("王建国", "Bldg 2 Restroom", -2, "不合格", "Water on the men's restroom floor; cleaning notified"),
+            ("刘主任", "Main Kitchen", -2, "合格", "Raw/cooked separation up to standard"),
+            ("吴主任", "Bldg 1 Activity Room", -3, "合格", "Well ventilated"),
+            ("李卫东", "Bldg 3 Laundry Room", -3, "不合格", "Clutter in the corner; rectified"),
+        ],
+        "maintenance": [
+            ("Wheelchair", "Bldg 3 Floor 2", "Left wheel of the wheelchair is loose and rattles", "张护士", "in_progress"),
+            ("BP Monitor", "Nursing Station", "BP monitor readings inaccurate; needs calibration", "李护士", "pending"),
+            ("Water Heater", "Bldg 2 Shower Room", "Water heater produces no hot water", "王护士", "done"),
+            ("Elevator", "Bldg 1", "Elevator buttons not responsive", "刘主任", "pending"),
+            ("Oxygen Concentrator", "Bldg 3 Floor 3", "Oxygen concentrator alarm light stays on", "张护士", "in_progress"),
+            ("Call Bell", "Bldg 5 Floor 2", "Call bell has no response", "钱小红", "pending"),
+        ],
+    },
+}
+
+
+def T(key: str):
+    """当前语言的自由文本模板（动态层串源统一走这里）。"""
+    return _T[LANG][key]
+
+
+# 异常剧本 en 描述（与 INCIDENT_BASE/EXTRA 逐行对齐，仅第 4 列文本不同；
+# 结构列——老人id/类别/严重度/时序/处理——复制 zh 行，杜绝漂移）
+INCIDENT_BASE_EN = [
+    "Refused lunch; coaxed patiently by the caregiver and ate a small amount",
+    "Slipped and fell in the corridor; sent for hospital examination, no fracture",
+    "Feeling low from missing family; arranged a video call with relatives",
+    "Redness over the sacral area; pressure-relief care started",
+    "Ate little at breakfast; under continued observation",
+    "Wandering the corridor looking for an exit; guided back to the room",
+]
+INCIDENT_EXTRA_EN = [
+    "Slipped in the bathroom during a night toileting trip, landed on the right hip; "
+    "conscious with localized pain. Ice pack applied, movement restricted, family "
+    "contacted for an outside X-ray",
+    "Repeatedly wandered to the floor exit after dinner trying to go out; remained "
+    "restless after being led back. Night rounds increased",
+    "Sacral skin break about 2x2 cm (stage II); reported to the head nurse, "
+    "pressure-relief mattress replaced and scheduled turning in place",
+    "Morning BP 182/104 mmHg with dizziness; repeat still high. Extra medication "
+    "given per doctor's orders, continuous monitoring",
+    "Irritable in the afternoon and unwilling to join group activities; relieved "
+    "after a walk and chat with a caregiver",
+    "Ate about half of lunch, complained the food was too salty; kitchen notified "
+    "to adjust the seasoning",
+    "Morning chest tightness and shortness of breath, SpO2 88%; transferred to the "
+    "district hospital at once, diagnosed with acute-on-chronic heart failure, "
+    "returned after treatment and now stable",
+    "Stumbled off balance at the end of rehab training without falling; minor "
+    "abrasion on the right knee, cleaned and bandaged",
+    "Reported palpitations at night with HR 102 bpm; re-measured 88 bpm after 30 "
+    "minutes of bed rest, kept under observation",
+    "Ate less than a third of two consecutive meals, 1.5 kg weight loss vs last "
+    "month; swallowing assessment scheduled",
+    "Loitered in the Building 5 lobby trying to go out in the afternoon; led back "
+    "after the face-recognition access alert, family informed by phone",
+    "Heel redness without skin break (stage I); pressure-relief boots on and q2h "
+    "turning in place",
+    "Slipped on the wet floor at the bathroom entrance but grabbed the handrail "
+    "without falling; non-slip mats added and warning signs posted",
+    "Noon blood glucose 8.9 mmol/L, on the high side; advised to cut sweets, "
+    "re-tested 7.2 before dinner",
+    "Withdrawn and low after the roommate was discharged; improved after two "
+    "social-worker companion visits",
+    "Disoriented at dusk insisting on going home; calmed and guided back, mood "
+    "stabilized",
+    "Low mood after the family cancelled the visit; settled after a video call "
+    "that evening",
+    "Scratch marks on the left forearm (self-scratching); nails trimmed and "
+    "anti-itch ointment applied",
+    "Poor appetite at dinner; appetite back to normal at next morning's breakfast",
+]
+
+
+def incident_rows() -> list[tuple]:
+    """当前语言的异常剧本（BASE+EXTRA）。en 模式仅替换描述文本（元组第 4 列）。"""
+    base, extra = INCIDENT_BASE, INCIDENT_EXTRA
+    if LANG == "en":
+        assert len(INCIDENT_BASE_EN) == len(INCIDENT_BASE), "BASE en 描述行数与 zh 不齐"
+        assert len(INCIDENT_EXTRA_EN) == len(INCIDENT_EXTRA), "EXTRA en 描述行数与 zh 不齐"
+        base = [r[:3] + (d,) + r[4:] for r, d in zip(INCIDENT_BASE, INCIDENT_BASE_EN)]
+        extra = [r[:3] + (d,) + r[4:] for r, d in zip(INCIDENT_EXTRA, INCIDENT_EXTRA_EN)]
+    return base + extra
 
 
 def shift_month(d: date, k: int) -> date:
@@ -142,14 +618,12 @@ def level_timeline(anchor: date):
     每行 = 一张评估单：synth_scores(目标总分) 打 26 项 → 建议档应恰为目标档
     （55→2级半护 / 75→3级全护，±1 舍入不跨段），confirm(final_level=目标档)。
     from 档不再手写——confirm 时取老人当时档位，链条自然衔接。
+    P5：原因/经办人文本取自 _T[LANG]（en 模式主任名与英文描述，档位值仍中文枚举）。
     """
     return [
-        (2, shift_month(anchor, -2).replace(day=15), "半护", 55,
-         "术后康复期，需协助起居", "张主任"),
-        (PROMOTION_ID, shift_month(anchor, -1).replace(day=1), "半护", 55,
-         "行动能力下降，需部分生活协助", "刘主任"),
-        (PROMOTION_ID, anchor.replace(day=1), "全护", 75,
-         "病情加重，需全天照护", "刘主任"),
+        (rid, (shift_month(anchor, moff) if moff else anchor).replace(day=day),
+         to_l, target, reason, op)
+        for rid, moff, day, to_l, target, reason, op in T("timeline_rows")
     ]
 
 
@@ -224,7 +698,8 @@ def seed_family() -> None:
 
     # 多绑演示：张国栋(101)与李秀兰(102)是老两口，子女王丽华一个账号看两位老人
     # （库内房间为单人间，"同房两老"不成立，剧情改为同院不同房）
-    couple = list(Resident.objects.filter(name__in=("张国栋", "李秀兰")).order_by("id"))
+    # P5：en 模式档案已英文化，名字按当前语言查（张/李 → Zhang/Li）
+    couple = list(Resident.objects.filter(name__in=T("couple")).order_by("id"))
     if len(couple) == 2:
         fm1 = FamilyMember.objects.filter(phone=couple[0].contact_phone).first()
         if fm1 is not None:
@@ -238,6 +713,12 @@ def seed_family() -> None:
 
 
 def main() -> None:
+    if LANG == "en":
+        print("⚠ 演示英文模式（--lang en）：档案层人名/菜名/楼栋/楼层与动态层自由文本"
+              "将英文化；枚举值（护理等级/餐次/班次/菜品分类/巡检结果）保持中文原值，"
+              "UI 由 en 翻译目录盖住。楼栋改名后 X-Building 权限链要求 AI 侧同步："
+              "必须跑 seed_pg_demo_en.py --lang en（AI 仓库）。恢复中文=重跑默认 zh 重灌。")
+
     # 外科手术模式：只补种家属账号（Q6 上线用）——纯增量 INSERT，不动动态层，
     # 与常驻 runserver 并行安全，故不进 runserver 守卫
     if "--seed-family-only" in sys.argv:
@@ -258,10 +739,11 @@ def main() -> None:
         for e in employees:
             if e.is_caregiver and e.building:
                 cgs_by_building.setdefault(e.building, []).append(e)
+        extra_rows = incident_rows()[len(INCIDENT_BASE):]
         with transaction.atomic():
             n = seed_incidents(date.today(), djtz.now(), residents,
-                               cgs_by_building, INCIDENT_EXTRA)
-        print(f"✓ 补种异常上报 {n} 条（待处理 {sum(1 for x in INCIDENT_EXTRA if not x[4])}）")
+                               cgs_by_building, extra_rows)
+        print(f"✓ 补种异常上报 {n} 条（待处理 {sum(1 for x in extra_rows if not x[4])}）")
         return
 
     # 外科手术模式：滚动保鲜告警（2026-09-12，每日 cron 用）——异常上报的
@@ -276,7 +758,7 @@ def main() -> None:
         for e in employees:
             if e.is_caregiver and e.building:
                 cgs_by_building.setdefault(e.building, []).append(e)
-        rows_all = INCIDENT_BASE + INCIDENT_EXTRA
+        rows_all = incident_rows()
         with transaction.atomic():
             deleted, _ = IncidentReport.objects.all().delete()
             n = seed_incidents(date.today(), djtz.now(), residents,
@@ -447,6 +929,14 @@ def main() -> None:
         promo.save(update_fields=["care_level"])
         print(f"  档案校正：菜品重分类 {fixed} 道；{promo.name} 等级重置为 自理")
 
+        # ── 2.2 档案层双语覆盖（P5）：菜品重分类必须先于改名（DISH_RULES
+        #        按中文名关键词匹配）；改名后 zh 重灌反向改回，可逆 ──
+        overlay_archive()
+        # 改名后重取档案：内存里的 residents/employees 还是旧名字（ordered_by /
+        # staff_name 等 DenormName 字段要跟着新名字走）
+        residents = list(Resident.objects.order_by("id"))
+        employees = list(Employee.objects.order_by("id"))
+
         # ── 2.5 家属账号种子（档案层语义：幂等 get_or_create，不进清空列表）──
         seed_family()
 
@@ -505,7 +995,7 @@ def main() -> None:
                 "skip": {"早餐": p.uniform(0.06, 0.18), "午餐": p.uniform(0.01, 0.03),
                          "晚餐": p.uniform(0.03, 0.08)},
                 "cancel_bias": 1.5 if r.id == ARREARS_ID else 1.0,  # 失智老人拒食倾向
-                "standing": STANDING_REQUESTS.get(r.id, ""),
+                "standing": T("standing_requests").get(r.id, ""),
             }
         orders, order_links, mod_logs, order_times, mod_times = [], [], [], [], []
         for r in residents:
@@ -533,7 +1023,7 @@ def main() -> None:
                         if p.random() < cancel_p:
                             is_weekend = d.weekday() >= 5
                             status, reason = "cancelled", p.choice(
-                                CANCEL_REASONS_WEEKEND if is_weekend else CANCEL_REASONS_WEEKDAY
+                                T("cancel_weekend") if is_weekend else T("cancel_weekday")
                             )
                         elif p.random() < 0.025:
                             swap = pool_pick(dish_pools, "素菜", d.day * 31 + r.id, 1,
@@ -541,12 +1031,11 @@ def main() -> None:
                             if swap:
                                 old = dish_names.get(chosen[-1], "?")
                                 chosen = chosen[:-1] + swap
-                                status, reason = "modified", (
-                                    f"原: {old} → 新: {dish_names.get(swap[0], '?')}"
-                                    f" ({p.choice(MODIFY_REASONS)})"
-                                )
+                                status, reason = "modified", T("mod_fmt").format(
+                                    old=old, new=dish_names.get(swap[0], "?"),
+                                    reason=p.choice(T("modify_reasons")))
                     standing = persona[r.id]["standing"]
-                    occasional = p.choice(OCCASIONAL_REQUESTS) if p.random() < 0.04 else ""
+                    occasional = p.choice(T("occasional")) if p.random() < 0.04 else ""
                     requests = standing or occasional
                     cg = cgs[(r.id // 6 + d.isoweekday()) % len(cgs)] if cgs else None
                     created = min(aware(d - timedelta(days=1), MEAL_HOUR[meal], 30), now)
@@ -610,13 +1099,13 @@ def main() -> None:
                 # 之后生成的当月账自然排除杨国华（无床无点餐）
                 DischargeRecord.objects.create(
                     resident=Resident.objects.get(pk=DISCHARGE_ID), discharge_type="身故",
-                    discharge_date=discharge_date, reason="因病离世",
+                    discharge_date=discharge_date, reason=T("discharge_reason"),
                 )
                 TransferRecord.objects.create(
                     resident=Resident.objects.get(pk=PROMOTION_ID),
                     from_zone="自理区", to_zone="介护区",
                     transfer_date=anchor.replace(day=1),
-                    reason="随护理等级由半护转全护，迁入介护区",
+                    reason=T("transfer_reason"),
                 )
             m_end = month_end(date.fromisoformat(m + "-01"))
             for idx, (rid, cdate, to_l, target, reason, by) in enumerate(timeline):
@@ -625,7 +1114,7 @@ def main() -> None:
                 r = Resident.objects.get(pk=rid)
                 # 走真实评估定级：26 项打分 → 建议档=目标档 → confirm 原子翻转
                 # 档案 + 生成关联变更行（from 取当时档位，链条自然衔接）
-                a = create_assessment(r, cdate, "李护士", "王护士", synth_scores(target))
+                a = create_assessment(r, cdate, tr("李护士"), tr("王护士"), synth_scores(target))
                 check(a.suggested_level == to_l,
                       f"{r.name} 目标总分 {target} 算出建议 {a.suggested_level}，"
                       f"应为 {to_l}（目标分漂移跨段？）")
@@ -645,7 +1134,7 @@ def main() -> None:
                     continue  # 欠费剧本主角：永远不核销
                 if mi == 2 and b.resident_id % 3 == 0:
                     continue  # 当月再留一批未缴 → 欠费名单有层次
-                b.settle(operator="孙财务")
+                b.settle(operator=tr("孙财务"))
                 settle_ids.append(b.pk)
                 settle_rids.append(b.resident_id)
             if settle_ids:
@@ -668,8 +1157,8 @@ def main() -> None:
                  .filter(care_level="自理").order_by("id").first())
         check(stale is not None, "找不到可补录复评的自理在住老人")
         a_stale = create_assessment(stale, anchor - timedelta(days=400),
-                                    "李护士", "王护士", synth_scores(10))
-        a_stale.confirm(operator="刘主任")
+                                    tr("李护士"), tr("王护士"), synth_scores(10))
+        a_stale.confirm(operator=tr("刘主任"))
         print(f"  复评补录：{stale.name} 400 天前已定级"
               f"（{a_stale.total_score}分·{a_stale.grade}级 自理，from==to 留痕）")
 
@@ -798,7 +1287,7 @@ def seed_incidents(anchor, now, residents, cgs_by_building, rows) -> int:
         # 未处理行不带处理人——口径干净：没有"处理"就没人署名（旧演示
         # 数据有 pending 行自带处理人的瑕疵，详情页只在 handled 时展示
         # 才没露馅，新数据从源头改掉）
-        by = (op or (cg.name if cg else ""))[:30] if handled else ""
+        by = (tr(op) if op else (cg.name if cg else ""))[:30] if handled else ""
         incs.append(IncidentReport(
             resident=r, category=cat, severity=sev, description=desc,
             handled=handled,
@@ -840,9 +1329,7 @@ def gen_other_domains(anchor, residents, employees, cgs_by_building,
             logs.append(NursingLog(
                 resident=r, log_date=anchor - timedelta(days=back),
                 category=cats[(back + r.id) % len(cats)],
-                detail=p.choice(["情况平稳，按护理计划执行。", "进食正常，餐后协助漱口。",
-                                 "协助如厕一次，无异常。", "按时翻身，皮肤完好。",
-                                 "生命体征测量正常并记录。"]),
+                detail=p.choice(T("log_details")),
                 staff_name=cg.name if cg else "", staff_emp=cg,
             ))
     NursingLog.objects.bulk_create(logs, batch_size=500)
@@ -859,7 +1346,7 @@ def gen_other_domains(anchor, residents, employees, cgs_by_building,
                 heart_rate=64 + rp.randrange(0, 16),
                 weight=Decimal(f"{50 + rp.randrange(0, 20) + rp.randrange(0, 10) * 0.1:.1f}"),
                 temperature=Decimal(f"{36.2 + rp.randrange(0, 5) * 0.1:.1f}"),
-                note="指标平稳" if rp.random() < 0.8 else "血压偏高，持续关注",
+                note=T("note_stable") if rp.random() < 0.8 else T("note_high"),
             ))
     HealthRecord.objects.bulk_create(hrs, batch_size=500)
 
@@ -871,16 +1358,13 @@ def gen_other_domains(anchor, residents, employees, cgs_by_building,
                 resident=r, log_date=anchor - timedelta(days=back),
                 wake_up=time(6, 30), sleep=time(21, 0),
                 breakfast=(r.id + back) % 3 != 0, lunch=True, dinner=(r.id + back) % 5 != 0,
-                activities=p.choice(["散步", "打太极", "看电视", "做手工", "晒太阳"]),
-                mood=p.choice(["良好", "平稳", "愉悦", "一般"]),
+                activities=p.choice(T("activities")),
+                mood=p.choice(T("moods")),
             ))
     ResidentRoutine.objects.bulk_create(rts, batch_size=500)
 
     # 用药记录：常见老年慢病用药，1/4 已停用留痕
-    meds = [("苯磺酸氨氯地平片", "5mg", "qd"), ("二甲双胍缓释片", "0.5g", "bid"),
-            ("阿托伐他汀钙片", "20mg", "qd"), ("硝酸甘油片", "0.5mg", "prn"),
-            ("奥美拉唑肠溶胶囊", "20mg", "qd"), ("复方丹参滴丸", "10丸", "tid"),
-            ("格列美脲片", "2mg", "qd"), ("氢氯噻嗪片", "25mg", "qd")]
+    meds = T("meds")
     mrs = []
     for i, r in enumerate(residents):
         for name, dose, freq in meds[: 1 + r.id % 3]:
@@ -891,23 +1375,14 @@ def gen_other_domains(anchor, residents, employees, cgs_by_building,
                 start_date=start,
                 end_date=start + timedelta(days=30) if stopped else None,
                 is_active=not stopped,
-                note="疗程结束停用" if stopped else "",
+                note=T("med_stop_note") if stopped else "",
             ))
     MedicationRecord.objects.bulk_create(mrs, batch_size=500)
 
     # 任务：楼栋主任派给本楼护理员
     leads = [e for e in employees if not e.is_caregiver and e.building]
     tasks = []
-    task_seed = [
-        ("护送老人体检", "护送本楼 5 位老人到医务室体检", -1, True),
-        ("楼栋送餐", "午间为 3 层老人送餐", 0, True),
-        ("公共区域消毒", "对本楼公共区域进行消毒", -2, True),
-        ("整理老人档案", "更新本周老人用药记录", 1, False),
-        ("库存盘点", "盘点护理耗材库存并录入系统", 0, True),
-        ("组织老人活动", "下午组织老人在活动室做手工", 0, False),
-        ("维修跟进", "跟进本楼轮椅维修进度", -3, True),
-        ("新员工带教", "带教新入职护理员熟悉流程", 2, False),
-    ]
+    task_seed = T("task_seed")
     for i, (title, content, dd, done) in enumerate(task_seed):
         lead = leads[i % len(leads)]
         cgs = cgs_by_building.get(lead.building, [])
@@ -934,7 +1409,7 @@ def gen_other_domains(anchor, residents, employees, cgs_by_building,
                 scheds.append(Schedule(
                     employee=cg, date=d, shift="夜班" if night else "白班",
                     building=bld, floor=floors[cg.id % len(floors)] if floors else "",
-                    task_note="夜间巡房两次" if night else "协助老人午晚餐",
+                    task_note=T("sched_night") if night else T("sched_day"),
                 ))
                 if d < anchor:
                     base_h = 19 if night else 7
@@ -947,9 +1422,10 @@ def gen_other_domains(anchor, residents, employees, cgs_by_building,
     Schedule.objects.bulk_create(scheds, batch_size=500)
     Attendance.objects.bulk_create(atts, batch_size=500)
 
-    # 绩效：主任/组长 近两月
+    # 绩效：主任/组长 近两月（P5：en 模式员工名是 Director/Team Lead，按英文名匹配）
     perf = []
-    reviewers = [e for e in employees if "主任" in e.name or "组长" in e.name][:12]
+    role_marks = ("Director", "Team Lead") if LANG == "en" else ("主任", "组长")
+    reviewers = [e for e in employees if any(mk in e.name for mk in role_marks)][:12]
     for back in (2, 1):
         m = month_str(shift_month(anchor, -back))
         for e in reviewers:
@@ -958,19 +1434,19 @@ def gen_other_domains(anchor, residents, employees, cgs_by_building,
             perf.append(Performance(
                 employee=e, month=m, attendance_score=att_s, quality_score=qty_s,
                 total_score=round((att_s + qty_s) / 2),
-                comment="工作认真负责" if qty_s >= 94 else "",
+                comment=T("perf_comment") if qty_s >= 94 else "",
             ))
     Performance.objects.bulk_create(perf, batch_size=100)
 
     # 出入库：近一周（bulk 绕过 save 钩子 → 不改档案层库存数量，低库存状态保持）
     items = list(InventoryItem.objects.order_by("id"))
-    suppliers = ["杭州康养供应链有限公司", "浙江医疗器械批发", "洁达消毒用品"]
+    suppliers = T("suppliers")
     sins = [StockIn(item=items[(i + 1) % len(items)], quantity=qty, supplier=suppliers[i % 3],
-                    date=anchor + timedelta(days=off), operator=op)
+                    date=anchor + timedelta(days=off), operator=tr(op))
             for i, (off, qty, op) in enumerate([
                 (-6, 100, "陈总务"), (-6, 80, "陈总务"), (-5, 500, "赵总务"), (-5, 1000, "赵总务"),
                 (-4, 50, "陈总务"), (-3, 300, "陈总务"), (-2, 30, "赵总务"), (-1, 50, "陈总务")])]
-    souts = [StockOut(item=items[(i * 2 + 3) % len(items)], quantity=qty, taken_by=taker,
+    souts = [StockOut(item=items[(i * 2 + 3) % len(items)], quantity=qty, taken_by=tr(taker),
                       date=anchor + timedelta(days=off))
              for i, (off, qty, taker) in enumerate([
                  (-5, 20, "李护士"), (-5, 100, "王护士"), (-4, 200, "王护士"), (-4, 10, "陈总务"),
@@ -978,49 +1454,26 @@ def gen_other_domains(anchor, residents, employees, cgs_by_building,
     StockIn.objects.bulk_create(sins, batch_size=100)
     StockOut.objects.bulk_create(souts, batch_size=100)
 
-    # 审批 / 巡检 / 报修 / 异常上报
+    # 审批 / 巡检 / 报修 / 异常上报（P5：标题/内容/备注走 _T；申请人/检查人/
+    # 报修人走 tr()；巡检结果/区域/楼栋引用等枚举与锚点值不动）
     Approval.objects.bulk_create([
-        Approval(applicant_name=n, approval_type=t, title=ti, content=c, status=s)
-        for n, t, ti, c, s in [
-            ("陈总务", "purchase", "采购尿不湿L码",
-             "尿不湿L码库存低于安全线，申请采购 200 包。", "pending"),
-            ("赵总务", "purchase", "采购一次性口罩",
-             "全院口罩库存告急，申请采购 2000 只。", "pending"),
-            ("张护士", "leave", "张护士请假申请", "家中急事，申请下周三请假一天。", "approved"),
-            ("李护士", "leave", "李护士调休申请", "申请下周五调休。", "pending"),
-            ("王护士", "reimburse", "护理耗材费用报销",
-             "3号楼护理耗材采购垫付 860 元，申请报销。", "pending"),
-            ("陈总务", "purchase", "采购消毒液", "全院清洁消毒用品补充采购。", "approved"),
-        ]
+        Approval(applicant_name=tr(n), approval_type=t, title=ti, content=c, status=s)
+        for n, t, ti, c, s in T("approvals")
     ], batch_size=100)
     Inspection.objects.bulk_create([
-        Inspection(inspector_name=n, area=a, date=anchor + timedelta(days=off),
+        Inspection(inspector_name=tr(n), area=a, date=anchor + timedelta(days=off),
                    result=res, note=note)
-        for n, a, off, res, note in [
-            ("王建国", "1号楼餐厅", -1, "合格", "地面整洁，餐具消毒达标"),
-            ("李卫东", "3号楼公共区域", -1, "合格", "走廊扶手已消毒"),
-            ("王建国", "2号楼卫生间", -2, "不合格", "2楼男卫地面有水渍，已通知保洁"),
-            ("刘主任", "食堂后厨", -2, "合格", "生熟分区规范"),
-            ("吴主任", "1号楼活动室", -3, "合格", "通风良好"),
-            ("李卫东", "3号楼洗衣房", -3, "不合格", "角落堆放杂物，已整改"),
-        ]
+        for n, a, off, res, note in T("inspections")
     ], batch_size=100)
     MaintenanceOrder.objects.bulk_create([
         MaintenanceOrder(
             equipment_name=eq, location=loc, fault_description=f,
-            reported_by=by, status=st,
+            reported_by=tr(by), status=st,
             resolved_at=aware(anchor - timedelta(days=1), 15) if st == "done" else None,
         )
-        for eq, loc, f, by, st in [
-            ("轮椅", "3号楼2层", "轮椅左轮松动，推起来有异响", "张护士", "in_progress"),
-            ("血压计", "护理站", "血压计读数不准，需要校准", "李护士", "pending"),
-            ("热水器", "2号楼淋浴间", "热水器不出热水", "王护士", "done"),
-            ("电梯", "1号楼", "电梯按键不灵敏", "刘主任", "pending"),
-            ("制氧机", "3号楼3层", "制氧机报警灯常亮", "张护士", "in_progress"),
-            ("呼叫器", "5号楼2层", "呼叫器无响应", "钱小红", "pending"),
-        ]
+        for eq, loc, f, by, st in T("maintenance")
     ], batch_size=100)
-    rows_all = INCIDENT_BASE + INCIDENT_EXTRA
+    rows_all = incident_rows()
     incs = seed_incidents(anchor, djtz.now(), residents, cgs_by_building, rows_all)
     print(f"  异常上报：{incs} 条（待处理 {sum(1 for x in rows_all if not x[4])}）")
 
@@ -1110,6 +1563,24 @@ def run_assertions(anchor: date, months: list, meal_price: Decimal, bed_fee: Dec
         check(linked == 1, f"评估单 {a.id} 应恰关联 1 条变更行，实际 {linked}")
     due = {row["resident"].name for row in review_lists()["due_review"]}
     check(stale_name in due, f"补录老人 {stale_name} 未出现在待复评（实际：{due or '空'}）")
+
+    # 11. 楼栋/楼层缓存与台账一致（P5b：overlay 改名漏列在此暴露——
+    #     缓存列还是旧语言值时不在台账 name 集合里，直接 fail）
+    bld_names = set(Building.objects.values_list("name", flat=True))
+    flr_names = set(Floor.objects.values_list("name", flat=True))
+    bad_r_b = (set(Resident.objects.exclude(building="").values_list("building", flat=True))
+               - bld_names)
+    bad_r_f = (set(Resident.objects.exclude(floor="").values_list("floor", flat=True))
+               - flr_names)
+    bad_e = (set(Employee.objects.exclude(building="").values_list("building", flat=True))
+             - bld_names)
+    bad_s_b = set(Schedule.objects.values_list("building", flat=True)) - bld_names
+    bad_s_f = set(Schedule.objects.exclude(floor="").values_list("floor", flat=True)) - flr_names
+    check(not bad_r_b, f"Resident.building 有值不在台账：{bad_r_b}")
+    check(not bad_r_f, f"Resident.floor 有值不在台账：{bad_r_f}")
+    check(not bad_e, f"Employee.building 有值不在台账：{bad_e}")
+    check(not bad_s_b, f"Schedule.building 有值不在台账：{bad_s_b}")
+    check(not bad_s_f, f"Schedule.floor 有值不在台账：{bad_s_f}")
     print("  全部通过 ✓")
 
 

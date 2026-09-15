@@ -7,6 +7,7 @@ resident_for_write / _assessment_for_write（404 缺失 / 403 跨楼），
 
 from datetime import date as date_type
 
+from django.utils.translation import gettext as _n
 from ninja import Router, Schema
 from ninja.errors import HttpError
 from ninja.pagination import PageNumberPagination, paginate
@@ -91,10 +92,13 @@ def _assessment_for_write(request, assessment_id: int) -> Assessment:
     """定级守卫（照抄 billing _bill_for_write）：缺失 404 / 跨楼 403。"""
     a = Assessment.objects.select_related("resident").filter(pk=assessment_id).first()
     if a is None:
-        raise HttpError(404, "评估单不存在")
+        raise HttpError(404, _n("评估单不存在"))
     scope = resolve_building_scope(request)
     if scope and a.resident.building != scope:
-        raise HttpError(403, f"无权操作 {a.resident.building} 的评估单（当前范围：{scope}）")
+        raise HttpError(
+            403,
+            _n("无权操作 {} 的评估单（当前范围：{}）").format(a.resident.building, scope),
+        )
     return a
 
 

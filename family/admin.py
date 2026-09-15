@@ -4,6 +4,7 @@ from django import forms
 from django.contrib import admin, messages
 from django.contrib.auth.models import User
 from django.db import transaction
+from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin, TabularInline
 from unfold.decorators import action
 
@@ -20,12 +21,12 @@ class FamilyMemberAddForm(forms.ModelForm):
     relation = forms.ChoiceField(
         choices=FamilyBinding.Relation.choices,
         initial=FamilyBinding.Relation.CHILD,
-        label="与老人的关系",
+        label=_("与老人的关系"),
     )
     residents = forms.ModelMultipleChoiceField(
         queryset=Resident.objects.all(),
-        label="绑定老人",
-        help_text="可多选；同房两老共用一个子女账号即多绑演示",
+        label=_("绑定老人"),
+        help_text=_("可多选；同房两老共用一个子女账号即多绑演示"),
     )
 
     class Meta:
@@ -37,7 +38,7 @@ class FamilyMemberAddForm(forms.ModelForm):
         # 员工与家属共用 auth_user 命名空间，撞号直接拦下而非静默跳过
         if User.objects.filter(username=phone).exists():
             raise forms.ValidationError(
-                f"手机号 {phone} 已被账号占用（员工或家属），请先处理该账号"
+                _("手机号 {} 已被账号占用（员工或家属），请先处理该账号").format(phone)
             )
         return phone
 
@@ -92,36 +93,41 @@ class FamilyMemberAdmin(ModelAdmin):
             )
         self.message_user(
             request,
-            f"已开通家属账号 {obj.name}（{obj.phone}），初始密码 {INITIAL_PASSWORD}，"
-            f"绑定 {len(residents)} 位老人",
+            _("已开通家属账号 {}（{}），初始密码 {}，绑定 {} 位老人").format(
+                obj.name, obj.phone, INITIAL_PASSWORD, len(residents)
+            ),
             messages.SUCCESS,
         )
 
-    @admin.display(description="绑定老人数")
+    @admin.display(description=_("绑定老人数"))
     def binding_count(self, obj):
         return obj.bindings.count()
 
-    @admin.display(description="令牌")
+    @admin.display(description=_("令牌"))
     def token_short(self, obj):
         return obj.token[:8] + "…"
 
-    @action(description="重新生成令牌")
+    @action(description=_("重新生成令牌"))
     def action_regen_token(self, request, queryset):
         for fm in queryset:
             fm.regen_token()
         count = queryset.count()
         self.message_user(
-            request, f"已为 {count} 个家属账号重新生成令牌（旧令牌立即作废）", messages.SUCCESS
+            request,
+            _("已为 {} 个家属账号重新生成令牌（旧令牌立即作废）").format(count),
+            messages.SUCCESS,
         )
 
-    @action(description="重置密码为 123456")
+    @action(description=_("重置密码为 123456"))
     def action_reset_password(self, request, queryset):
         for fm in queryset:
             fm.user.set_password(INITIAL_PASSWORD)
             fm.user.save(update_fields=["password"])
         count = queryset.count()
         self.message_user(
-            request, f"已重置 {count} 个家属账号密码为 {INITIAL_PASSWORD}", messages.SUCCESS
+            request,
+            _("已重置 {} 个家属账号密码为 {}").format(count, INITIAL_PASSWORD),
+            messages.SUCCESS,
         )
 
 

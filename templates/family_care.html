@@ -1,76 +1,111 @@
-{% extends "family_base.html" %}{% block nav_care %}on{% endblock %}
+{% extends "family_base.html" %}{% block nav_care %}on{% endblock %}{% load i18n %}
 
 {% block content %}
 <div class="wrap">
   <div class="title">
-    <span class="material-symbols-outlined">favorite</span> 照护摘要
-    <span class="sub" id="hint">加载中…</span>
-    {% if resident_id %}<a class="btn" style="padding:6px 14px;font-size:13px" href="/family/care/">← 查看全部老人</a>{% endif %}
+    <span class="material-symbols-outlined">favorite</span> {% translate "照护摘要" %}
+    <span class="sub" id="hint">{% translate "加载中…" %}</span>
+    {% if resident_id %}<a class="btn" style="padding:6px 14px;font-size:13px" href="/family/care/">{% translate "← 查看全部老人" %}</a>{% endif %}
   </div>
-  <div id="blocks"><div class="empty"><p>加载中…</p></div></div>
+  <div id="blocks"><div class="empty"><p>{% translate "加载中…" %}</p></div></div>
 </div>
 
 <script>
+var TZ = {
+  loading: '{% translate "加载中…" %}',
+  notBound: '{% translate "老人不存在或未与您绑定" %}',
+  residentCount: '{% translate "{} 位老人" %}',
+  loadFail: '{% translate "加载失败，请刷新重试" %}',
+  roomSuffix: '{% translate "室" %}',
+  diagnosis: '{% translate "诊断" %}',
+  allergies: '{% translate "过敏史" %}',
+  noneTxt: '{% translate "无" %}',
+  abilityAssess: '{% translate "能力评估" %}',
+  assessInfo: '{% translate "{} · {}（{} 分）" %}',
+  gradedAs: '{% translate "已定级 {}" %}',
+  noAssess: '{% translate "暂无评估记录" %}',
+  medsInUse: '{% translate "在用用药" %}',
+  thDrug: '{% translate "药品" %}', thDose: '{% translate "剂量" %}', thFreq: '{% translate "频次" %}',
+  thRange: '{% translate "起止" %}', thNote: '{% translate "备注" %}',
+  inUse: '{% translate "在用" %}',
+  noMeds: '{% translate "暂无在用用药记录" %}',
+  healthRecords: '{% translate "健康记录" %}',
+  rowCnt: '{% translate "条" %}',
+  thDate: '{% translate "日期" %}', thBP: '{% translate "血压" %}', thBS: '{% translate "血糖" %}',
+  thHR: '{% translate "心率" %}', thWT: '{% translate "体重" %}', thTemp: '{% translate "体温" %}',
+  noHealth: '{% translate "暂无健康记录" %}',
+  logs7d: '{% translate "近 7 日护理记录" %}',
+  thCategory: '{% translate "类别" %}', thContent: '{% translate "内容" %}', thRecorder: '{% translate "记录人" %}',
+  noLogs7d: '{% translate "近 7 日暂无护理记录" %}',
+  meals7d: '{% translate "近 7 日点餐" %}',
+  mealCnt: '{% translate "餐" %}',
+  thMealType: '{% translate "餐次" %}', thDishes: '{% translate "菜品" %}', thStatus: '{% translate "状态" %}',
+  noMeals7d: '{% translate "近 7 日暂无点餐" %}'
+};
+function trfmt(tpl) {
+  var vals = Array.prototype.slice.call(arguments, 1), i = 0;
+  return tpl.replace(/\{\}/g, function () { return vals[i++]; });
+}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 var RID={{ resident_id|default:'null' }};
 var url='/api/family/care/'+(RID?('?resident_id='+RID):'');
 
 fetch(url).then(function(r){
-  if(r.status===404){document.getElementById('blocks').innerHTML='<div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">link_off</span></div><p>老人不存在或未与您绑定</p></div>';throw new Error('404')}
+  if(r.status===404){document.getElementById('blocks').innerHTML='<div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">link_off</span></div><p>'+TZ.notBound+'</p></div>';throw new Error('404')}
   return r.json();
 }).then(function(rows){
-  document.getElementById('hint').textContent=rows.length+' 位老人';
+  document.getElementById('hint').textContent=trfmt(TZ.residentCount,rows.length);
   document.getElementById('blocks').innerHTML=rows.map(block).join('');
-}).catch(function(e){if(e.message!=='404'){document.getElementById('blocks').innerHTML='<div class="empty"><p>加载失败，请刷新重试</p></div>'}});
+}).catch(function(e){if(e.message!=='404'){document.getElementById('blocks').innerHTML='<div class="empty"><p>'+TZ.loadFail+'</p></div>'}});
 
 function block(r){
   var a=r.assessment;
   var html='<div class="c"><div class="c-h"><span class="material-symbols-outlined">person</span> '+esc(r.name)+
     '<span class="b b-dim" style="margin-left:8px">'+esc(r.care_level_display)+'</span>'+
-    '<span style="margin-left:auto;font-size:13px;font-weight:400;color:var(--ink3)">'+esc(r.building)+esc(r.room)+'室</span></div>';
+    '<span style="margin-left:auto;font-size:13px;font-weight:400;color:var(--ink3)">'+esc(r.building)+esc(r.room)+TZ.roomSuffix+'</span></div>';
   html+='<table style="margin-bottom:4px"><tbody>'+
-    '<tr><td style="width:90px;color:var(--ink3)">诊断</td><td>'+esc(r.diagnosis||'—')+'</td></tr>'+
-    '<tr><td style="color:var(--ink3)">过敏史</td><td>'+(r.allergies?('<span class="b b-err">'+esc(r.allergies)+'</span>'):'无')+'</td></tr>'+
-    '<tr><td style="color:var(--ink3)">能力评估</td><td>'+
-      (a?(esc(a.assess_date)+' · '+esc(a.grade_display)+'（'+a.total_score+' 分）'+(a.final_level?' · 已定级 '+esc(a.final_level):' · '+esc(a.status_display)))
-        :'暂无评估记录')+'</td></tr>'+
+    '<tr><td style="width:90px;color:var(--ink3)">'+TZ.diagnosis+'</td><td>'+esc(r.diagnosis||'—')+'</td></tr>'+
+    '<tr><td style="color:var(--ink3)">'+TZ.allergies+'</td><td>'+(r.allergies?('<span class="b b-err">'+esc(r.allergies)+'</span>'):TZ.noneTxt)+'</td></tr>'+
+    '<tr><td style="color:var(--ink3)">'+TZ.abilityAssess+'</td><td>'+
+      (a?(trfmt(TZ.assessInfo,esc(a.assess_date),esc(a.grade_display),a.total_score)+(a.final_level?(' · '+trfmt(TZ.gradedAs,esc(a.final_level))):' · '+esc(a.status_display)))
+        :TZ.noAssess)+'</td></tr>'+
   '</tbody></table></div>';
 
   // 在用用药
-  html+='<div class="c"><div class="c-h"><span class="material-symbols-outlined">medication</span> 在用用药<span class="cnt">'+r.medications.length+'</span></div>';
-  html+=r.medications.length?('<table><thead><tr><th>药品</th><th>剂量</th><th>频次</th><th>起止</th><th>备注</th></tr></thead><tbody>'+
+  html+='<div class="c"><div class="c-h"><span class="material-symbols-outlined">medication</span> '+TZ.medsInUse+'<span class="cnt">'+r.medications.length+'</span></div>';
+  html+=r.medications.length?('<table><thead><tr><th>'+TZ.thDrug+'</th><th>'+TZ.thDose+'</th><th>'+TZ.thFreq+'</th><th>'+TZ.thRange+'</th><th>'+TZ.thNote+'</th></tr></thead><tbody>'+
     r.medications.map(function(m){
-      return '<tr><td>'+esc(m.medicine_name)+'</td><td>'+esc(m.dosage||'—')+'</td><td>'+esc(m.frequency_display)+'</td><td>'+esc(m.start_date)+(m.end_date?(' ~ '+esc(m.end_date)):' ~ 在用')+'</td><td>'+esc(m.note||'—')+'</td></tr>';
+      return '<tr><td>'+esc(m.medicine_name)+'</td><td>'+esc(m.dosage||'—')+'</td><td>'+esc(m.frequency_display)+'</td><td>'+esc(m.start_date)+(m.end_date?(' ~ '+esc(m.end_date)):(' ~ '+TZ.inUse))+'</td><td>'+esc(m.note||'—')+'</td></tr>';
     }).join('')+'</tbody></table>')
-    :'<div class="empty" style="padding:20px"><p>暂无在用用药记录</p></div>';
+    :'<div class="empty" style="padding:20px"><p>'+TZ.noMeds+'</p></div>';
   html+='</div>';
 
   // 健康记录（近 30 条）
-  html+='<div class="c"><div class="c-h"><span class="material-symbols-outlined">monitor_heart</span> 健康记录<span class="cnt">'+r.health_records.length+'<span> 条</span></span></div>';
-  html+=r.health_records.length?('<table><thead><tr><th>日期</th><th>血压</th><th>血糖</th><th>心率</th><th>体重</th><th>体温</th><th>备注</th></tr></thead><tbody>'+
+  html+='<div class="c"><div class="c-h"><span class="material-symbols-outlined">monitor_heart</span> '+TZ.healthRecords+'<span class="cnt">'+r.health_records.length+'<span> '+TZ.rowCnt+'</span></span></div>';
+  html+=r.health_records.length?('<table><thead><tr><th>'+TZ.thDate+'</th><th>'+TZ.thBP+'</th><th>'+TZ.thBS+'</th><th>'+TZ.thHR+'</th><th>'+TZ.thWT+'</th><th>'+TZ.thTemp+'</th><th>'+TZ.thNote+'</th></tr></thead><tbody>'+
     r.health_records.map(function(h){
       return '<tr><td>'+esc(h.record_date)+'</td><td>'+esc(h.blood_pressure||'—')+'</td><td>'+(h.blood_sugar!=null?h.blood_sugar:'—')+'</td><td>'+(h.heart_rate!=null?h.heart_rate:'—')+'</td><td>'+(h.weight!=null?h.weight:'—')+'</td><td>'+(h.temperature!=null?h.temperature:'—')+'</td><td>'+esc(h.note||'—')+'</td></tr>';
     }).join('')+'</tbody></table>')
-    :'<div class="empty" style="padding:20px"><p>暂无健康记录</p></div>';
+    :'<div class="empty" style="padding:20px"><p>'+TZ.noHealth+'</p></div>';
   html+='</div>';
 
   // 近 7 日护理记录
-  html+='<div class="c"><div class="c-h"><span class="material-symbols-outlined">edit_note</span> 近 7 日护理记录<span class="cnt">'+r.logs_7d.length+'<span> 条</span></span></div>';
-  html+=r.logs_7d.length?('<table><thead><tr><th>日期</th><th>类别</th><th>内容</th><th>记录人</th></tr></thead><tbody>'+
+  html+='<div class="c"><div class="c-h"><span class="material-symbols-outlined">edit_note</span> '+TZ.logs7d+'<span class="cnt">'+r.logs_7d.length+'<span> '+TZ.rowCnt+'</span></span></div>';
+  html+=r.logs_7d.length?('<table><thead><tr><th>'+TZ.thDate+'</th><th>'+TZ.thCategory+'</th><th>'+TZ.thContent+'</th><th>'+TZ.thRecorder+'</th></tr></thead><tbody>'+
     r.logs_7d.map(function(l){
       return '<tr><td>'+esc(l.log_date)+'</td><td><span class="b b-dim">'+esc(l.category_display)+'</span></td><td>'+esc(l.detail)+'</td><td>'+esc(l.staff_name||'—')+'</td></tr>';
     }).join('')+'</tbody></table>')
-    :'<div class="empty" style="padding:20px"><p>近 7 日暂无护理记录</p></div>';
+    :'<div class="empty" style="padding:20px"><p>'+TZ.noLogs7d+'</p></div>';
   html+='</div>';
 
   // 近 7 日点餐
-  html+='<div class="c"><div class="c-h"><span class="material-symbols-outlined">restaurant</span> 近 7 日点餐<span class="cnt">'+r.meal_orders_7d.length+'<span> 餐</span></span></div>';
-  html+=r.meal_orders_7d.length?('<table><thead><tr><th>日期</th><th>餐次</th><th>菜品</th><th>状态</th></tr></thead><tbody>'+
+  html+='<div class="c"><div class="c-h"><span class="material-symbols-outlined">restaurant</span> '+TZ.meals7d+'<span class="cnt">'+r.meal_orders_7d.length+'<span> '+TZ.mealCnt+'</span></span></div>';
+  html+=r.meal_orders_7d.length?('<table><thead><tr><th>'+TZ.thDate+'</th><th>'+TZ.thMealType+'</th><th>'+TZ.thDishes+'</th><th>'+TZ.thStatus+'</th></tr></thead><tbody>'+
     r.meal_orders_7d.map(function(o){
       var cls=o.status==='cancelled'?'b-dim':(o.status==='active'?'b-ok':'b-warn');
       return '<tr><td>'+esc(o.date)+'</td><td>'+esc(o.meal_type)+'</td><td>'+esc(o.dishes.map(function(d){return d.name}).join('、'))+'</td><td><span class="b '+cls+'">'+esc(o.status_display)+'</span></td></tr>';
     }).join('')+'</tbody></table>')
-    :'<div class="empty" style="padding:20px"><p>近 7 日暂无点餐</p></div>';
+    :'<div class="empty" style="padding:20px"><p>'+TZ.noMeals7d+'</p></div>';
   html+='</div>';
 
   return html;

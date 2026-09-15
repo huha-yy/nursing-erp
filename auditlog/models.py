@@ -1,5 +1,6 @@
 from django.contrib.auth.models import User
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 
 
 class OperationLog(models.Model):
@@ -14,31 +15,31 @@ class OperationLog(models.Model):
     """
 
     class Actor(models.TextChoices):
-        STAFF = "staff", "员工"
-        FAMILY = "family", "家属"
-        AI = "ai", "AI 助手"
-        SYSTEM = "system", "系统"
+        STAFF = "staff", _("员工")
+        FAMILY = "family", _("家属")
+        AI = "ai", _("AI 助手")
+        SYSTEM = "system", _("系统")
 
-    actor_type = models.CharField("身份", max_length=10, choices=Actor.choices)
-    actor_name = models.CharField("操作人", max_length=40)
+    actor_type = models.CharField(_("身份"), max_length=10, choices=Actor.choices)
+    actor_name = models.CharField(_("操作人"), max_length=40)
     user = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name="operation_logs", verbose_name="账号",
+        related_name="operation_logs", verbose_name=_("账号"),
     )
-    action = models.CharField("动作", max_length=30)
-    target = models.CharField("对象", max_length=120, blank=True)
-    target_model = models.CharField("对象模型", max_length=50, blank=True)
-    target_id = models.CharField("对象ID", max_length=20, blank=True)
-    detail = models.TextField("说明", blank=True)
-    method = models.CharField("方法", max_length=8, blank=True)
-    path = models.CharField("路径", max_length=200, blank=True)
-    status_code = models.PositiveIntegerField("状态码", null=True, blank=True)
+    action = models.CharField(_("动作"), max_length=30)
+    target = models.CharField(_("对象"), max_length=120, blank=True)
+    target_model = models.CharField(_("对象模型"), max_length=50, blank=True)
+    target_id = models.CharField(_("对象ID"), max_length=20, blank=True)
+    detail = models.TextField(_("说明"), blank=True)
+    method = models.CharField(_("方法"), max_length=8, blank=True)
+    path = models.CharField(_("路径"), max_length=200, blank=True)
+    status_code = models.PositiveIntegerField(_("状态码"), null=True, blank=True)
     ip = models.GenericIPAddressField("IP", null=True, blank=True)
-    created_at = models.DateTimeField("时间", auto_now_add=True, db_index=True)
+    created_at = models.DateTimeField(_("时间"), auto_now_add=True, db_index=True)
 
     class Meta:
-        verbose_name = "业务操作日志"
-        verbose_name_plural = "业务操作日志"
+        verbose_name = _("业务操作日志")
+        verbose_name_plural = _("业务操作日志")
         ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["actor_type", "created_at"]),

@@ -1,18 +1,18 @@
-{% extends "base_light.html" %}{% block nav_weekly %}{% endblock %}
+{% extends "base_light.html" %}{% block nav_weekly %}{% endblock %}{% load i18n %}
 
 {% block content %}
 <div class="wrap">
   <div class="title">
-    <span class="material-symbols-outlined">photo_camera</span> 菜单 OCR 录入
-    <span class="sub">拍照识别每周菜单</span>
+    <span class="material-symbols-outlined">photo_camera</span> {% translate "菜单 OCR 录入" %}
+    <span class="sub">{% translate "拍照识别每周菜单" %}</span>
   </div>
 
   <!-- Upload area -->
   <div class="c" style="text-align:center;padding:40px 20px;cursor:pointer" id="dropZone"
        onclick="document.getElementById('fileInput').click()">
     <div style="font-size:48px;margin-bottom:12px;color:var(--ink3)" id="uploadIcon"><span class="material-symbols-outlined" style="font-size:48px">add_a_photo</span></div>
-    <div style="font-size:15px;font-weight:600" id="uploadHint">点击上传或粘贴菜单照片</div>
-    <div style="font-size:12px;color:var(--ink3);margin-top:4px">支持 JPG/PNG，可多次添加（跨页菜单）</div>
+    <div style="font-size:15px;font-weight:600" id="uploadHint">{% translate "点击上传或粘贴菜单照片" %}</div>
+    <div style="font-size:12px;color:var(--ink3);margin-top:4px">{% translate "支持 JPG/PNG，可多次添加（跨页菜单）" %}</div>
     <input type="file" id="fileInput" accept="image/*" multiple style="display:none" onchange="handleFiles(this.files);this.value=''">
   </div>
 
@@ -20,18 +20,18 @@
   <div id="preview" style="display:none;margin-bottom:16px">
     <div class="c">
       <div style="font-size:14px;font-weight:600;margin-bottom:12px;display:flex;align-items:center">
-        <span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:6px">image</span>已选照片
-        <span style="margin-left:auto;font-weight:400;font-size:13px;color:var(--ink3)">共 <b id="imgCount" style="color:var(--blue);font-weight:700">0</b> 张</span>
+        <span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:6px">image</span>{% translate "已选照片" %}
+        <span style="margin-left:auto;font-weight:400;font-size:13px;color:var(--ink3)">{% translate "共" %} <b id="imgCount" style="color:var(--blue);font-weight:700">0</b> {% translate "张" %}</span>
       </div>
       <div id="previewImgs" style="display:flex;flex-wrap:wrap;gap:10px"></div>
     </div>
     <div style="display:flex;gap:10px">
       <button class="submit" id="startBtn" onclick="startOcr()" style="flex:1">
-        <span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px">document_scanner</span>开始识别
+        <span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px">document_scanner</span>{% translate "开始识别" %}
       </button>
-      <button class="btn" onclick="clearImages()" style="padding:0 20px;font-size:15px;flex-shrink:0">清空</button>
+      <button class="btn" onclick="clearImages()" style="padding:0 20px;font-size:15px;flex-shrink:0">{% translate "清空" %}</button>
     </div>
-    <div style="text-align:center;margin-top:10px;color:var(--ink3);font-size:13px;display:none" id="progress">识别中…</div>
+    <div style="text-align:center;margin-top:10px;color:var(--ink3);font-size:13px;display:none" id="progress">{% translate "识别中…" %}</div>
   </div>
 
   <!-- Results -->
@@ -39,6 +39,34 @@
 </div>
 
 <script>
+var TZ = {
+  addMoreHint: '{% translate "可继续添加照片，然后点「开始识别」" %}',
+  uploadHint: '{% translate "点击上传或粘贴菜单照片" %}',
+  uploadFirst: '{% translate "请先上传菜单照片" %}',
+  recognizing: '{% translate "识别中…" %}',
+  ocrFail: '{% translate "识别失败：{}" %}',
+  ocrDone: '{% translate "识别完成，请核对" %}',
+  weekMenuCfg: '{% translate "周菜单配置" %}',
+  weekStartLabel: '{% translate "周起始(周一):" %}',
+  daysRecognized: '{% translate "识别到 {} 天" %}',
+  manualFix: '{% translate "手动修正" %}',
+  noStructure: '{% translate "未识别到菜单结构，请换张更清晰的照片" %}',
+  confirmCreate: '{% translate "确认创建周菜单" %}',
+  pickWeekStart: '{% translate "请选择周起始日期" %}',
+  pickAtLeastOneDish: '{% translate "请至少勾选一道菜" %}',
+  createdToast: '{% translate "已创建 {} 条周菜单，即将跳转…" %}',
+  createFail: '{% translate "创建失败" %}'
+};
+var DAY_LABELS = {
+  '周一': '{% translate "周一" %}', '周二': '{% translate "周二" %}', '周三': '{% translate "周三" %}',
+  '周四': '{% translate "周四" %}', '周五': '{% translate "周五" %}', '周六': '{% translate "周六" %}',
+  '周日': '{% translate "周日" %}'
+};
+var MEAL_LABELS = { '早餐': '{% translate "早餐" %}', '午餐': '{% translate "午餐" %}', '晚餐': '{% translate "晚餐" %}' };
+function trfmt(tpl) {
+  var vals = Array.prototype.slice.call(arguments, 1), i = 0;
+  return tpl.replace(/\{\}/g, function () { return vals[i++]; });
+}
 var _images = [];      // 待识别照片 [{dataUrl, b64}]
 var _structured = null;  // 缓存识别结果
 
@@ -63,7 +91,7 @@ function handleFiles(files){
   var loaded = 0;
 
   document.getElementById('preview').style.display = 'block';
-  document.getElementById('uploadHint').textContent = '可继续添加照片，然后点「开始识别」';
+  document.getElementById('uploadHint').textContent = TZ.addMoreHint;
 
   list.forEach(function(file, i){
     // 压缩大图，避免体积过大（OCR 服务上限 10MiB）
@@ -108,7 +136,7 @@ function clearImages(){
 function resetToUpload(){
   document.getElementById('preview').style.display = 'none';
   document.getElementById('previewImgs').innerHTML = '';
-  document.getElementById('uploadHint').textContent = '点击上传或粘贴菜单照片';
+  document.getElementById('uploadHint').textContent = TZ.uploadHint;
   document.getElementById('results').style.display = 'none';
   document.getElementById('results').innerHTML = '';
   _structured = null;
@@ -116,12 +144,12 @@ function resetToUpload(){
 
 function startOcr(){
   var imgs = _images.filter(Boolean);
-  if(!imgs.length){ toast('请先上传菜单照片','#e05555'); return; }
+  if(!imgs.length){ toast(TZ.uploadFirst,'#e05555'); return; }
   var b64s = imgs.map(function(im){ return im.b64; });
   var btn = document.getElementById('startBtn');
   btn.disabled = true;
   document.getElementById('progress').style.display = 'block';
-  document.getElementById('progress').textContent = '识别中…';
+  document.getElementById('progress').textContent = TZ.recognizing;
   ocr(b64s);
 }
 
@@ -161,7 +189,7 @@ function ocr(images){
     })
     .then(showResults)
     .catch(function(err){
-      document.getElementById('progress').textContent='识别失败：'+err.message;
+      document.getElementById('progress').textContent=trfmt(TZ.ocrFail,err.message);
       document.getElementById('startBtn').disabled = false;
     });
 }
@@ -169,7 +197,7 @@ function ocr(images){
 function showResults(data){
   document.getElementById('startBtn').disabled = false;
   document.getElementById('progress').style.display = 'none';
-  document.getElementById('uploadHint').textContent = '识别完成，请核对';
+  document.getElementById('uploadHint').textContent = TZ.ocrDone;
   _structured = data.structured || {};
 
   var days=['周一','周二','周三','周四','周五','周六','周日'];
@@ -179,11 +207,11 @@ function showResults(data){
   var d=new Date();d.setDate(d.getDate()-d.getDay()+8);
   var ws=d.toISOString().slice(0,10);
 
-  var html='<div class="c"><div class="c-h"><span class="material-symbols-outlined">calendar_month</span> 周菜单配置</div>'+
+  var html='<div class="c"><div class="c-h"><span class="material-symbols-outlined">calendar_month</span> '+TZ.weekMenuCfg+'</div>'+
     '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
-    '<span style="font-weight:600;font-size:14px">周起始(周一):</span>'+
+    '<span style="font-weight:600;font-size:14px">'+TZ.weekStartLabel+'</span>'+
     '<input type="date" class="inp" id="weekStart" value="'+ws+'" style="width:auto;padding:8px 12px">'+
-    '<span style="margin-left:auto;font-size:13px;color:var(--ink3)">识别到 <b style="color:var(--blue)">'+Object.keys(_structured).length+'</b> 天</span>'+
+    '<span style="margin-left:auto;font-size:13px;color:var(--ink3)">'+trfmt(TZ.daysRecognized,'<b style="color:var(--blue)">'+Object.keys(_structured).length+'</b>')+'</span>'+
     '</div></div>';
 
   var anyDay = false;
@@ -191,14 +219,14 @@ function showResults(data){
     var dayMeals = _structured[day];
     if(!dayMeals) return;  // 这天没识别到
     anyDay = true;
-    html += '<div class="c"><div class="c-h"><span class="material-symbols-outlined">today</span> '+day+'</div>';
+    html += '<div class="c"><div class="c-h"><span class="material-symbols-outlined">today</span> '+DAY_LABELS[day]+'</div>';
     meals.forEach(function(m){
       var mt = m[0], icon = m[1];
       var dishes = dayMeals[mt];
       if(!dishes || !dishes.length) return;
       html += '<div style="margin-bottom:14px">';
       html += '<div style="font-size:13px;font-weight:600;color:var(--ink3);margin-bottom:8px">'+
-        '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">'+icon+'</span> '+mt+'</div>';
+        '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">'+icon+'</span> '+MEAL_LABELS[mt]+'</div>';
       html += '<div style="display:flex;flex-wrap:wrap;gap:6px" id="dishbox_'+day+'_'+mt+'">';
       dishes.forEach(function(dish){
         if(dish.matched){
@@ -209,7 +237,7 @@ function showResults(data){
           html += '<div style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:2px solid var(--red);background:#fff5f5;border-radius:8px;font-size:13px">'+
             '<input type="checkbox" data-day="'+day+'" data-mt="'+mt+'" style="accent-color:var(--red)">'+
             '<input type="text" value="'+dish.name+'" class="new-dish" style="width:130px;border:1px solid var(--red);border-radius:4px;padding:3px 6px;font-size:13px;background:#fff;color:#4A3728">'+
-            '<span style="color:var(--red);font-size:11px;white-space:nowrap">⚠手动修正</span>'+
+            '<span style="color:var(--red);font-size:11px;white-space:nowrap">⚠'+TZ.manualFix+'</span>'+
             '</div>';
         }
       });
@@ -219,10 +247,10 @@ function showResults(data){
   });
 
   if(!anyDay){
-    html += '<div class="c"><div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">sentiment_dissatisfied</span></div><p>未识别到菜单结构，请换张更清晰的照片</p></div></div>';
+    html += '<div class="c"><div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">sentiment_dissatisfied</span></div><p>'+TZ.noStructure+'</p></div></div>';
   }
 
-  html += '<button class="submit" onclick="batchCreate()"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px">description</span>确认创建周菜单</button>';
+  html += '<button class="submit" onclick="batchCreate()"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px">description</span>'+TZ.confirmCreate+'</button>';
 
   document.getElementById('results').innerHTML=html;
   document.getElementById('results').style.display='block';
@@ -230,7 +258,7 @@ function showResults(data){
 
 function batchCreate(){
   var ws=document.getElementById('weekStart').value;
-  if(!ws){toast('请选择周起始日期','#e05555');return}
+  if(!ws){toast(TZ.pickWeekStart,'#e05555');return}
   var payload=[];
   // 遍历所有勾选的 checkbox
   document.querySelectorAll('#results input[type=checkbox]:checked').forEach(function(cb){
@@ -249,16 +277,16 @@ function batchCreate(){
     }
   });
 
-  if(!payload.length){toast('请至少勾选一道菜','#e05555');return}
+  if(!payload.length){toast(TZ.pickAtLeastOneDish,'#e05555');return}
 
   var btn = event.target;
   btn.disabled = true;
   fetch('/api/menu-ocr/batch-create/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
     .then(function(r){return r.json()}).then(function(d){
-      toast('<span class="material-symbols-outlined">check_circle</span> 已创建 '+d.count+' 条周菜单，即将跳转…','#3ca07a');
+      toast('<span class="material-symbols-outlined">check_circle</span> '+trfmt(TZ.createdToast,d.count),'#3ca07a');
       btn.disabled = false;
       setTimeout(function(){ window.location.href = '/admin/meals/weekmenu/'; }, 1500);
-    }).catch(function(){toast('创建失败','#e05555');btn.disabled=false});
+    }).catch(function(){toast(TZ.createFail,'#e05555');btn.disabled=false});
 }
 </script>
 {% endblock %}

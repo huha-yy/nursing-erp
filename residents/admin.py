@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin
 from import_export.admin import ImportExportModelAdmin
 from nursing_erp.admin_mixins import BuildingScopeMixin
@@ -104,23 +105,24 @@ class ResidentAdmin(BuildingScopeMixin, ModelAdmin, ImportExportModelAdmin):
         DischargeRecordInline,
     ]
     fieldsets = (
-        ("基本信息", {"fields": ("name", "gender", "age", "id_card", "photo")}),
+        (_("基本信息"), {"fields": ("name", "gender", "age", "id_card", "photo")}),
         # 床位是权威数据源：选床后楼栋/楼层/房间自动同步（以床位为准）。
         # 字符串列保持可编辑，兼容"台账未建链先收人"与脚本导入的过渡期。
-        ("入住信息", {"fields": ("bed", "admission_date", "building", "floor", "room")}),
-        ("健康档案", {"fields": ("care_level", "diagnosis", "allergies")}),
-        ("家属信息", {"fields": ("contact_name", "contact_phone")}),
-        ("其他", {"fields": ("notes",)}),
+        (_("入住信息"), {"fields": ("bed", "admission_date", "building", "floor", "room")}),
+        (_("健康档案"), {"fields": ("care_level", "diagnosis", "allergies")}),
+        (_("家属信息"), {"fields": ("contact_name", "contact_phone")}),
+        (_("其他"), {"fields": ("notes",)}),
     )
 
-    @admin.display(description="生命周期")
+    @admin.display(description=_("生命周期"))
     def lifecycle_link(self, obj):
         from django.urls import reverse
         from django.utils.html import format_html
         return format_html(
             '<a href="{}" style="color:#4f6ef7;font-weight:600;display:inline-flex;align-items:center;gap:5px">'
-            '<span class="material-symbols-outlined" style="font-size:16px">visibility</span>查看</a>',
+            '<span class="material-symbols-outlined" style="font-size:16px">visibility</span>{}</a>',
             reverse("resident_lifecycle", args=[obj.id]),
+            _("查看"),
         )
 
 
@@ -134,7 +136,7 @@ class NursingLogAdmin(BuildingScopeMixin, ModelAdmin, ImportExportModelAdmin):
     date_hierarchy = "log_date"
     autocomplete_fields = ["resident", "staff_emp"]
 
-    @admin.display(description="摘要")
+    @admin.display(description=_("摘要"))
     def detail_short(self, obj):
         return obj.detail[:50] + "…" if len(obj.detail) > 50 else obj.detail
 
@@ -194,11 +196,11 @@ class TransferRecordAdmin(BuildingScopeMixin, ModelAdmin, ImportExportModelAdmin
     date_hierarchy = "transfer_date"
     autocomplete_fields = ["resident"]
 
-    @admin.display(description="楼栋")
+    @admin.display(description=_("楼栋"))
     def resident_building(self, obj):
         return obj.resident.building
 
-    @admin.display(description="原因")
+    @admin.display(description=_("原因"))
     def reason_short(self, obj):
         return _text_short(obj.reason)
 
@@ -213,11 +215,11 @@ class DischargeRecordAdmin(BuildingScopeMixin, ModelAdmin, ImportExportModelAdmi
     date_hierarchy = "discharge_date"
     autocomplete_fields = ["resident"]
 
-    @admin.display(description="楼栋")
+    @admin.display(description=_("楼栋"))
     def resident_building(self, obj):
         return obj.resident.building
 
-    @admin.display(description="原因")
+    @admin.display(description=_("原因"))
     def reason_short(self, obj):
         return _text_short(obj.reason)
 

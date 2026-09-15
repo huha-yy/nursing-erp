@@ -14,6 +14,7 @@ import secrets
 
 from django.conf import settings
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 
 
 def _new_token() -> str:
@@ -27,20 +28,20 @@ class FamilyMember(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="family_profile",
-        verbose_name="登录账号",
+        verbose_name=_("登录账号"),
     )
-    name = models.CharField(max_length=30, verbose_name="姓名")
-    phone = models.CharField(max_length=15, unique=True, verbose_name="手机号")
+    name = models.CharField(max_length=30, verbose_name=_("姓名"))
+    phone = models.CharField(max_length=15, unique=True, verbose_name=_("手机号"))
     token = models.CharField(
         max_length=64, default=_new_token, unique=True, editable=False,
-        verbose_name="AI 接入令牌",
+        verbose_name=_("AI 接入令牌"),
     )
-    is_active = models.BooleanField(default=True, verbose_name="启用")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+    is_active = models.BooleanField(default=True, verbose_name=_("启用"))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
 
     class Meta:
-        verbose_name = "家属账号"
+        verbose_name = _("家属账号")
         verbose_name_plural = verbose_name
         ordering = ["name"]
 
@@ -57,28 +58,28 @@ class FamilyBinding(models.Model):
     """家属↔老人绑定台账 — 行由家属开通/解除流程维护，不开放手工增删。"""
 
     class Relation(models.TextChoices):
-        CHILD = "子女", "子女"
-        SPOUSE = "配偶", "配偶"
-        PARENT = "父母", "父母"
-        SIBLING = "兄弟姐妹", "兄弟姐妹"
-        OTHER = "其他", "其他"
+        CHILD = "子女", _("子女")
+        SPOUSE = "配偶", _("配偶")
+        PARENT = "父母", _("父母")
+        SIBLING = "兄弟姐妹", _("兄弟姐妹")
+        OTHER = "其他", _("其他")
 
     family = models.ForeignKey(
         FamilyMember, on_delete=models.CASCADE,
-        related_name="bindings", verbose_name="家属",
+        related_name="bindings", verbose_name=_("家属"),
     )
     resident = models.ForeignKey(
         "residents.Resident", on_delete=models.CASCADE,
-        related_name="family_bindings", verbose_name="老人",
+        related_name="family_bindings", verbose_name=_("老人"),
     )
     relation = models.CharField(
         max_length=10, choices=Relation.choices,
-        default=Relation.CHILD, verbose_name="与老人关系",
+        default=Relation.CHILD, verbose_name=_("与老人关系"),
     )
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="绑定时间")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("绑定时间"))
 
     class Meta:
-        verbose_name = "绑定台账"
+        verbose_name = _("绑定台账")
         verbose_name_plural = verbose_name
         ordering = ["family__name", "resident__name"]
         constraints = [

@@ -1,17 +1,17 @@
-{% extends "base_light.html" %}{% block nav_weekly %}{% endblock %}
+{% extends "base_light.html" %}{% block nav_weekly %}{% endblock %}{% load i18n %}
 
 {% block content %}
 <div class="wrap">
   <div class="title">
-    <span class="material-symbols-outlined">receipt_long</span> 老人点餐 OCR
-    <span class="sub" id="hint">选择老人后拍照识别点餐单</span>
-    <span id="hintToggle" style="display:none;cursor:pointer;color:var(--blue);font-size:13px;margin-left:8px" onclick="document.getElementById('hintToggle').style.display='none';document.getElementById('searchArea').style.display='block';document.getElementById('hint').style.display='inline'">← 更换老人</span></div>
+    <span class="material-symbols-outlined">receipt_long</span> {% translate "老人点餐 OCR" %}
+    <span class="sub" id="hint">{% translate "选择老人后拍照识别点餐单" %}</span>
+    <span id="hintToggle" style="display:none;cursor:pointer;color:var(--blue);font-size:13px;margin-left:8px" onclick="document.getElementById('hintToggle').style.display='none';document.getElementById('searchArea').style.display='block';document.getElementById('hint').style.display='inline'">{% translate "← 更换老人" %}</span></div>
 
   <!-- Step 1: 选老人 -->
   <div id="searchArea">
-    <input class="inp" type="text" id="q" placeholder="搜索老人姓名..." autocomplete="off" autofocus>
+    <input class="inp" type="text" id="q" placeholder="{% translate "搜索老人姓名…" %}" autocomplete="off" autofocus>
     <div id="list" style="display:flex;flex-direction:column;gap:8px;margin-top:12px;max-height:360px;overflow-y:auto">
-      <div class="empty"><p>加载中…</p></div>
+      <div class="empty"><p>{% translate "加载中…" %}</p></div>
     </div>
   </div>
 
@@ -19,31 +19,61 @@
   <div id="act" style="display:none;margin-top:20px">
     <div class="c" style="text-align:center;padding:30px 20px;cursor:pointer" onclick="document.getElementById('fileInput').click()">
       <div style="font-size:40px;margin-bottom:8px;color:var(--ink3)"><span class="material-symbols-outlined" style="font-size:40px">add_a_photo</span></div>
-      <div style="font-size:14px;font-weight:600">点击上传点餐单照片</div>
-      <div style="font-size:12px;color:var(--ink3);margin-top:4px">手写点餐单，含特殊要求（少盐/不吃）也能识别，可多次添加跨页</div>
+      <div style="font-size:14px;font-weight:600">{% translate "点击上传点餐单照片" %}</div>
+      <div style="font-size:12px;color:var(--ink3);margin-top:4px">{% translate "手写点餐单，含特殊要求（少盐/不吃）也能识别，可多次添加跨页" %}</div>
       <input type="file" id="fileInput" accept="image/*" multiple style="display:none" onchange="handleFiles(this.files);this.value=''">
     </div>
     <div id="preview" style="display:none">
       <div class="c">
         <div style="font-size:14px;font-weight:600;margin-bottom:12px;display:flex;align-items:center">
-          <span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:6px">image</span>已选照片
-          <span style="margin-left:auto;font-weight:400;font-size:13px;color:var(--ink3)">共 <b id="imgCount" style="color:var(--blue);font-weight:700">0</b> 张</span>
+          <span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:6px">image</span>{% translate "已选照片" %}
+          <span style="margin-left:auto;font-weight:400;font-size:13px;color:var(--ink3)">{% translate "共" %} <b id="imgCount" style="color:var(--blue);font-weight:700">0</b> {% translate "张" %}</span>
         </div>
         <div id="previewImgs" style="display:flex;flex-wrap:wrap;gap:10px"></div>
       </div>
       <div style="display:flex;gap:10px">
         <button class="submit" id="startBtn" onclick="startOcr()" style="flex:1">
-          <span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px">document_scanner</span>开始识别
+          <span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px">document_scanner</span>{% translate "开始识别" %}
         </button>
-        <button class="btn" onclick="clearImages()" style="padding:0 20px;font-size:15px;flex-shrink:0">清空</button>
+        <button class="btn" onclick="clearImages()" style="padding:0 20px;font-size:15px;flex-shrink:0">{% translate "清空" %}</button>
       </div>
-      <div style="text-align:center;margin-top:10px;color:var(--ink3);font-size:13px;display:none" id="progress">识别中…</div>
+      <div style="text-align:center;margin-top:10px;color:var(--ink3);font-size:13px;display:none" id="progress">{% translate "识别中…" %}</div>
     </div>
     <div id="results" style="display:none"></div>
   </div>
 </div>
 
 <script>
+var TZ = {
+  noMatch: '{% translate "未找到匹配的老人" %}',
+  roomSuffix: '{% translate "室" %}',
+  prevPage: '{% translate "上一页" %}',
+  nextPage: '{% translate "下一页" %}',
+  pageInfo: '{% translate "第 {}/{} 页" %}',
+  selected: '{% translate "已选：{} · {}" %}',
+  uploadFirst: '{% translate "请先上传点餐单照片" %}',
+  recognizing: '{% translate "识别中…" %}',
+  ocrFail: '{% translate "识别失败：{}" %}',
+  weekOrderCfg: '{% translate "点餐周配置" %}',
+  weekStartLabel: '{% translate "周起始(周一):" %}',
+  daysRecognized: '{% translate "识别到 {} 天" %}',
+  manualFix: '{% translate "手动修正" %}',
+  noStructure: '{% translate "未识别到点餐内容，请换张更清晰的照片" %}',
+  confirmCreate: '{% translate "确认创建点餐订单" %}',
+  pickAtLeastOneDish: '{% translate "请至少勾选一道菜" %}',
+  createdToast: '{% translate "已为 {} 创建 {} 条点餐订单，即将跳转…" %}',
+  createFail: '{% translate "创建失败" %}'
+};
+var DAY_LABELS = {
+  '周一': '{% translate "周一" %}', '周二': '{% translate "周二" %}', '周三': '{% translate "周三" %}',
+  '周四': '{% translate "周四" %}', '周五': '{% translate "周五" %}', '周六': '{% translate "周六" %}',
+  '周日': '{% translate "周日" %}'
+};
+var MEAL_LABELS = { '早餐': '{% translate "早餐" %}', '午餐': '{% translate "午餐" %}', '晚餐': '{% translate "晚餐" %}' };
+function trfmt(tpl) {
+  var vals = Array.prototype.slice.call(arguments, 1), i = 0;
+  return tpl.replace(/\{\}/g, function () { return vals[i++]; });
+}
 var sr=null, allResidents=[], currentPage=1, pageSize=9;
 var _images = [];       // 待识别照片 [{dataUrl, b64}]
 var _structured = null;
@@ -70,16 +100,16 @@ function renderResidents(all){
   var total=all.length, pages=Math.ceil(total/pageSize);
   var start=(currentPage-1)*pageSize, items=all.slice(start,start+pageSize);
   var l=document.getElementById('list');
-  if(!items.length){l.innerHTML='<div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">sentiment_dissatisfied</span></div><p>未找到匹配的老人</p></div>';return}
+  if(!items.length){l.innerHTML='<div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">sentiment_dissatisfied</span></div><p>'+TZ.noMatch+'</p></div>';return}
   var html='';
   items.forEach(function(r){html+='<div class="rc" data-id="'+r.id+'" onclick="sel('+r.id+',\''+r.name+'\',\''+r.room+'\')">'+
-    '<div class="av">'+r.name.charAt(0)+'</div><div class="inf"><div class="n">'+r.name+' · '+r.room+'室</div>'+
+    '<div class="av">'+r.name.charAt(0)+'</div><div class="inf"><div class="n">'+r.name+' · '+r.room+TZ.roomSuffix+'</div>'+
     '<div class="m">'+r.care_level+' | '+r.building+r.floor+'</div></div><div class="ck"></div></div>'});
   if(pages>1){
     html+='<div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:8px;font-size:14px">';
-    html+='<button class="btn" style="padding:6px 12px;font-size:13px" onclick="currentPage=Math.max(1,currentPage-1);renderResidents(all);return false"'+(currentPage<=1?' disabled':'')+'>上一页</button>';
-    html+='<span style="color:var(--ink3)">第 '+currentPage+'/'+pages+' 页</span>';
-    html+='<button class="btn" style="padding:6px 12px;font-size:13px" onclick="currentPage=Math.min(pages,currentPage+1);renderResidents(all);return false"'+(currentPage>=pages?' disabled':'')+'>下一页</button>';
+    html+='<button class="btn" style="padding:6px 12px;font-size:13px" onclick="currentPage=Math.max(1,currentPage-1);renderResidents(all);return false"'+(currentPage<=1?' disabled':'')+'>'+TZ.prevPage+'</button>';
+    html+='<span style="color:var(--ink3)">'+trfmt(TZ.pageInfo,currentPage,pages)+'</span>';
+    html+='<button class="btn" style="padding:6px 12px;font-size:13px" onclick="currentPage=Math.min(pages,currentPage+1);renderResidents(all);return false"'+(currentPage>=pages?' disabled':'')+'>'+TZ.nextPage+'</button>';
     html+='</div>';
   }
   l.innerHTML=html;
@@ -87,7 +117,7 @@ function renderResidents(all){
 
 function sel(id,name,room){sr={id:id,name:name,room:room};
   document.querySelectorAll('.rc').forEach(function(c){c.classList.remove('sel')});document.querySelector('[data-id="'+id+'"]').classList.add('sel');
-  document.getElementById('hint').textContent='已选：'+name+' · '+room+'室';
+  document.getElementById('hint').textContent=trfmt(TZ.selected,name,room+' '+TZ.roomSuffix);
   document.getElementById('hintToggle').style.display='inline';
   document.getElementById('searchArea').style.display='none';
   document.getElementById('act').style.display='block';
@@ -165,12 +195,12 @@ function resetToUpload(){
 
 function startOcr(){
   var imgs = _images.filter(Boolean);
-  if(!imgs.length){ toast('请先上传点餐单照片','#e05555'); return; }
+  if(!imgs.length){ toast(TZ.uploadFirst,'#e05555'); return; }
   var b64s = imgs.map(function(im){ return im.b64; });
   var btn = document.getElementById('startBtn');
   btn.disabled = true;
   document.getElementById('progress').style.display = 'block';
-  document.getElementById('progress').textContent = '识别中…';
+  document.getElementById('progress').textContent = TZ.recognizing;
 
   fetch('/api/meal-order-ocr/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({images:b64s})})
     .then(function(r){
@@ -178,7 +208,7 @@ function startOcr(){
       return r.json();
     }).then(showResults)
     .catch(function(err){
-      document.getElementById('progress').textContent='识别失败：'+err.message;
+      document.getElementById('progress').textContent=trfmt(TZ.ocrFail,err.message);
       document.getElementById('startBtn').disabled = false;
     });
 }
@@ -217,11 +247,11 @@ function showResults(data){
   var d=new Date();d.setDate(d.getDate()-d.getDay()+8);
   var ws=d.toISOString().slice(0,10);
 
-  var html='<div class="c"><div class="c-h"><span class="material-symbols-outlined">calendar_month</span> 点餐周配置</div>'+
+  var html='<div class="c"><div class="c-h"><span class="material-symbols-outlined">calendar_month</span> '+TZ.weekOrderCfg+'</div>'+
     '<div style="display:flex;align-items:center;gap:10px">'+
-    '<span style="font-weight:600;font-size:14px">周起始(周一):</span>'+
+    '<span style="font-weight:600;font-size:14px">'+TZ.weekStartLabel+'</span>'+
     '<input type="date" class="inp" id="weekStart" value="'+ws+'" style="width:auto;padding:8px 12px">'+
-    '<span style="margin-left:auto;font-size:13px;color:var(--ink3)">识别到 <b style="color:var(--blue)">'+Object.keys(_structured).length+'</b> 天</span>'+
+    '<span style="margin-left:auto;font-size:13px;color:var(--ink3)">'+trfmt(TZ.daysRecognized,'<b style="color:var(--blue)">'+Object.keys(_structured).length+'</b>')+'</span>'+
     '</div></div>';
 
   var anyDay=false;
@@ -229,14 +259,14 @@ function showResults(data){
     var dayMeals=_structured[day];
     if(!dayMeals) return;
     anyDay=true;
-    html+='<div class="c"><div class="c-h"><span class="material-symbols-outlined">today</span> '+day+'</div>';
+    html+='<div class="c"><div class="c-h"><span class="material-symbols-outlined">today</span> '+DAY_LABELS[day]+'</div>';
     meals.forEach(function(m){
       var mt=m[0], icon=m[1];
       var dishes=dayMeals[mt];
       if(!dishes||!dishes.length) return;
       html+='<div style="margin-bottom:12px">';
       html+='<div style="font-size:13px;font-weight:600;color:var(--ink3);margin-bottom:6px">'+
-        '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">'+icon+'</span> '+mt+'</div>';
+        '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">'+icon+'</span> '+MEAL_LABELS[mt]+'</div>';
       html+='<div style="display:flex;flex-wrap:wrap;gap:6px">';
       dishes.forEach(function(dish){
         if(dish.name){  // 有菜名
@@ -250,7 +280,7 @@ function showResults(data){
               '<input type="checkbox" data-day="'+day+'" data-mt="'+mt+'" data-note="'+escapeHtml(dish.note||'')+'" style="accent-color:var(--red)">'+
               '<input type="text" value="'+escapeHtml(dish.name)+'" class="new-dish" style="width:130px;border:1px solid var(--red);border-radius:4px;padding:3px 6px;font-size:13px;background:#fff;color:#4A3728">'+
               (dish.note?'<span style="color:#e05555;font-size:11px">('+dish.note+')</span>':'')+
-              '<span style="color:var(--red);font-size:11px;white-space:nowrap">⚠手动修正</span>'+
+              '<span style="color:var(--red);font-size:11px;white-space:nowrap">⚠'+TZ.manualFix+'</span>'+
               '</div>';
           }
         } else {  // 纯特殊要求（不吃）
@@ -264,10 +294,10 @@ function showResults(data){
   });
 
   if(!anyDay){
-    html+='<div class="c"><div class="empty"><p>未识别到点餐内容，请换张更清晰的照片</p></div></div>';
+    html+='<div class="c"><div class="empty"><p>'+TZ.noStructure+'</p></div></div>';
   }
 
-  html+='<button class="submit" onclick="submitOrder()"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px">description</span>确认创建点餐订单</button>';
+  html+='<button class="submit" onclick="submitOrder()"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px">description</span>'+TZ.confirmCreate+'</button>';
   document.getElementById('results').innerHTML=html;
   document.getElementById('results').style.display='block';
 }
@@ -299,13 +329,13 @@ function submitOrder(){
     }
   });
 
-  if(!payload.length){toast('请至少勾选一道菜','#e05555');return}
+  if(!payload.length){toast(TZ.pickAtLeastOneDish,'#e05555');return}
 
   fetch('/api/meal-order-ocr/batch-create/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
     .then(function(r){return r.json()}).then(function(d){
-      toast('<span class="material-symbols-outlined">check_circle</span> 已为 '+sr.name+' 创建 '+d.count+' 条点餐订单，即将跳转…','#3ca07a');
+      toast('<span class="material-symbols-outlined">check_circle</span> '+trfmt(TZ.createdToast,sr.name,d.count),'#3ca07a');
       setTimeout(function(){ window.location.href = '/admin/meals/mealorder/'; }, 1500);
-    }).catch(function(){toast('创建失败','#e05555')});
+    }).catch(function(){toast(TZ.createFail,'#e05555')});
 }
 
 function escapeHtml(s){

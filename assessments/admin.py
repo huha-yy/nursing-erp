@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.utils.translation import gettext_lazy as _
 from import_export.admin import ImportExportModelAdmin
 from unfold.admin import ModelAdmin
 from unfold.decorators import action
@@ -13,7 +14,7 @@ class AssessmentItemAdmin(ModelAdmin, ImportExportModelAdmin):
     list_display = ["dimension_display", "name", "max_score", "order", "is_active"]
     list_filter = ["dimension", "is_active"]
 
-    @admin.display(description="一级指标", ordering="dimension")
+    @admin.display(description=_("一级指标"), ordering="dimension")
     def dimension_display(self, obj):
         return obj.get_dimension_display()
 
@@ -56,11 +57,11 @@ class AssessmentAdmin(BuildingScopeMixin, ModelAdmin, ImportExportModelAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).select_related("resident", "assessor1_emp")
 
-    @admin.display(description="能力等级", ordering="grade")
+    @admin.display(description=_("能力等级"), ordering="grade")
     def grade_display(self, obj):
         return Assessment.GRADE_LABELS[obj.grade]
 
-    @admin.display(description="状态", ordering="status")
+    @admin.display(description=_("状态"), ordering="status")
     def status_display(self, obj):
         return obj.get_status_display()
 
@@ -79,7 +80,7 @@ class AssessmentAdmin(BuildingScopeMixin, ModelAdmin, ImportExportModelAdmin):
         except Exception:
             return request.user.username
 
-    @action(description="定级确认（按建议档）")
+    @action(description=_("定级确认（按建议档）"))
     def action_confirm(self, request, queryset):
         """逐实例 confirm()——queryset.update() 会绕过 StaffFkMixin 与
         CareLevelChange 生成；已定级的报错跳过并计数。"""
@@ -90,4 +91,6 @@ class AssessmentAdmin(BuildingScopeMixin, ModelAdmin, ImportExportModelAdmin):
                 confirmed += 1
             except ValueError:
                 skipped += 1
-        self.message_user(request, f"定级 {confirmed} 单（已定级跳过 {skipped} 单）")
+        self.message_user(
+            request, _("定级 {} 单（已定级跳过 {} 单）").format(confirmed, skipped)
+        )

@@ -54,6 +54,9 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    # i18n：语言由 cookie(LANGUAGE_COOKIE_NAME) → Accept-Language → LANGUAGE_CODE 决定，
+    # 须在 SessionMiddleware 之后、AuditMiddleware 之前
+    "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -112,6 +115,12 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LANGUAGE_CODE = "zh-hans"
+# 中英双语（广交会演示）：切换走 /i18n/setlang/（django.conf.urls.i18n）+
+# unfold SHOW_LANGUAGES 自带切换表单；默认语言保持 zh-hans（保日常运营与既有测试断言）
+LANGUAGES = [
+    ("zh-hans", "中文"),
+    ("en", "English"),
+]
 TIME_ZONE = "Asia/Shanghai"
 USE_I18N = True
 # 本地翻译覆盖（优先级高于 Django 自带目录）——补 Django 6 admin JS
@@ -119,8 +128,6 @@ USE_I18N = True
 LOCALE_PATHS = [BASE_DIR / "locale"]
 USE_L10N = True
 USE_TZ = True
-
-LOCALE_PATHS = [BASE_DIR / "locale"]
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
@@ -177,13 +184,16 @@ LOGGING = {
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # django-unfold settings
+from django.utils.translation import gettext_lazy as _  # noqa: E402
 from nursing_erp import nav_perms  # noqa: E402  # 须在 UNFOLD 前 import；模块零依赖无环
 
 UNFOLD = {
-    "SITE_TITLE": "养老院管理系统",
-    "SITE_HEADER": "养老院综合管理平台",
+    "SITE_TITLE": _("养老院管理系统"),
+    "SITE_HEADER": _("养老院综合管理平台"),
     "SITE_URL": "/",
     "SITE_SYMBOL": "home",
+    # 侧栏底部渲染 unfold 自带语言切换表单（language_form.html），配 LANGUAGES 使用
+    "SHOW_LANGUAGES": True,
     "COLORS": {
         "primary": {
             "50": "239 246 255",
@@ -208,165 +218,165 @@ UNFOLD = {
             #   UNFOLD sites.py 丢弃无 link 项；渲染依赖覆写的 app_list.html）
             # 命名后缀：档案=人/物主数据 台账/库/表=配置清单 记录=事件流水
             #   单/账单=业务单据 看板=可视化页
-            {"title": "AI 院长助手", "icon": "smart_toy", "collapsible": True, "items": [
+            {"title": _("AI 院长助手"), "icon": "smart_toy", "collapsible": True, "items": [
                 # chat 外链不配 permission：外链全员可见，防组空壳
-                {"title": "打开 AI Chat", "icon": "smart_toy", "link": "https://chat.eldcare.cn:8443/chat"},
-                {"title": "快速记录", "icon": "edit_note", "link": "/quick-log/",
+                {"title": _("打开 AI Chat"), "icon": "smart_toy", "link": "https://chat.eldcare.cn:8443/chat"},
+                {"title": _("快速记录"), "icon": "edit_note", "link": "/quick-log/",
                  "permission": nav_perms.quick_log},
             ]},
-            {"title": "老人照护", "icon": "elderly", "collapsible": True, "items": [
-                {"title": "老人档案", "icon": "person", "link": "/admin/residents/resident/",
+            {"title": _("老人照护"), "icon": "elderly", "collapsible": True, "items": [
+                {"title": _("老人档案"), "icon": "person", "link": "/admin/residents/resident/",
                  "permission": nav_perms.resident},
-                {"title": "照护记录", "icon": "volunteer_activism",
+                {"title": _("照护记录"), "icon": "volunteer_activism",
                  "link": "/admin/residents/nursinglog/", "permission": nav_perms.care_records,
                  "items": [
-                     {"title": "护理记录", "icon": "edit_note",
+                     {"title": _("护理记录"), "icon": "edit_note",
                       "link": "/admin/residents/nursinglog/", "permission": nav_perms.nursinglog},
-                     {"title": "健康记录", "icon": "monitor_heart",
+                     {"title": _("健康记录"), "icon": "monitor_heart",
                       "link": "/admin/residents/healthrecord/",
                       "permission": nav_perms.healthrecord},
-                     {"title": "用药记录", "icon": "medication",
+                     {"title": _("用药记录"), "icon": "medication",
                       "link": "/admin/residents/medicationrecord/",
                       "permission": nav_perms.medicationrecord},
-                     {"title": "作息记录", "icon": "bedtime",
+                     {"title": _("作息记录"), "icon": "bedtime",
                       "link": "/admin/residents/residentroutine/",
                       "permission": nav_perms.residentroutine},
                  ]},
-                {"title": "入离院记录", "icon": "swap_horiz",
+                {"title": _("入离院记录"), "icon": "swap_horiz",
                  "link": "/admin/residents/admissionrecord/",
                  "permission": nav_perms.lifecycle_records,
                  "items": [
-                     {"title": "入住记录", "icon": "login",
+                     {"title": _("入住记录"), "icon": "login",
                       "link": "/admin/residents/admissionrecord/",
                       "permission": nav_perms.admissionrecord},
-                     {"title": "离院记录", "icon": "logout",
+                     {"title": _("离院记录"), "icon": "logout",
                       "link": "/admin/residents/dischargerecord/",
                       "permission": nav_perms.dischargerecord},
-                     {"title": "转区记录", "icon": "cached",
+                     {"title": _("转区记录"), "icon": "cached",
                       "link": "/admin/residents/transferrecord/",
                       "permission": nav_perms.transferrecord},
                  ]},
-                {"title": "评估管理", "icon": "checklist", "link": "/assessments/",
+                {"title": _("评估管理"), "icon": "checklist", "link": "/assessments/",
                  "permission": nav_perms.assessment_center,
                  "items": [
-                     {"title": "入住评估", "icon": "fact_check", "link": "/assessments/",
+                     {"title": _("入住评估"), "icon": "fact_check", "link": "/assessments/",
                       "permission": nav_perms.assessment},
-                     {"title": "评估记录", "icon": "assignment_turned_in",
+                     {"title": _("评估记录"), "icon": "assignment_turned_in",
                       "link": "/admin/assessments/assessment/", "permission": nav_perms.assessment},
-                     {"title": "等级映射表", "icon": "tune",
+                     {"title": _("等级映射表"), "icon": "tune",
                       "link": "/admin/assessments/gradelevelmap/",
                       "permission": nav_perms.gradelevelmap},
                  ]},
                 # 原「异常上报」独立组并入：IncidentReport 挂 resident 外键，属照护域
-                {"title": "异常记录", "icon": "warning",
+                {"title": _("异常记录"), "icon": "warning",
                  "link": "/admin/incidents/incidentreport/",
                  "permission": nav_perms.incidentreport},
             ]},
-            {"title": "床位管理", "icon": "bed", "collapsible": True, "items": [
-                {"title": "床位看板", "icon": "grid_view", "link": "/beds/",
+            {"title": _("床位管理"), "icon": "bed", "collapsible": True, "items": [
+                {"title": _("床位看板"), "icon": "grid_view", "link": "/beds/",
                  "permission": nav_perms.bed_board},
-                {"title": "楼栋台账", "icon": "apartment", "link": "/admin/beds/building/",
+                {"title": _("楼栋台账"), "icon": "apartment", "link": "/admin/beds/building/",
                  "permission": nav_perms.building},
-                {"title": "楼层台账", "icon": "layers", "link": "/admin/beds/floor/",
+                {"title": _("楼层台账"), "icon": "layers", "link": "/admin/beds/floor/",
                  "permission": nav_perms.floor},
-                {"title": "房间台账", "icon": "meeting_room", "link": "/admin/beds/room/",
+                {"title": _("房间台账"), "icon": "meeting_room", "link": "/admin/beds/room/",
                  "permission": nav_perms.room},
-                {"title": "床位台账", "icon": "bed", "link": "/admin/beds/bed/",
+                {"title": _("床位台账"), "icon": "bed", "link": "/admin/beds/bed/",
                  "permission": nav_perms.bed},
             ]},
-            {"title": "膳食点餐", "icon": "restaurant", "collapsible": True, "items": [
-                {"title": "食堂看板", "icon": "soup_kitchen", "link": "/kitchen/",
+            {"title": _("膳食点餐"), "icon": "restaurant", "collapsible": True, "items": [
+                {"title": _("食堂看板"), "icon": "soup_kitchen", "link": "/kitchen/",
                  "permission": nav_perms.kitchen_board},
-                {"title": "菜品库", "icon": "menu_book", "link": "/admin/meals/dish/",
+                {"title": _("菜品库"), "icon": "menu_book", "link": "/admin/meals/dish/",
                  "permission": nav_perms.dish},
-                {"title": "周菜单", "icon": "event_note", "link": "/admin/meals/weekmenu/",
+                {"title": _("周菜单"), "icon": "event_note", "link": "/admin/meals/weekmenu/",
                  "permission": nav_perms.weekmenu},
-                {"title": "点餐工具", "icon": "touch_app",
+                {"title": _("点餐工具"), "icon": "touch_app",
                  "link": "/weekly-order/", "permission": nav_perms.order_tools,
                  "items": [
-                     {"title": "周选点餐", "icon": "calendar_month",
+                     {"title": _("周选点餐"), "icon": "calendar_month",
                       "link": "/weekly-order/", "permission": nav_perms.weekly_order},
-                     {"title": "菜单 OCR", "icon": "photo_camera",
+                     {"title": _("菜单 OCR"), "icon": "photo_camera",
                       "link": "/menu-ocr/", "permission": nav_perms.menu_ocr},
-                     {"title": "点餐 OCR", "icon": "receipt_long",
+                     {"title": _("点餐 OCR"), "icon": "receipt_long",
                       "link": "/meal-order-ocr/", "permission": nav_perms.meal_order_ocr},
                  ]},
-                {"title": "订单台账", "icon": "receipt_long",
+                {"title": _("订单台账"), "icon": "receipt_long",
                  "link": "/admin/meals/mealorder/", "permission": nav_perms.order_ledger,
                  "items": [
-                     {"title": "点餐订单", "icon": "restaurant",
+                     {"title": _("点餐订单"), "icon": "restaurant",
                       "link": "/admin/meals/mealorder/", "permission": nav_perms.mealorder},
-                     {"title": "改退餐记录", "icon": "change_circle",
+                     {"title": _("改退餐记录"), "icon": "change_circle",
                       "link": "/admin/meals/mealmodificationlog/",
                       "permission": nav_perms.mealmodificationlog},
                  ]},
                 # 餐费对账 = 原「财务月结」(/finance/，MealFinance 对账看板)，与餐费月结同数据
-                {"title": "餐费结算", "icon": "calculate", "link": "/admin/meals/mealfinance/",
+                {"title": _("餐费结算"), "icon": "calculate", "link": "/admin/meals/mealfinance/",
                  "permission": nav_perms.mealfinance,
                  "items": [
-                     {"title": "餐费月结", "icon": "payments", "link": "/admin/meals/mealfinance/",
+                     {"title": _("餐费月结"), "icon": "payments", "link": "/admin/meals/mealfinance/",
                       "permission": nav_perms.mealfinance},
-                     {"title": "餐费对账", "icon": "price_check", "link": "/finance/",
+                     {"title": _("餐费对账"), "icon": "price_check", "link": "/finance/",
                       "permission": nav_perms.mealfinance},
                  ]},
             ]},
-            {"title": "财务账单", "icon": "account_balance_wallet", "collapsible": True, "items": [
-                {"title": "应收月账单", "icon": "receipt_long",
+            {"title": _("财务账单"), "icon": "account_balance_wallet", "collapsible": True, "items": [
+                {"title": _("应收月账单"), "icon": "receipt_long",
                  "link": "/admin/billing/monthlybill/", "permission": nav_perms.monthlybill},
-                {"title": "价目表", "icon": "price_change", "link": "/admin/billing/feerule/",
+                {"title": _("价目表"), "icon": "price_change", "link": "/admin/billing/feerule/",
                  "permission": nav_perms.feerule},
-                {"title": "账单看板", "icon": "account_balance_wallet", "link": "/billing/",
+                {"title": _("账单看板"), "icon": "account_balance_wallet", "link": "/billing/",
                  "permission": nav_perms.billing_board},
             ]},
-            {"title": "人员管理", "icon": "groups", "collapsible": True, "items": [
-                {"title": "员工档案", "icon": "badge", "link": "/admin/staff/employee/",
+            {"title": _("人员管理"), "icon": "groups", "collapsible": True, "items": [
+                {"title": _("员工档案"), "icon": "badge", "link": "/admin/staff/employee/",
                  "permission": nav_perms.employee},
-                {"title": "排班表", "icon": "calendar_month", "link": "/admin/staff/schedule/",
+                {"title": _("排班表"), "icon": "calendar_month", "link": "/admin/staff/schedule/",
                  "permission": nav_perms.schedule},
-                {"title": "考勤记录", "icon": "fingerprint", "link": "/admin/staff/attendance/",
+                {"title": _("考勤记录"), "icon": "fingerprint", "link": "/admin/staff/attendance/",
                  "permission": nav_perms.attendance},
-                {"title": "任务派发", "icon": "assignment", "link": "/admin/staff/task/",
+                {"title": _("任务派发"), "icon": "assignment", "link": "/admin/staff/task/",
                  "permission": nav_perms.task},
-                {"title": "绩效考核", "icon": "trending_up", "link": "/admin/staff/performance/",
+                {"title": _("绩效考核"), "icon": "trending_up", "link": "/admin/staff/performance/",
                  "permission": nav_perms.performance},
             ]},
-            {"title": "院内事务", "icon": "domain", "collapsible": True, "items": [
-                {"title": "物资管理", "icon": "warehouse",
+            {"title": _("院内事务"), "icon": "domain", "collapsible": True, "items": [
+                {"title": _("物资管理"), "icon": "warehouse",
                  "link": "/admin/operations/inventoryitem/",
                  "permission": nav_perms.material_center,
                  "items": [
-                     {"title": "库存台账", "icon": "inventory",
+                     {"title": _("库存台账"), "icon": "inventory",
                       "link": "/admin/operations/inventoryitem/",
                       "permission": nav_perms.inventoryitem},
-                     {"title": "入库记录", "icon": "add_shopping_cart",
+                     {"title": _("入库记录"), "icon": "add_shopping_cart",
                       "link": "/admin/operations/stockin/", "permission": nav_perms.stockin},
-                     {"title": "领用记录", "icon": "remove_shopping_cart",
+                     {"title": _("领用记录"), "icon": "remove_shopping_cart",
                       "link": "/admin/operations/stockout/", "permission": nav_perms.stockout},
                  ]},
-                {"title": "报修工单", "icon": "build",
+                {"title": _("报修工单"), "icon": "build",
                  "link": "/admin/operations/maintenanceorder/",
                  "permission": nav_perms.maintenanceorder},
-                {"title": "卫生巡检", "icon": "cleaning_services",
+                {"title": _("卫生巡检"), "icon": "cleaning_services",
                  "link": "/admin/operations/inspection/", "permission": nav_perms.inspection},
-                {"title": "审批流程", "icon": "approval",
+                {"title": _("审批流程"), "icon": "approval",
                  "link": "/admin/operations/approval/", "permission": nav_perms.approval},
             ]},
-            {"title": "家属服务", "icon": "family_restroom", "collapsible": True, "items": [
-                {"title": "家属账号", "icon": "family_restroom",
+            {"title": _("家属服务"), "icon": "family_restroom", "collapsible": True, "items": [
+                {"title": _("家属账号"), "icon": "family_restroom",
                  "link": "/admin/family/familymember/", "permission": nav_perms.familymember},
-                {"title": "绑定台账", "icon": "link", "link": "/admin/family/familybinding/",
+                {"title": _("绑定台账"), "icon": "link", "link": "/admin/family/familybinding/",
                  "permission": nav_perms.familybinding},
             ]},
-            {"title": "审计留痕", "icon": "history", "collapsible": True, "items": [
-                {"title": "业务操作日志", "icon": "history",
+            {"title": _("审计留痕"), "icon": "history", "collapsible": True, "items": [
+                {"title": _("业务操作日志"), "icon": "history",
                  "link": "/admin/auditlog/operationlog/", "permission": nav_perms.operationlog},
-                {"title": "后台变更日志", "icon": "manage_history",
+                {"title": _("后台变更日志"), "icon": "manage_history",
                  "link": "/admin/admin/logentry/", "permission": nav_perms.logentry},
             ]},
-            {"title": "系统管理", "icon": "settings", "collapsible": True, "items": [
-                {"title": "用户账号", "icon": "manage_accounts", "link": "/admin/auth/user/",
+            {"title": _("系统管理"), "icon": "settings", "collapsible": True, "items": [
+                {"title": _("用户账号"), "icon": "manage_accounts", "link": "/admin/auth/user/",
                  "permission": nav_perms.user_admin},
-                {"title": "用户组", "icon": "group", "link": "/admin/auth/group/",
+                {"title": _("用户组"), "icon": "group", "link": "/admin/auth/group/",
                  "permission": nav_perms.group_admin},
             ]},
         ],

@@ -18,6 +18,7 @@
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 from nursing_erp.staff_fk import StaffFkMixin
 from residents.models import Resident
@@ -32,20 +33,20 @@ class AssessmentItem(models.Model):
     AssessmentScore 行上，目录后续改名/调上限不腐蚀历史单的已算总分）。"""
 
     class Dimension(models.TextChoices):
-        ADL = "自理能力", "自理能力"
-        MOTOR = "基础运动能力", "基础运动能力"
-        MENTAL = "精神状态", "精神状态"
-        PERCEPTION = "感知觉与社会参与", "感知觉与社会参与"
+        ADL = "自理能力", _("自理能力")
+        MOTOR = "基础运动能力", _("基础运动能力")
+        MENTAL = "精神状态", _("精神状态")
+        PERCEPTION = "感知觉与社会参与", _("感知觉与社会参与")
 
-    dimension = models.CharField(max_length=10, choices=Dimension.choices, verbose_name="一级指标")
-    name = models.CharField(max_length=30, verbose_name="二级指标")
-    max_score = models.PositiveSmallIntegerField(default=10, verbose_name="分值上限")
-    order = models.PositiveSmallIntegerField(verbose_name="展示顺序")
-    is_active = models.BooleanField(default=True, verbose_name="在用")
+    dimension = models.CharField(max_length=10, choices=Dimension.choices, verbose_name=_("一级指标"))
+    name = models.CharField(max_length=30, verbose_name=_("二级指标"))
+    max_score = models.PositiveSmallIntegerField(default=10, verbose_name=_("分值上限"))
+    order = models.PositiveSmallIntegerField(verbose_name=_("展示顺序"))
+    is_active = models.BooleanField(default=True, verbose_name=_("在用"))
 
     class Meta:
-        verbose_name = "评估项目"
-        verbose_name_plural = "评估项目目录"
+        verbose_name = _("评估项目")
+        verbose_name_plural = _("评估项目目录")
         ordering = ["order"]
         constraints = [
             models.UniqueConstraint(fields=["dimension", "name"], name="item_dim_name_unique"),
@@ -62,15 +63,15 @@ class GradeLevelMap(models.Model):
     GRADE_CHOICES = [(i, f"{i}级") for i in range(5)]
 
     grade = models.PositiveSmallIntegerField(
-        choices=GRADE_CHOICES, unique=True, verbose_name="能力等级"
+        choices=GRADE_CHOICES, unique=True, verbose_name=_("能力等级")
     )
     care_level = models.CharField(
-        max_length=10, choices=Resident.CareLevel.choices, verbose_name="护理档"
+        max_length=10, choices=Resident.CareLevel.choices, verbose_name=_("护理档")
     )
 
     class Meta:
-        verbose_name = "等级映射表"
-        verbose_name_plural = "等级映射表"
+        verbose_name = _("等级映射表")
+        verbose_name_plural = _("等级映射表")
         ordering = ["grade"]
 
     def __str__(self):
@@ -81,7 +82,7 @@ class GradeLevelMap(models.Model):
         row = cls.objects.filter(grade=grade).first()
         if row is None:
             raise GradeMapMissing(
-                f"等级映射表缺行：{grade}级 —— 请先在后台「等级映射表」补配置再定级"
+                _("等级映射表缺行：{}级 —— 请先在后台「等级映射表」补配置再定级").format(grade)
             )
         return row.care_level
 
@@ -98,8 +99,8 @@ class Assessment(StaffFkMixin, models.Model):
     staff_fk_fields = (("assessor1", "assessor1_emp"),)
 
     class Status(models.TextChoices):
-        DRAFT = "draft", "待定级"
-        CONFIRMED = "confirmed", "已定级"
+        DRAFT = "draft", _("待定级")
+        CONFIRMED = "confirmed", _("已定级")
 
     GRADE_LABELS = {
         0: "0级 能力完好", 1: "1级 轻度受损", 2: "2级 中度受损",
@@ -109,38 +110,38 @@ class Assessment(StaffFkMixin, models.Model):
     BANDS = ((0, 20, 0), (21, 45, 1), (46, 65, 2), (66, 90, 3), (91, 100, 4))
 
     resident = models.ForeignKey(
-        Resident, on_delete=models.CASCADE, related_name="assessments", verbose_name="老人"
+        Resident, on_delete=models.CASCADE, related_name="assessments", verbose_name=_("老人")
     )
-    assess_date = models.DateField(verbose_name="评估日期")
-    assessor1 = models.CharField(max_length=30, verbose_name="评估员1（医护）")
+    assess_date = models.DateField(verbose_name=_("评估日期"))
+    assessor1 = models.CharField(max_length=30, verbose_name=_("评估员1（医护）"))
     assessor1_emp = models.ForeignKey(
         "staff.Employee", on_delete=models.SET_NULL, null=True, blank=True,
-        related_name="assessments_primary", verbose_name="评估员1档案",
+        related_name="assessments_primary", verbose_name=_("评估员1档案"),
     )
-    assessor2 = models.CharField(max_length=30, verbose_name="评估员2")
-    total_score = models.PositiveSmallIntegerField(default=0, verbose_name="总分(0-100)")
+    assessor2 = models.CharField(max_length=30, verbose_name=_("评估员2"))
+    total_score = models.PositiveSmallIntegerField(default=0, verbose_name=_("总分(0-100)"))
     grade = models.PositiveSmallIntegerField(
-        default=0, choices=GradeLevelMap.GRADE_CHOICES, verbose_name="能力等级"
+        default=0, choices=GradeLevelMap.GRADE_CHOICES, verbose_name=_("能力等级")
     )
     suggested_level = models.CharField(
         max_length=10, blank=True, default="", choices=Resident.CareLevel.choices,
-        verbose_name="建议护理档",
+        verbose_name=_("建议护理档"),
     )
     status = models.CharField(
-        max_length=10, choices=Status.choices, default=Status.DRAFT, verbose_name="状态"
+        max_length=10, choices=Status.choices, default=Status.DRAFT, verbose_name=_("状态")
     )
     final_level = models.CharField(
         max_length=10, blank=True, default="", choices=Resident.CareLevel.choices,
-        verbose_name="定级结果",
+        verbose_name=_("定级结果"),
     )
-    confirm_reason = models.CharField(max_length=200, blank=True, verbose_name="定级说明")
-    confirmed_by = models.CharField(max_length=30, blank=True, verbose_name="定级人")
-    confirmed_at = models.DateTimeField(null=True, blank=True, verbose_name="定级时间")
+    confirm_reason = models.CharField(max_length=200, blank=True, verbose_name=_("定级说明"))
+    confirmed_by = models.CharField(max_length=30, blank=True, verbose_name=_("定级人"))
+    confirmed_at = models.DateTimeField(null=True, blank=True, verbose_name=_("定级时间"))
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "入住评估"
+        verbose_name = _("入住评估")
         verbose_name_plural = verbose_name
         ordering = ["-assess_date", "-id"]
         indexes = [models.Index(fields=["resident", "status"])]
@@ -154,7 +155,7 @@ class Assessment(StaffFkMixin, models.Model):
         for lo, hi, grade in cls.BANDS:
             if lo <= total <= hi:
                 return grade
-        raise ValueError(f"总分越界：{total}（应在 0-100）")
+        raise ValueError(_("总分越界：{}（应在 0-100）").format(total))
 
     def recalculate(self) -> None:
         """从明细行重算 total/grade/suggested —— 唯一写这三列的入口；
@@ -184,15 +185,15 @@ class Assessment(StaffFkMixin, models.Model):
             resident = Resident.objects.select_for_update().get(pk=self.resident_id)
             locked = Assessment.objects.select_for_update().get(pk=self.pk)
             if locked.status == self.Status.CONFIRMED:
-                raise ValueError("该评估已定级，不可重复确认")
+                raise ValueError(_("该评估已定级，不可重复确认"))
             if not locked.suggested_level:
-                raise ValueError("评估分值缺失或映射缺行，无法定级")
+                raise ValueError(_("评估分值缺失或映射缺行，无法定级"))
 
             target = final_level or locked.suggested_level
             if target not in Resident.CareLevel.values:
-                raise ValueError(f"未知护理档：{target}")
+                raise ValueError(_("未知护理档：{}").format(target))
             if target != locked.suggested_level and not reason.strip():
-                raise ValueError("定级结果与评估建议不一致，必须填写原因")
+                raise ValueError(_("定级结果与评估建议不一致，必须填写原因"))
 
             old_level = resident.care_level
             self.status = self.Status.CONFIRMED
@@ -225,15 +226,15 @@ class AssessmentScore(models.Model):
     """评估明细 — 一单 26 行；行上只存得分，上限读目录（快照语义）。"""
 
     assessment = models.ForeignKey(
-        Assessment, on_delete=models.CASCADE, related_name="scores", verbose_name="评估单"
+        Assessment, on_delete=models.CASCADE, related_name="scores", verbose_name=_("评估单")
     )
     item = models.ForeignKey(
-        AssessmentItem, on_delete=models.PROTECT, related_name="score_rows", verbose_name="项目"
+        AssessmentItem, on_delete=models.PROTECT, related_name="score_rows", verbose_name=_("项目")
     )
-    score = models.PositiveSmallIntegerField(verbose_name="得分")
+    score = models.PositiveSmallIntegerField(verbose_name=_("得分"))
 
     class Meta:
-        verbose_name = "评估明细"
+        verbose_name = _("评估明细")
         verbose_name_plural = verbose_name
         ordering = ["item__order"]
         constraints = [

@@ -9,6 +9,7 @@ import re
 from decimal import Decimal
 
 from django.db.models import Count, Q, Sum
+from django.utils.translation import gettext as _n
 from ninja import Router, Schema
 from ninja.errors import HttpError
 from ninja.pagination import PageNumberPagination, paginate
@@ -66,10 +67,13 @@ def _bill_for_write(request, bill_id: int) -> MonthlyBill:
     """核销守卫（照抄 meals cancel 模式）：缺失 404 / 跨楼 403。"""
     bill = MonthlyBill.objects.select_related("resident").filter(pk=bill_id).first()
     if bill is None:
-        raise HttpError(404, "账单不存在")
+        raise HttpError(404, _n("账单不存在"))
     scope = resolve_building_scope(request)
     if scope and bill.resident.building != scope:
-        raise HttpError(403, f"无权操作 {bill.resident.building} 的账单（当前范围：{scope}）")
+        raise HttpError(
+            403,
+            _n("无权操作 {} 的账单（当前范围：{}）").format(bill.resident.building, scope),
+        )
     return bill
 
 
@@ -150,7 +154,7 @@ def generate_bills(
 ):
     """生成月账单（财务全院口径，不按调用方楼栋范围收窄——见模块 docstring）。"""
     if not _MONTH_RE.match(month or ""):
-        raise HttpError(400, f"month 格式须为 YYYY-MM，收到：{month!r}")
+        raise HttpError(400, _n("month 格式须为 YYYY-MM，收到：{!r}").format(month))
     rv = generate_month_bills(month, resident_id=resident_id, building=building or None)
     record(request, action="账单生成",
            target=f"{month}{' · ' + building if building else ''}"

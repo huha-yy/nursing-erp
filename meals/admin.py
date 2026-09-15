@@ -4,6 +4,7 @@ from datetime import date, timedelta
 from django.contrib import admin
 from django.db.models import Case, IntegerField, When
 from django.shortcuts import redirect
+from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin
 from unfold.decorators import action
 
@@ -31,14 +32,14 @@ _MEAL_ORDER = Case(
 class WeekOfFilter(admin.SimpleListFilter):
     """按周筛选：候选 = 库里有菜单的最近 12 周（本周/上周打标），选中即锁定。"""
 
-    title = "周"
+    title = _("周")
     parameter_name = "week"
 
     def lookups(self, request, model_admin):
         this_monday = _monday(date.today())
         tags = {
-            this_monday: "（本周）",
-            this_monday - timedelta(days=7): "（上周）",
+            this_monday: str(_("（本周）")),
+            this_monday - timedelta(days=7): str(_("（上周）")),
         }
         return [
             (ws.isoformat(),
@@ -69,7 +70,7 @@ class WeekMenuAdmin(ModelAdmin):
     list_display = ["week_start", "day", "meal_type", "dishes_list"]
     list_filter = [WeekOfFilter, "day", "meal_type"]
     search_fields = ["dishes__name"]
-    search_help_text = "菜品名，或该周任一日期（2026-08-24 / 8/24 / 2026年8月24日）→ 查当周菜单"
+    search_help_text = _("菜品名，或该周任一日期（2026-08-24 / 8/24 / 2026年8月24日）→ 查当周菜单")
     list_per_page = 30
     filter_horizontal = ["dishes"]
     ordering = ["week_start", _DAY_ORDER, _MEAL_ORDER]
@@ -94,7 +95,7 @@ class WeekMenuAdmin(ModelAdmin):
                 return redirect(f"{request.path}?week={monday.isoformat()}")
         return super().changelist_view(request, extra_context)
 
-    @admin.display(description="菜品")
+    @admin.display(description=_("菜品"))
     def dishes_list(self, obj):
         return ", ".join(obj.dishes.values_list("name", flat=True))
 
@@ -112,29 +113,29 @@ class MealOrderAdmin(BuildingScopeMixin, ModelAdmin):
     filter_horizontal = ["dishes"]
     actions = ["action_cancel", "action_preparing", "action_delivering", "action_delivered"]
 
-    @admin.display(description="菜品")
+    @admin.display(description=_("菜品"))
     def dishes_short(self, obj):
         names = ", ".join(obj.dishes.values_list("name", flat=True))
         return names[:50] + "…" if len(names) > 50 else names
 
-    @admin.display(description="状态")
+    @admin.display(description=_("状态"))
     def status_badge(self, obj):
         return obj.get_status_display()
 
-    @action(description="退餐")
+    @action(description=_("退餐"))
     def action_cancel(self, request, queryset):
         for o in queryset.filter(status__in=["ordered", "modified"]):
             o.cancel("管理员操作退餐")
 
-    @action(description="批量设为备餐中")
+    @action(description=_("批量设为备餐中"))
     def action_preparing(self, request, queryset):
         queryset.filter(status="ordered").update(status="preparing")
 
-    @action(description="批量设为送餐中")
+    @action(description=_("批量设为送餐中"))
     def action_delivering(self, request, queryset):
         queryset.filter(status="preparing").update(status="delivering")
 
-    @action(description="批量设为已送达")
+    @action(description=_("批量设为已送达"))
     def action_delivered(self, request, queryset):
         queryset.filter(status="delivering").update(status="delivered")
 
@@ -146,11 +147,11 @@ class MealModificationLogAdmin(ModelAdmin):
     list_filter = ["action", "changed_at"]
     date_hierarchy = "changed_at"
 
-    @admin.display(description="订单")
+    @admin.display(description=_("订单"))
     def order_info(self, obj):
         return str(obj.order)
 
-    @admin.display(description="原因")
+    @admin.display(description=_("原因"))
     def reason_short(self, obj):
         return obj.reason[:60] + "…" if len(obj.reason) > 60 else obj.reason
 
@@ -163,6 +164,6 @@ class MealFinanceAdmin(BuildingScopeMixin, ModelAdmin):
     search_fields = ["resident__name"]
     actions = ["action_mark_paid"]
 
-    @action(description="标记为已缴纳")
+    @action(description=_("标记为已缴纳"))
     def action_mark_paid(self, request, queryset):
         queryset.update(paid=True)

@@ -1,17 +1,17 @@
-{% extends "base_light.html" %}{% block nav_assess %}on{% endblock %}
+{% extends "base_light.html" %}{% block nav_assess %}on{% endblock %}{% load i18n %}
 
 {% block content %}
 <div class="wrap">
   <div class="title">
-    <span class="material-symbols-outlined">fact_check</span> 入住评估
-    <span class="sub">GB/T 42195-2022 · 26 项能力评估 → 定级</span>
+    <span class="material-symbols-outlined">fact_check</span> {% translate "入住评估" %}
+    <span class="sub">GB/T 42195-2022 · {% translate "26 项能力评估 → 定级" %}</span>
   </div>
 
   <div class="stats">
-    <div class="stat -warn"><div class="num">{{ counts.pending }}</div><div class="lbl">待评估</div></div>
-    <div class="stat -warn"><div class="num">{{ counts.due }}</div><div class="lbl">待复评（超12个月）</div></div>
-    <div class="stat"><div class="num">{{ drafts|length }}</div><div class="lbl">待定级</div></div>
-    <div class="stat"><div class="num">{{ total_confirmed }}</div><div class="lbl">累计已定级</div></div>
+    <div class="stat -warn"><div class="num">{{ counts.pending }}</div><div class="lbl">{% translate "待评估" %}</div></div>
+    <div class="stat -warn"><div class="num">{{ counts.due }}</div><div class="lbl">{% translate "待复评（超12个月）" %}</div></div>
+    <div class="stat"><div class="num">{{ drafts|length }}</div><div class="lbl">{% translate "待定级" %}</div></div>
+    <div class="stat"><div class="num">{{ total_confirmed }}</div><div class="lbl">{% translate "累计已定级" %}</div></div>
   </div>
 
   {% if error %}
@@ -21,25 +21,25 @@
   {% endif %}
 
   <div class="c">
-    <div class="c-h">评估状态盘点<span class="cnt">{{ row_total }}<span> 人 · 待评估 {{ counts.pending }} / 待复评 {{ counts.due }} / 期内已评 {{ counts.ok }}</span></span></div>
+    <div class="c-h">{% translate "评估状态盘点" %}<span class="cnt">{{ row_total }}<span> {% blocktrans with p=counts.pending d=counts.due o=counts.ok %}人 · 待评估 {{ p }} / 待复评 {{ d }} / 期内已评 {{ o }}{% endblocktrans %}</span></span></div>
 
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
       <form method="get" style="display:flex;gap:8px">
         {% if state %}<input type="hidden" name="state" value="{{ state }}">{% endif %}
-        <input class="inp" type="search" name="q" value="{{ q }}" placeholder="搜索姓名…" style="max-width:180px;padding:7px 10px">
-        <button class="btn" type="submit">搜索</button>
+        <input class="inp" type="search" name="q" value="{{ q }}" placeholder="{% translate "搜索姓名…" %}" style="max-width:180px;padding:7px 10px">
+        <button class="btn" type="submit">{% translate "搜索" %}</button>
       </form>
       <div style="display:flex;gap:6px;margin-left:auto;flex-wrap:wrap">
-        <a class="btn{% if not state %} sel{% endif %}" style="padding:7px 14px;font-size:13px" href="?q={{ q|urlencode }}&page=1">全部</a>
-        <a class="btn{% if state == 'pending' %} sel{% endif %}" style="padding:7px 14px;font-size:13px" href="?state=pending&q={{ q|urlencode }}&page=1">待评估 {{ counts.pending }}</a>
-        <a class="btn{% if state == 'due' %} sel{% endif %}" style="padding:7px 14px;font-size:13px" href="?state=due&q={{ q|urlencode }}&page=1">待复评 {{ counts.due }}</a>
-        <a class="btn{% if state == 'ok' %} sel{% endif %}" style="padding:7px 14px;font-size:13px" href="?state=ok&q={{ q|urlencode }}&page=1">期内已评 {{ counts.ok }}</a>
+        <a class="btn{% if not state %} sel{% endif %}" style="padding:7px 14px;font-size:13px" href="?q={{ q|urlencode }}&page=1">{% translate "全部" %}</a>
+        <a class="btn{% if state == 'pending' %} sel{% endif %}" style="padding:7px 14px;font-size:13px" href="?state=pending&q={{ q|urlencode }}&page=1">{% blocktrans with c=counts.pending %}待评估 {{ c }}{% endblocktrans %}</a>
+        <a class="btn{% if state == 'due' %} sel{% endif %}" style="padding:7px 14px;font-size:13px" href="?state=due&q={{ q|urlencode }}&page=1">{% blocktrans with c=counts.due %}待复评 {{ c }}{% endblocktrans %}</a>
+        <a class="btn{% if state == 'ok' %} sel{% endif %}" style="padding:7px 14px;font-size:13px" href="?state=ok&q={{ q|urlencode }}&page=1">{% blocktrans with c=counts.ok %}期内已评 {{ c }}{% endblocktrans %}</a>
       </div>
     </div>
 
     {% if rows %}
     <table><thead><tr>
-      <th>老人</th><th>楼栋房号</th><th>当前等级</th><th>最近评估</th><th>状态</th><th></th>
+      <th>{% translate "老人" %}</th><th>{% translate "楼栋房号" %}</th><th>{% translate "当前等级" %}</th><th>{% translate "最近评估" %}</th><th>{% translate "状态" %}</th><th></th>
     </tr></thead><tbody>
     {% for state_key, row in rows %}
     <tr>
@@ -48,42 +48,42 @@
       <td>{{ row.resident.get_care_level_display }}</td>
       <td>{% if row.last_assessed %}{{ row.last_assessed|date:"Y-m-d" }}{% else %}—{% endif %}</td>
       <td>
-        {% if state_key == "pending" %}<span class="b b-err">待评估</span>
-        {% elif state_key == "due" %}<span class="b b-warn">待复评</span>
-        {% else %}<span class="b b-ok">期内已评</span>{% endif %}
+        {% if state_key == "pending" %}<span class="b b-err">{% translate "待评估" %}</span>
+        {% elif state_key == "due" %}<span class="b b-warn">{% translate "待复评" %}</span>
+        {% else %}<span class="b b-ok">{% translate "期内已评" %}</span>{% endif %}
       </td>
-      <td><a class="btn" style="padding:5px 12px;font-size:13px;white-space:nowrap" href="/assessments/new/?resident_id={{ row.resident.id }}">{% if state_key == 'due' %}复评{% else %}评估{% endif %} ›</a></td>
+      <td><a class="btn" style="padding:5px 12px;font-size:13px;white-space:nowrap" href="/assessments/new/?resident_id={{ row.resident.id }}">{% if state_key == 'due' %}{% translate "复评" %}{% else %}{% translate "评估" %}{% endif %} ›</a></td>
     </tr>
     {% endfor %}
     </tbody></table>
     {% if pages > 1 %}
     <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:10px;font-size:14px">
-      <a class="btn" style="padding:6px 12px;font-size:13px{% if page_no <= 1 %};pointer-events:none;opacity:.45{% endif %}" href="?state={{ state|urlencode }}&q={{ q|urlencode }}&page={{ page_prev }}">上一页</a>
-      <span style="color:var(--ink3)">第 {{ page_no }}/{{ pages }} 页（共 {{ row_total }} 人）</span>
-      <a class="btn" style="padding:6px 12px;font-size:13px{% if page_no >= pages %};pointer-events:none;opacity:.45{% endif %}" href="?state={{ state|urlencode }}&q={{ q|urlencode }}&page={{ page_next }}">下一页</a>
+      <a class="btn" style="padding:6px 12px;font-size:13px{% if page_no <= 1 %};pointer-events:none;opacity:.45{% endif %}" href="?state={{ state|urlencode }}&q={{ q|urlencode }}&page={{ page_prev }}">{% translate "上一页" %}</a>
+      <span style="color:var(--ink3)">{% blocktrans with p=page_no t=pages n=row_total %}第 {{ p }}/{{ t }} 页（共 {{ n }} 人）{% endblocktrans %}</span>
+      <a class="btn" style="padding:6px 12px;font-size:13px{% if page_no >= pages %};pointer-events:none;opacity:.45{% endif %}" href="?state={{ state|urlencode }}&q={{ q|urlencode }}&page={{ page_next }}">{% translate "下一页" %}</a>
     </div>
     {% endif %}
     {% else %}
-    <div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">{% if q %}search{% else %}inbox{% endif %}</span></div><p>{% if q %}未找到匹配的老人{% else %}暂无在住老人{% endif %}</p></div>
+    <div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">{% if q %}search{% else %}inbox{% endif %}</span></div><p>{% if q %}{% translate "未找到匹配的老人" %}{% else %}{% translate "暂无在住老人" %}{% endif %}</p></div>
     {% endif %}
   </div>
 
   <div class="c">
-    <div class="c-h">待定级<span class="cnt">{{ drafts|length }}<span> 单</span></span></div>
+    <div class="c-h">{% translate "待定级" %}<span class="cnt">{{ drafts|length }}<span> {% translate "单" %}</span></span></div>
     {% if drafts %}
     <table><thead><tr>
-      <th>老人</th><th>评估日</th><th>总分</th><th>能力等级</th><th>建议档</th><th>评估员</th><th>定级 / 原因</th><th></th>
+      <th>{% translate "老人" %}</th><th>{% translate "评估日" %}</th><th>{% translate "总分" %}</th><th>{% translate "能力等级" %}</th><th>{% translate "建议档" %}</th><th>{% translate "评估员" %}</th><th>{% translate "定级 / 原因" %}</th><th></th>
     </tr></thead><tbody>
     {% for a in drafts %}
     <tr>
       <td style="font-weight:600">{{ a.resident.name }}</td>
       <td>{{ a.assess_date|date:"Y-m-d" }}</td>
       <td style="font-weight:700">{{ a.total_score }}</td>
-      <td>{{ a.grade }}级</td>
+      <td>{% blocktrans with g=a.grade %}{{ g }}级{% endblocktrans %}</td>
       <td><span class="b b-ok">{{ a.suggested_level }}</span></td>
       <td>{{ a.assessor1 }}/{{ a.assessor2 }}</td>
       <td>
-        <form method="post" style="display:flex;gap:6px;align-items:center" onsubmit="return confirm('确认 {{ a.resident.name }} 定级？将更新护理等级并留痕')">
+        <form method="post" style="display:flex;gap:6px;align-items:center" onsubmit="return confirm('{% blocktrans with name=a.resident.name %}确认 {{ name }} 定级？将更新护理等级并留痕{% endblocktrans %}')">
           {% csrf_token %}
           <input type="hidden" name="action" value="confirm">
           <input type="hidden" name="assessment_id" value="{{ a.id }}">
@@ -92,46 +92,46 @@
             <option value="{{ value }}" {% if value == a.suggested_level %}selected{% endif %}>{{ value }}</option>
             {% endfor %}
           </select>
-          <input class="inp" name="reason" placeholder="改判须填原因" style="max-width:170px;padding:6px 8px">
-          <button class="btn" style="padding:6px 16px;font-size:13px;white-space:nowrap" type="submit">定级</button>
+          <input class="inp" name="reason" placeholder="{% translate "改判须填原因" %}" style="max-width:170px;padding:6px 8px">
+          <button class="btn" style="padding:6px 16px;font-size:13px;white-space:nowrap" type="submit">{% translate "定级" %}</button>
         </form>
       </td>
-      <td><a class="btn" style="padding:5px 12px;font-size:13px;white-space:nowrap" href="/assessments/{{ a.id }}/">详情 ›</a></td>
+      <td><a class="btn" style="padding:5px 12px;font-size:13px;white-space:nowrap" href="/assessments/{{ a.id }}/">{% translate "详情" %} ›</a></td>
     </tr>
     {% endfor %}
     </tbody></table>
-    {% else %}<div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">task_alt</span></div><p>无待定级评估单</p></div>{% endif %}
+    {% else %}<div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">task_alt</span></div><p>{% translate "无待定级评估单" %}</p></div>{% endif %}
   </div>
 
   <div class="c">
-    <div class="c-h">定级历史<span class="cnt">近 {{ history|length }}<span> 单</span></span></div>
+    <div class="c-h">{% translate "定级历史" %}<span class="cnt">{% blocktrans with n=history|length %}近 {{ n }}{% endblocktrans %}<span> {% translate "单" %}</span></span></div>
     {% if history %}
     <table><thead><tr>
-      <th>老人</th><th>评估日</th><th>总分</th><th>能力等级</th><th>建议 → 定级</th><th>定级人</th><th></th>
+      <th>{% translate "老人" %}</th><th>{% translate "评估日" %}</th><th>{% translate "总分" %}</th><th>{% translate "能力等级" %}</th><th>{% translate "建议 → 定级" %}</th><th>{% translate "定级人" %}</th><th></th>
     </tr></thead><tbody>
     {% for a in history %}
     <tr>
       <td style="font-weight:600">{{ a.resident.name }}</td>
       <td>{{ a.assess_date|date:"Y-m-d" }}</td>
       <td>{{ a.total_score }}</td>
-      <td>{{ a.grade }}级</td>
+      <td>{% blocktrans with g=a.grade %}{{ g }}级{% endblocktrans %}</td>
       <td>
         {{ a.suggested_level }} → <b>{{ a.final_level }}</b>
-        {% if a.suggested_level != a.final_level %}<span class="b b-warn">改判</span>{% endif %}
+        {% if a.suggested_level != a.final_level %}<span class="b b-warn">{% translate "改判" %}</span>{% endif %}
       </td>
       <td>{{ a.confirmed_by|default:"—" }}</td>
-      <td><a class="btn" style="padding:5px 12px;font-size:13px;white-space:nowrap" href="/assessments/{{ a.id }}/">详情 ›</a></td>
+      <td><a class="btn" style="padding:5px 12px;font-size:13px;white-space:nowrap" href="/assessments/{{ a.id }}/">{% translate "详情" %} ›</a></td>
     </tr>
     {% endfor %}
     </tbody></table>
-    {% else %}<div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">inbox</span></div><p>暂无定级记录</p></div>{% endif %}
+    {% else %}<div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">inbox</span></div><p>{% translate "暂无定级记录" %}</p></div>{% endif %}
   </div>
 </div>
 
 {% if created %}
-<script>window.addEventListener('load',function(){toast('已建单，待定级：{{ created|escapejs }}','#3ca07a')})</script>
+<script>window.addEventListener('load',function(){toast('{% translate "已建单，待定级：" %}{{ created|escapejs }}','#3ca07a')})</script>
 {% endif %}
 {% if confirmed %}
-<script>window.addEventListener('load',function(){toast('已定级：{{ confirmed|escapejs }}','#3ca07a')})</script>
+<script>window.addEventListener('load',function(){toast('{% translate "已定级：" %}{{ confirmed|escapejs }}','#3ca07a')})</script>
 {% endif %}
 {% endblock %}

@@ -1,5 +1,5 @@
 {% extends "base_light.html" %}
-{% load static %}
+{% load i18n static %}
 
 {% block content %}
 <style>
@@ -23,35 +23,35 @@
 
 <div class="lc-wrap">
   <div class="title">
-    <span class="material-symbols-outlined" style="color:var(--blue)">badge</span> {{ resident.name }} 生命周期档案
-    <span class="sub">{{ resident.gender }} · {{ resident.age }}岁 · {{ resident.get_care_level_display }}</span>
+    <span class="material-symbols-outlined" style="color:var(--blue)">badge</span> {% blocktrans with name=resident.name %}{{ name }} 生命周期档案{% endblocktrans %}
+    <span class="sub">{{ resident.get_gender_display }} · {% blocktrans with age=resident.age %}{{ age }}岁{% endblocktrans %} · {{ resident.get_care_level_display }}</span>
   </div>
 
   <!-- 基本信息 -->
   <div class="c">
-    <div class="c-h"><span class="material-symbols-outlined" style="font-size:18px">person</span>基本信息</div>
+    <div class="c-h"><span class="material-symbols-outlined" style="font-size:18px">person</span>{% translate "基本信息" %}</div>
     <div class="lc-info">
-      <div class="it"><div class="lbl">姓名</div><div class="val">{{ resident.name }}</div></div>
-      <div class="it"><div class="lbl">房间</div><div class="val">{{ resident.building }} {{ resident.floor }} {{ resident.room }}室</div></div>
-      <div class="it"><div class="lbl">护理等级</div><div class="val">{{ resident.get_care_level_display }}</div></div>
-      <div class="it"><div class="lbl">入住日期</div><div class="val">{{ resident.admission_date|date:"Y-m-d"|default:"—" }}</div></div>
-      <div class="it"><div class="lbl">既往病史</div><div class="val">{{ resident.diagnosis|default:"—" }}</div></div>
-      <div class="it"><div class="lbl">过敏史</div><div class="val">{{ resident.allergies|default:"—" }}</div></div>
+      <div class="it"><div class="lbl">{% translate "姓名" %}</div><div class="val">{{ resident.name }}</div></div>
+      <div class="it"><div class="lbl">{% translate "房间" %}</div><div class="val">{% blocktrans with building=resident.building floor=resident.floor room=resident.room %}{{ building }} {{ floor }} {{ room }}室{% endblocktrans %}</div></div>
+      <div class="it"><div class="lbl">{% translate "护理等级" %}</div><div class="val">{{ resident.get_care_level_display }}</div></div>
+      <div class="it"><div class="lbl">{% translate "入住日期" %}</div><div class="val">{{ resident.admission_date|date:"Y-m-d"|default:"—" }}</div></div>
+      <div class="it"><div class="lbl">{% translate "既往病史" %}</div><div class="val">{{ resident.diagnosis|default:"—" }}</div></div>
+      <div class="it"><div class="lbl">{% translate "过敏史" %}</div><div class="val">{{ resident.allergies|default:"—" }}</div></div>
     </div>
   </div>
 
   <!-- 健康趋势 -->
   <div class="c" id="healthCard">
-    <div class="c-h"><span class="material-symbols-outlined" style="font-size:18px">monitor_heart</span>健康趋势</div>
+    <div class="c-h"><span class="material-symbols-outlined" style="font-size:18px">monitor_heart</span>{% translate "健康趋势" %}</div>
     <div id="bpChart" class="chart"></div>
     <div id="bsChart" class="chart" style="margin-top:14px"></div>
     <div id="wtChart" class="chart" style="margin-top:14px"></div>
-    <div style="font-size:11px;color:var(--ink3);margin-top:10px">注：缺测日期按相邻记录线性估算（小圆点），仅作趋势参考</div>
+    <div style="font-size:11px;color:var(--ink3);margin-top:10px">{% translate "注：缺测日期按相邻记录线性估算（小圆点），仅作趋势参考" %}</div>
   </div>
 
   <!-- 生命周期时间线 -->
   <div class="c">
-    <div class="c-h"><span class="material-symbols-outlined" style="font-size:18px">timeline</span>生命周期时间线 <span class="cnt">{{ events|length }}</span></div>
+    <div class="c-h"><span class="material-symbols-outlined" style="font-size:18px">timeline</span>{% translate "生命周期时间线" %} <span class="cnt">{{ events|length }}</span></div>
     <div class="lc-tl">
       {% for e in events %}
       <div class="lc-ev">
@@ -61,7 +61,7 @@
         {% if e.detail %}<div class="lc-detail">{{ e.detail }}</div>{% endif %}
       </div>
       {% empty %}
-      <div class="empty"><p>暂无记录</p></div>
+      <div class="empty"><p>{% translate "暂无记录" %}</p></div>
       {% endfor %}
     </div>
   </div>
@@ -129,7 +129,7 @@
           showSymbol: true,
           lineStyle: { width: 2 }, itemStyle: { color: s.color },
           tooltip: { formatter: function(p){
-            return p.seriesName + '：<b>' + p.value + '</b>' + (filled.orig[p.dataIndex] ? '' : '（估算）');
+            return p.seriesName + '{% translate "：" %}<b>' + p.value + '</b>' + (filled.orig[p.dataIndex] ? '' : '{% translate "（估算）" %}');
           }}
         };
       })
@@ -139,12 +139,12 @@
 
   // 血压（收缩压 + 舒张压）
   lineChart('bpChart', [
-    { name: '收缩压', data: trend.bp_sys, color: '#e05555' },
-    { name: '舒张压', data: trend.bp_dia, color: '#4f6ef7' }
+    { name: '{% translate "收缩压" %}', data: trend.bp_sys, color: '#e05555' },
+    { name: '{% translate "舒张压" %}', data: trend.bp_dia, color: '#4f6ef7' }
   ]);
   // 血糖
-  lineChart('bsChart', [{ name: '血糖', data: trend.blood_sugar, color: '#f59e0b' }]);
+  lineChart('bsChart', [{ name: '{% translate "血糖" %}', data: trend.blood_sugar, color: '#f59e0b' }]);
   // 体重
-  lineChart('wtChart', [{ name: '体重', data: trend.weight, color: '#14b8a6' }]);
+  lineChart('wtChart', [{ name: '{% translate "体重" %}', data: trend.weight, color: '#14b8a6' }]);
 </script>
 {% endblock %}

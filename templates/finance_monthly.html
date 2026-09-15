@@ -1,32 +1,33 @@
 {% extends "base_light.html" %}{% block nav_finance %}on{% endblock %}
+{% load i18n %}
 
 {% block content %}
 <div class="wrap">
   <div class="title">
-    <span class="material-symbols-outlined">payments</span> 餐费月结
+    <span class="material-symbols-outlined">payments</span> {% translate "餐费月结" %}
     <span class="sub">{{ month }}</span>
   </div>
 
-  <div class="menut">本页仅<strong>餐费明细</strong>对账（点餐 × 单价）。床位/护理/餐费合并应收与缴费核销请看
-    <a href="/billing/?month={{ month }}" style="color:var(--blue)">账单看板</a>——缴费状态以账单为准，本页"已缴"仅记录餐费单独缴纳。</div>
+  <div class="menut">{% blocktrans %}本页仅<strong>餐费明细</strong>对账（点餐 × 单价）。床位/护理/餐费合并应收与缴费核销请看{% endblocktrans %}
+    <a href="/billing/?month={{ month }}" style="color:var(--blue)">{% translate "账单看板" %}</a>{% blocktrans %}——缴费状态以账单为准，本页"已缴"仅记录餐费单独缴纳。{% endblocktrans %}</div>
 
   <div class="stats">
-    <div class="stat"><div class="num">{{ resident_count }}</div><div class="lbl">就餐人数</div></div>
-    <div class="stat"><div class="num" style="font-size:24px">¥{{ total_amount|floatformat:0 }}</div><div class="lbl">应收总额</div></div>
-    <div class="stat"><div class="num" style="font-size:24px">¥{{ total_paid|floatformat:0 }}</div><div class="lbl">已缴纳</div></div>
-    <div class="stat -warn"><div class="num" style="font-size:24px">¥{{ total_unpaid|floatformat:0 }}</div><div class="lbl">待缴纳</div></div>
+    <div class="stat"><div class="num">{{ resident_count }}</div><div class="lbl">{% translate "就餐人数" %}</div></div>
+    <div class="stat"><div class="num" style="font-size:24px">¥{{ total_amount|floatformat:0 }}</div><div class="lbl">{% translate "应收总额" %}</div></div>
+    <div class="stat"><div class="num" style="font-size:24px">¥{{ total_paid|floatformat:0 }}</div><div class="lbl">{% translate "已缴纳" %}</div></div>
+    <div class="stat -warn"><div class="num" style="font-size:24px">¥{{ total_unpaid|floatformat:0 }}</div><div class="lbl">{% translate "待缴纳" %}</div></div>
   </div>
 
   <div class="c">
     {% if records %}
-    <table><thead><tr><th>老人</th><th>点餐</th><th>退餐</th><th>净量</th><th>金额</th><th>状态</th></tr></thead><tbody>
+    <table><thead><tr><th>{% translate "老人" %}</th><th>{% translate "点餐" %}</th><th>{% translate "退餐" %}</th><th>{% translate "净量" %}</th><th>{% translate "金额" %}</th><th>{% translate "状态" %}</th></tr></thead><tbody>
     {% for r in records %}
     <tr><td style="font-weight:600">{{ r.resident.name }}</td><td>{{ r.total_meals }}</td><td>{{ r.cancelled }}</td>
       <td>{{ r.total_meals|add:r.cancelled|default:r.total_meals }}</td>
       <td style="font-weight:700">¥{{ r.amount|floatformat:0 }}</td>
-      <td>{% if r.paid %}<span class="b b-ok">已缴</span>{% else %}<span class="b b-err">待缴</span>{% endif %}</td></tr>
+      <td>{% if r.paid %}<span class="b b-ok">{% translate "已缴" %}</span>{% else %}<span class="b b-err">{% translate "待缴" %}</span>{% endif %}</td></tr>
     {% endfor %}</tbody></table>
-    {% else %}<div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">inbox</span></div><p>该月暂无餐费数据</p></div>{% endif %}
+    {% else %}<div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">inbox</span></div><p>{% translate "该月暂无餐费数据" %}</p></div>{% endif %}
   </div>
 </div>
 {% endblock %}

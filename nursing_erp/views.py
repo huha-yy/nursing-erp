@@ -3,6 +3,9 @@
 from datetime import date, timedelta
 from urllib.parse import urlencode
 
+from django.utils.translation import gettext as _n
+from django.utils.translation import gettext_lazy as _
+
 from nursing_erp.page_access import staff_required
 from django.shortcuts import redirect, render
 
@@ -135,7 +138,7 @@ def _parse_date(s):
 
 # 盘点表分页（周点餐同款交互，服务端切片——36 人量级足够）
 _REVIEW_PAGE_SIZE = 20
-_REVIEW_STATE_LABELS = {"pending": "待评估", "due": "待复评", "ok": "期内已评"}
+_REVIEW_STATE_LABELS = {"pending": _("待评估"), "due": _("待复评"), "ok": _("期内已评")}
 
 
 @staff_required
@@ -154,7 +157,7 @@ def assessments_board(request):
             pk=request.POST.get("assessment_id", 0)
         ).first()
         if a is None:
-            error = "评估单不存在"
+            error = _n("评估单不存在")
         else:
             try:
                 a.confirm(
@@ -242,10 +245,10 @@ def assessment_form_page(request):
                 try:
                     scores[int(key[6:])] = int(value)
                 except ValueError:
-                    error = f"分值须为整数，收到：{value!r}"
+                    error = _n("分值须为整数，收到：{!r}").format(value)
                     break
         if assess_date is None:
-            error = error or "评估日期格式须为 YYYY-MM-DD"
+            error = error or _n("评估日期格式须为 YYYY-MM-DD")
         if not error:
             try:
                 a = create_assessment(
@@ -370,26 +373,29 @@ def resident_lifecycle(request, resident_id):
     def add(d, kind, icon, title, detail=""):
         if d:
             events.append({
-                "date": d, "kind": kind, "icon": icon, "title": title,
+                "date": d, "kind": _n(kind), "icon": icon, "title": title,
                 "detail": detail or "", "color": COLORS.get(kind, "#6b7280"),
             })
 
     # 入住（时间线起点）
-    add(resident.admission_date, "入住", "🏠", "入住",
-        f"{resident.building} {resident.floor} {resident.room}室 · 初始等级 {resident.get_care_level_display()}")
+    add(resident.admission_date, "入住", "🏠", _n("入住"),
+        _n("%(room)s室 · 初始等级 %(level)s") % {
+            "room": f"{resident.building} {resident.floor} {resident.room}",
+            "level": resident.get_care_level_display()})
 
     for o in resident.logs.all():
         add(o.log_date, "护理", "🛏️", o.get_category_display(), o.detail)
 
     for o in resident.health_records.all():
         add(o.record_date, "健康", "❤️",
-            f"血压 {o.blood_pressure or '—'} · 心率 {o.heart_rate or '—'}", o.note)
+            _n("血压 %(bp)s · 心率 %(hr)s") % {
+                "bp": o.blood_pressure or "—", "hr": o.heart_rate or "—"}, o.note)
 
     for o in resident.medications.all():
         add(o.start_date, "用药", "💊", o.medicine_name, f"{o.dosage} · {o.get_frequency_display()}")
 
     for o in resident.routines.all():
-        add(o.log_date, "作息", "🕐", f"情绪 {o.mood or '—'}", o.activities)
+        add(o.log_date, "作息", "🕐", _n("情绪 %(mood)s") % {"mood": o.mood or "—"}, o.activities)
 
     for o in resident.incidents.all():
         add(o.created_at.date(), "异常", "⚠️", o.get_category_display(), o.description)
@@ -400,9 +406,10 @@ def resident_lifecycle(request, resident_id):
 
     for o in resident.assessments.all():
         add(o.assess_date, "评估", "📋",
-            f"能力评估 {o.total_score}分·{Assessment.GRADE_LABELS[o.grade]}",
-            f"评估员 {o.assessor1}/{o.assessor2}"
-            + (f"·定级 {o.final_level}" if o.final_level else "·待定级"))
+            _n("能力评估 %(score)s分·%(grade)s") % {
+                "score": o.total_score, "grade": Assessment.GRADE_LABELS[o.grade]},
+            _n("评估员 %(a1)s/%(a2)s") % {"a1": o.assessor1, "a2": o.assessor2}
+            + (_n("·定级 %s") % o.final_level if o.final_level else _n("·待定级")))
 
     for o in resident.transfers.all():
         add(o.transfer_date, "转区", "🚚",
@@ -445,7 +452,7 @@ def resident_lifecycle(request, resident_id):
     trend = {"dates": dates, "bp_sys": bp_sys, "bp_dia": bp_dia, "blood_sugar": bs, "weight": wt}
 
     return render(request, "resident_lifecycle.html", {
-        "page_title": f"{resident.name} 生命周期档案",
+        "page_title": _n("%(name)s 生命周期档案") % {"name": resident.name},
         "resident": resident,
         "events": events,
         "trend": trend,

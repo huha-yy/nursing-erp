@@ -1,11 +1,11 @@
-{% extends "base_light.html" %}{% block nav_assess %}on{% endblock %}
+{% extends "base_light.html" %}{% block nav_assess %}on{% endblock %}{% load i18n %}
 
 {% block content %}
 <div class="wrap">
   <div class="title">
-    <span class="material-symbols-outlined">fact_check</span> 评估工作台
-    <span class="sub">GB/T 42195-2022 · 26 项能力评估</span>
-    <a href="/assessments/" style="margin-left:auto;font-size:13px;color:var(--blue);text-decoration:none">← 回盘点</a>
+    <span class="material-symbols-outlined">fact_check</span> {% translate "评估工作台" %}
+    <span class="sub">GB/T 42195-2022 · {% translate "26 项能力评估" %}</span>
+    <a href="/assessments/" style="margin-left:auto;font-size:13px;color:var(--blue);text-decoration:none">{% translate "← 回盘点" %}</a>
   </div>
 
   {% if error %}
@@ -19,9 +19,9 @@
     <span style="color:var(--ink3);font-size:14px">{{ resident.building }} {{ resident.room }}</span>
     <span class="b b-ok">{{ resident.get_care_level_display }}</span>
     {% if last %}
-    <a href="/assessments/{{ last.id }}/" style="color:var(--ink3);font-size:13px;text-decoration:none">上次评估 {{ last.assess_date|date:"Y-m-d" }} · {{ last.total_score }}分·{{ last.grade }}级 ›</a>
+    <a href="/assessments/{{ last.id }}/" style="color:var(--ink3);font-size:13px;text-decoration:none">{% blocktrans with d=last.assess_date|date:"Y-m-d" t=last.total_score g=last.grade %}上次评估 {{ d }} · {{ t }}分·{{ g }}级{% endblocktrans %} ›</a>
     {% else %}
-    <span class="b b-err">首次评估</span>
+    <span class="b b-err">{% translate "首次评估" %}</span>
     {% endif %}
   </div>
 
@@ -29,9 +29,9 @@
     {% csrf_token %}
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
       <input class="inp" type="date" name="assess_date" value="{% now 'Y-m-d' %}" style="max-width:170px" required>
-      <input class="inp" name="assessor1" placeholder="评估员1（医护）" style="max-width:170px" required>
-      <input class="inp" name="assessor2" placeholder="评估员2" style="max-width:170px" required>
-      <div id="badge" style="margin-left:auto;position:sticky;top:10px;z-index:50;background:#fff;border:2px solid var(--line);border-radius:10px;padding:8px 16px;font-size:14px;color:var(--ink3);box-shadow:0 2px 10px rgba(0,0,0,.08)">尚未打分</div>
+      <input class="inp" name="assessor1" placeholder="{% translate "评估员1（医护）" %}" style="max-width:170px" required>
+      <input class="inp" name="assessor2" placeholder="{% translate "评估员2" %}" style="max-width:170px" required>
+      <div id="badge" style="margin-left:auto;position:sticky;top:10px;z-index:50;background:#fff;border:2px solid var(--line);border-radius:10px;padding:8px 16px;font-size:14px;color:var(--ink3);box-shadow:0 2px 10px rgba(0,0,0,.08)">{% translate "尚未打分" %}</div>
     </div>
 
     {% for g in groups %}
@@ -48,8 +48,8 @@
     {% endfor %}
 
     <div style="margin-top:14px;display:flex;align-items:center;gap:12px">
-      <button class="submit" type="submit">创建评估单（待定级）</button>
-      <span style="color:var(--ink3);font-size:13px">定级确认在看板「待定级」区操作</span>
+      <button class="submit" type="submit">{% translate "创建评估单（待定级）" %}</button>
+      <span style="color:var(--ink3);font-size:13px">{% translate "定级确认在看板「待定级」区操作" %}</span>
     </div>
   </form>
 </div>
@@ -58,6 +58,16 @@
 <script>
 // 实时总分角标 — 纯预览（Math.round 半取整；种子目录满分 190 时不存在 .5 端点，
 // 与后端 round 一致；目录改到别的满分可能出现 ±1 预览差，落库仍以 recalculate 为准）。
+var TZ = {
+  none: '{% translate "尚未打分" %}',
+  invalid: '{% translate "有分值超限，请修正" %}',
+  filled: '{% translate "已填" %}',
+  items: '{% translate "项" %}',
+  nomap: '{% translate "映射未配置" %}',
+  current: '{% translate "当前" %}',
+  pts: '{% translate "分" %}',
+  suggest: '{% translate "建议" %}'
+};
 var cfg = JSON.parse(document.getElementById('badge-data').textContent);
 var inputs = document.querySelectorAll('input[name^="score_"]');
 function upd() {
@@ -70,18 +80,18 @@ function upd() {
     if (isNaN(n) || n < 0 || n > parseInt(i.dataset.max, 10)) { valid = false; return; }
     raw += n;
   });
-  if (!filled) { el.textContent = '尚未打分'; el.style.color = ''; return; }
-  if (!valid) { el.textContent = '有分值超限，请修正'; el.style.color = 'var(--red)'; return; }
+  if (!filled) { el.textContent = TZ.none; el.style.color = ''; return; }
+  if (!valid) { el.textContent = TZ.invalid; el.style.color = 'var(--red)'; return; }
   el.style.color = '';
-  if (filled < inputs.length) { el.textContent = '已填 ' + filled + '/' + inputs.length + ' 项'; return; }
+  if (filled < inputs.length) { el.textContent = TZ.filled + ' ' + filled + '/' + inputs.length + ' ' + TZ.items; return; }
   var total = Math.round(raw * 100 / cfg.total_max), grade = null;
   for (var i = 0; i < cfg.bands.length; i++) {
     var b = cfg.bands[i];
     if (total >= b[0] && total <= b[1]) { grade = b[2]; break; }
   }
-  var lvl = grade === null ? '' : (cfg.level_map[String(grade)] || '映射未配置');
-  el.innerHTML = '当前 <b style="font-size:16px">' + total + '</b> 分 · ' +
-    (grade === null ? '' : cfg.labels[String(grade)] + ' · 建议 <b>' + lvl + '</b>');
+  var lvl = grade === null ? '' : (cfg.level_map[String(grade)] || TZ.nomap);
+  el.innerHTML = TZ.current + ' <b style="font-size:16px">' + total + '</b> ' + TZ.pts + ' · ' +
+    (grade === null ? '' : cfg.labels[String(grade)] + ' · ' + TZ.suggest + ' <b>' + lvl + '</b>');
 }
 inputs.forEach(function (i) { i.addEventListener('input', upd); });
 upd();

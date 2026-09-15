@@ -28,6 +28,7 @@ scope 来源（resolve_building_scope）：
 from urllib.parse import unquote
 
 from django.apps import apps
+from django.utils.translation import gettext as _n
 from ninja.errors import HttpError
 
 
@@ -40,7 +41,10 @@ def resolve_building_scope(request) -> str | None:
             return None
         building_model = apps.get_model("beds", "Building")
         if not building_model.objects.filter(name=name).exists():
-            raise HttpError(400, f"X-Building 楼栋未知名：{name}（须与床位台账楼栋名一致）")
+            raise HttpError(
+                400,
+                _n("X-Building 楼栋未知名：{}（须与床位台账楼栋名一致）").format(name),
+            )
         return name
 
     # session 路径：范围只来自员工档案；忽略 X-Building 头（防伪造）
@@ -69,7 +73,7 @@ def scope_get_or_404(model, pk, request, field: str = "building"):
         qs = qs.filter(**{field: scope})
     obj = qs.filter(pk=pk).first()
     if obj is None:
-        raise HttpError(404, f"{model._meta.verbose_name}不存在或无权访问")
+        raise HttpError(404, _n("{}不存在或无权访问").format(model._meta.verbose_name))
     return obj
 
 
@@ -79,8 +83,11 @@ def resident_for_write(request, resident_id: int):
 
     resident = Resident.objects.filter(pk=resident_id).first()
     if resident is None:
-        raise HttpError(404, "老人不存在")
+        raise HttpError(404, _n("老人不存在"))
     scope = resolve_building_scope(request)
     if scope and resident.building != scope:
-        raise HttpError(403, f"无权操作 {resident.building} 的老人（当前范围：{scope}）")
+        raise HttpError(
+            403,
+            _n("无权操作 {} 的老人（当前范围：{}）").format(resident.building, scope),
+        )
     return resident

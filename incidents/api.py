@@ -1,6 +1,7 @@
 from typing import List, Optional
 
 from django.utils import timezone
+from django.utils.translation import gettext as _n
 from ninja import Query, Router, Schema
 from ninja.errors import HttpError
 from ninja.pagination import PageNumberPagination, paginate
@@ -68,7 +69,7 @@ def handle_incident(request, incident_id: int, payload: HandleIn = None):
     """
     incident = IncidentReport.objects.select_related("resident").filter(pk=incident_id).first()
     if incident is None:
-        raise HttpError(404, "异常上报不存在")
+        raise HttpError(404, _n("异常上报不存在"))
     resident_for_write(request, incident.resident_id)
 
     if incident.handled:

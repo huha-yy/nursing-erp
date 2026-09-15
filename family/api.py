@@ -11,6 +11,7 @@ from datetime import date, timedelta
 from django.contrib.auth import authenticate
 from django.db import transaction
 from django.db.models import Count, Min, Sum
+from django.utils.translation import gettext as _n
 from ninja import NinjaAPI, Router, Schema
 from ninja.errors import HttpError
 
@@ -66,25 +67,25 @@ def _bound_ids(fm: FamilyMember) -> set[int]:
 def _resident_for_read(fm: FamilyMember, resident_id: int) -> Resident:
     r = Resident.objects.filter(pk=resident_id).first()
     if r is None or resident_id not in _bound_ids(fm):
-        raise HttpError(404, "老人不存在或未与您绑定")
+        raise HttpError(404, _n("老人不存在或未与您绑定"))
     return r
 
 
 def _resident_for_write(fm: FamilyMember, resident_id: int) -> Resident:
     r = Resident.objects.filter(pk=resident_id).first()
     if r is None:
-        raise HttpError(404, "老人不存在")
+        raise HttpError(404, _n("老人不存在"))
     if resident_id not in _bound_ids(fm):
-        raise HttpError(403, "该老人未与您绑定，无法代操作")
+        raise HttpError(403, _n("该老人未与您绑定，无法代操作"))
     return r
 
 
 def _order_for_write(fm: FamilyMember, order_id: int) -> MealOrder:
     order = MealOrder.objects.select_related("resident").filter(pk=order_id).first()
     if order is None:
-        raise HttpError(404, "订单不存在")
+        raise HttpError(404, _n("订单不存在"))
     if order.resident_id not in _bound_ids(fm):
-        raise HttpError(403, "该订单不属于您绑定的老人")
+        raise HttpError(403, _n("该订单不属于您绑定的老人"))
     return order
 
 
@@ -176,10 +177,10 @@ def family_login(request, payload: LoginIn):
     """
     user = authenticate(request, username=payload.phone, password=payload.password)
     if user is None:
-        raise HttpError(401, "手机号或密码错误")
+        raise HttpError(401, _n("手机号或密码错误"))
     fm = FamilyMember.objects.filter(user=user, is_active=True).first()
     if fm is None:
-        raise HttpError(401, "该账号不是家属账号")
+        raise HttpError(401, _n("该账号不是家属账号"))
     return {
         "family_id": fm.id,
         "token": fm.token,
@@ -296,7 +297,7 @@ def family_meals(request, week_start: str = ""):
     try:
         ws = date.fromisoformat(week_start) if week_start else date.today()
     except ValueError:
-        raise HttpError(400, "week_start 须为 YYYY-MM-DD") from None
+        raise HttpError(400, _n("week_start 须为 YYYY-MM-DD")) from None
     ws = _monday(ws)  # 容错对齐周一
     end = ws + timedelta(days=6)
     menu = WeekMenu.objects.filter(week_start=ws).prefetch_related("dishes")
@@ -339,7 +340,7 @@ def family_billing(request, month: str = ""):
     fm = request.auth
     month = month or current_month()
     if not _MONTH_RE.match(month):
-        raise HttpError(400, "month 须为 YYYY-MM")
+        raise HttpError(400, _n("month 须为 YYYY-MM"))
     rows = []
     for b in fm.bindings.select_related("resident").order_by("resident__id"):
         bills = (
@@ -369,7 +370,9 @@ def family_meal_batch(request, payload: list[FamilyMealOrderIn]):
             _resident_for_write(fm, item.resident_id)
         except HttpError as e:
             if e.status_code == 403:
-                raise HttpError(403, f"第 {i + 1} 条越权，整批拒绝：{e.message}") from e
+                raise HttpError(
+                    403, _n("第 {} 条越权，整批拒绝：{}").format(i + 1, e.message)
+                ) from e
             raise
     _assert_no_active_duplicate(
         [(i.resident_id, i.date, i.meal_type) for i in payload], batch=True

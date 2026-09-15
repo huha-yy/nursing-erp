@@ -1,42 +1,42 @@
-{% extends "base_light.html" %}{% block nav_finance %}on{% endblock %}
+{% extends "base_light.html" %}{% load i18n %}{% block nav_finance %}on{% endblock %}
 
 {% block content %}
 <div class="wrap">
   <div class="title">
-    <span class="material-symbols-outlined">receipt_long</span> 应收月账单
+    <span class="material-symbols-outlined">receipt_long</span> {% translate "应收月账单" %}
     <span class="sub">{{ month }}</span>
   </div>
 
   <div class="stats">
-    <div class="stat"><div class="num">{{ summary.bills|length }}</div><div class="lbl">账单数</div></div>
-    <div class="stat"><div class="num" style="font-size:24px">¥{{ summary.receivable|floatformat:"0" }}</div><div class="lbl">应收合计</div></div>
-    <div class="stat"><div class="num" style="font-size:24px;color:var(--green)">¥{{ summary.received|floatformat:"0" }}</div><div class="lbl">已缴费</div></div>
-    <div class="stat -warn"><div class="num" style="font-size:24px">¥{{ summary.outstanding|floatformat:"0" }}</div><div class="lbl">欠缴</div></div>
+    <div class="stat"><div class="num">{{ summary.bills|length }}</div><div class="lbl">{% translate "账单数" %}</div></div>
+    <div class="stat"><div class="num" style="font-size:24px">¥{{ summary.receivable|floatformat:"0" }}</div><div class="lbl">{% translate "应收合计" %}</div></div>
+    <div class="stat"><div class="num" style="font-size:24px;color:var(--green)">¥{{ summary.received|floatformat:"0" }}</div><div class="lbl">{% translate "已缴费" %}</div></div>
+    <div class="stat -warn"><div class="num" style="font-size:24px">¥{{ summary.outstanding|floatformat:"0" }}</div><div class="lbl">{% translate "欠缴" %}</div></div>
   </div>
 
   <div class="c">
-    <div class="c-h">出账与月份</div>
+    <div class="c-h">{% translate "出账与月份" %}</div>
     <form method="get" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <input class="inp" type="month" name="month" value="{{ month }}" style="max-width:180px">
       {% if building %}<input type="hidden" name="building" value="{{ building }}">{% endif %}
-      <button class="btn" style="padding:10px 22px;max-width:110px" type="submit">查看</button>
+      <button class="btn" style="padding:10px 22px;max-width:110px" type="submit">{% translate "查看" %}</button>
     </form>
-    <form method="post" style="margin-top:12px" onsubmit="return confirm('生成/刷新 {{ month }} 月账单？已缴费账单不受影响')">
+    <form method="post" style="margin-top:12px" onsubmit="return confirm('{% blocktrans %}生成/刷新 {{ month }} 月账单？已缴费账单不受影响{% endblocktrans %}')">
       {% csrf_token %}
       <input type="hidden" name="action" value="generate">
       <input type="hidden" name="month" value="{{ month }}">
       {% if building %}<input type="hidden" name="building" value="{{ building }}">{% endif %}
-      <button class="submit" type="submit">生成 {{ month }} 月账单</button>
+      <button class="submit" type="submit">{% blocktrans with m=month %}生成 {{ m }} 月账单{% endblocktrans %}</button>
     </form>
   </div>
 
   <div class="c">
-    <div class="c-h">账单明细
-      <a href="/finance/?month={{ month }}" style="font-size:13px;font-weight:500;color:var(--blue);text-decoration:none">餐费明细 ›</a>
-      <span class="cnt">{{ summary.bills|length }}<span> 单 · 已缴 {{ summary.paid_count }}</span></span></div>
+    <div class="c-h">{% translate "账单明细" %}
+      <a href="/finance/?month={{ month }}" style="font-size:13px;font-weight:500;color:var(--blue);text-decoration:none">{% translate "餐费明细" %} ›</a>
+      <span class="cnt">{{ summary.bills|length }}<span> {% translate "单" %} · {% translate "已缴" %} {{ summary.paid_count }}</span></span></div>
     {% if summary.bills %}
     <table><thead><tr>
-      <th>老人</th><th>楼栋房号</th><th>床位费</th><th>护理费</th><th>餐费</th><th>合计</th><th>状态</th><th>核销人</th><th></th>
+      <th>{% translate "老人" %}</th><th>{% translate "楼栋房号" %}</th><th>{% translate "床位费" %}</th><th>{% translate "护理费" %}</th><th>{% translate "餐费" %}</th><th>{% translate "合计" %}</th><th>{% translate "状态" %}</th><th>{% translate "核销人" %}</th><th></th>
     </tr></thead><tbody>
     {% for b in summary.bills %}
     <tr>
@@ -46,30 +46,30 @@
       <td>¥{{ b.nursing_fee|floatformat:0 }}</td>
       <td>¥{{ b.meal_fee|floatformat:0 }}</td>
       <td style="font-weight:700">¥{{ b.total|floatformat:0 }}</td>
-      <td>{% if b.status == "paid" %}<span class="b b-ok">已缴费</span>{% else %}<span class="b b-err">待缴费</span>{% endif %}</td>
+      <td>{% if b.status == "paid" %}<span class="b b-ok">{% translate "已缴费" %}</span>{% else %}<span class="b b-err">{% translate "待缴费" %}</span>{% endif %}</td>
       <td>{{ b.settled_by|default:"—" }}</td>
       <td>
         {% if b.status != "paid" %}
-        <form method="post" style="display:inline" onsubmit="return confirm('确认 {{ b.resident.name }} {{ b.month }} 月全额缴费核销？')">
+        <form method="post" style="display:inline" onsubmit="return confirm('{% blocktrans with name=b.resident.name m=b.month %}确认 {{ name }} {{ m }} 月全额缴费核销？{% endblocktrans %}')">
           {% csrf_token %}
           <input type="hidden" name="action" value="settle">
           <input type="hidden" name="bill_id" value="{{ b.id }}">
           <input type="hidden" name="month" value="{{ month }}">
-          <button class="btn" style="padding:6px 16px;font-size:13px" type="submit">核销</button>
+          <button class="btn" style="padding:6px 16px;font-size:13px" type="submit">{% translate "核销" %}</button>
         </form>
         {% endif %}
       </td>
     </tr>
     {% endfor %}
     </tbody></table>
-    {% else %}<div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">inbox</span></div><p>该月暂无账单 — 点击上方「生成」出账</p></div>{% endif %}
+    {% else %}<div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">inbox</span></div><p>{% translate "该月暂无账单 — 点击上方「生成」出账" %}</p></div>{% endif %}
   </div>
 
   <div class="c">
-    <div class="c-h">欠费名单<span class="cnt">{{ arrears.resident_count }}<span> 人 · 截止 {{ arrears.month }}</span></span></div>
+    <div class="c-h">{% translate "欠费名单" %}<span class="cnt">{{ arrears.resident_count }}<span> {% translate "人" %} · {% translate "截止" %} {{ arrears.month }}</span></span></div>
     {% if arrears.rows %}
     <table><thead><tr>
-      <th>老人</th><th>楼栋房号</th><th>欠费月数</th><th>最早欠费月</th><th>欠缴金额</th>
+      <th>{% translate "老人" %}</th><th>{% translate "楼栋房号" %}</th><th>{% translate "欠费月数" %}</th><th>{% translate "最早欠费月" %}</th><th>{% translate "欠缴金额" %}</th>
     </tr></thead><tbody>
     {% for r in arrears.rows %}
     <tr>
@@ -81,7 +81,7 @@
     </tr>
     {% endfor %}
     </tbody></table>
-    {% else %}<div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">task_alt</span></div><p>截至 {{ arrears.month }} 无欠费</p></div>{% endif %}
+    {% else %}<div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">task_alt</span></div><p>{% blocktrans with m=arrears.month %}截至 {{ m }} 无欠费{% endblocktrans %}</p></div>{% endif %}
   </div>
 </div>
 {% endblock %}

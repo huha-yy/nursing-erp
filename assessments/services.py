@@ -4,6 +4,7 @@ from datetime import date, timedelta
 
 from django.db import transaction
 from django.db.models import OuterRef, Subquery
+from django.utils.translation import gettext as _n
 
 from residents.models import Resident
 
@@ -21,9 +22,9 @@ def create_assessment(resident, assess_date, assessor1: str, assessor2: str,
     """
     catalog = list(AssessmentItem.objects.filter(is_active=True))
     if not catalog:
-        raise ValueError("评估项目目录为空——请先在后台「评估项目目录」配置")
+        raise ValueError(_n("评估项目目录为空——请先在后台「评估项目目录」配置"))
     if not (assessor1 or "").strip() or not (assessor2 or "").strip():
-        raise ValueError("评估员1、评估员2 均不能为空（国标要求双人评估）")
+        raise ValueError(_n("评估员1、评估员2 均不能为空（国标要求双人评估）"))
 
     by_id = {item.id: item for item in catalog}
     given = set(scores)
@@ -32,17 +33,19 @@ def create_assessment(resident, assess_date, assessor1: str, assessor2: str,
     if missing or extra:
         parts = []
         if missing:
-            parts.append(f"缺 {len(missing)} 项")
+            parts.append(_n("缺 {} 项").format(len(missing)))
         if extra:
-            parts.append(f"多 {len(extra)} 项（非在用目录项）")
-        raise ValueError(f"评估明细须覆盖全部 {len(catalog)} 项，{'、'.join(parts)}")
+            parts.append(_n("多 {} 项（非在用目录项）").format(len(extra)))
+        raise ValueError(
+            _n("评估明细须覆盖全部 {} 项，{}").format(len(catalog), "、".join(parts))
+        )
 
     for item in catalog:
         score = scores[item.id]
         if not isinstance(score, int) or isinstance(score, bool):
-            raise ValueError(f"{item.name} 得分须为整数，收到：{score!r}")
+            raise ValueError(_n("{} 得分须为整数，收到：{!r}").format(item.name, score))
         if not 0 <= score <= item.max_score:
-            raise ValueError(f"{item.name} 得分 {score} 超出 0-{item.max_score}")
+            raise ValueError(_n("{} 得分 {} 超出 0-{}").format(item.name, score, item.max_score))
 
     with transaction.atomic():
         assessment = Assessment.objects.create(

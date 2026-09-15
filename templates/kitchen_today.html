@@ -1,16 +1,17 @@
 {% extends "base_light.html" %}{% block nav_kitchen %}on{% endblock %}
+{% load i18n %}
 
 {% block content %}
 <div class="wrap">
   <div class="title">
-    <span class="material-symbols-outlined">restaurant</span> 食堂今日看板
+    <span class="material-symbols-outlined">restaurant</span> {% translate "食堂今日看板" %}
     <span class="sub">{{ today }}</span>
   </div>
 
   <div class="stats">
-    <div class="stat"><div class="num">{{ total_orders }}</div><div class="lbl">总点餐数</div></div>
-    <div class="stat"><div class="num">{{ effective_orders }}</div><div class="lbl">实际备餐</div></div>
-    <div class="stat -warn"><div class="num">{{ cancel_count }}</div><div class="lbl">退餐</div></div>
+    <div class="stat"><div class="num">{{ total_orders }}</div><div class="lbl">{% translate "总点餐数" %}</div></div>
+    <div class="stat"><div class="num">{{ effective_orders }}</div><div class="lbl">{% translate "实际备餐" %}</div></div>
+    <div class="stat -warn"><div class="num">{{ cancel_count }}</div><div class="lbl">{% translate "退餐" %}</div></div>
   </div>
 
   {% for meal in meal_data %}
@@ -18,7 +19,7 @@
     <div class="c-h">
       <span class="material-symbols-outlined" style="font-size:20px">{% if meal.key == '早餐' %}wb_sunny{% elif meal.key == '午餐' %}wb_sunny{% else %}bedtime{% endif %}</span>
       {{ meal.key }}
-      <div class="cnt">{{ meal.orders|length }}<span> 份</span></div>
+      <div class="cnt">{{ meal.orders|length }}<span> {% translate "份" %}</span></div>
     </div>
 
     {% if meal.menu %}
@@ -29,7 +30,7 @@
     {% endif %}
 
     {% if meal.orders %}
-    <table><thead><tr><th>老人</th><th>房间</th><th style="width:40%">菜品</th><th>需求</th></tr></thead><tbody>
+    <table><thead><tr><th>{% translate "老人" %}</th><th>{% translate "房间" %}</th><th style="width:40%">{% translate "菜品" %}</th><th>{% translate "需求" %}</th></tr></thead><tbody>
     {% for o in meal.orders %}
     <tr><td style="font-weight:600">{{ o.resident.name }}</td><td>{{ o.resident.room }}</td>
       <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
@@ -37,7 +38,7 @@
       </td>
       <td>{% if o.special_requests %}<span class="b b-warn">{{ o.special_requests }}</span>{% else %}<span class="b b-dim">—</span>{% endif %}</td></tr>
     {% endfor %}</tbody></table>
-    {% else %}<div class="empty"><p>暂无点餐</p></div>{% endif %}
+    {% else %}<div class="empty"><p>{% translate "暂无点餐" %}</p></div>{% endif %}
   </div>
   {% endfor %}
 </div>

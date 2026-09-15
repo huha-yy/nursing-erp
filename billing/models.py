@@ -13,6 +13,7 @@ from decimal import Decimal
 
 from django.db import models
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 from meals.models import MealFinance, MealOrder
 from nursing_erp.staff_fk import StaffFkMixin
@@ -26,23 +27,23 @@ class FeeRule(models.Model):
     """价目表 — 后台可改，出账时实时读取（不缓存）。"""
 
     class FeeType(models.TextChoices):
-        BED = "bed", "床位费"
-        NURSING = "nursing", "护理费"
-        MEAL = "meal", "餐费"
+        BED = "bed", _("床位费")
+        NURSING = "nursing", _("护理费")
+        MEAL = "meal", _("餐费")
 
-    fee_type = models.CharField(max_length=10, choices=FeeType.choices, verbose_name="费用类型")
+    fee_type = models.CharField(max_length=10, choices=FeeType.choices, verbose_name=_("费用类型"))
     key = models.CharField(
-        max_length=20, blank=True, default="", verbose_name="档位",
-        help_text="护理费=护理等级（自理/半护/全护/失智）；床位费/餐费留空",
+        max_length=20, blank=True, default="", verbose_name=_("档位"),
+        help_text=_("护理费=护理等级（自理/半护/全护/失智）；床位费/餐费留空"),
     )
     monthly_amount = models.DecimalField(
-        max_digits=10, decimal_places=2, verbose_name="单价(元)",
-        help_text="床位/护理=每月；餐费=每餐",
+        max_digits=10, decimal_places=2, verbose_name=_("单价(元)"),
+        help_text=_("床位/护理=每月；餐费=每餐"),
     )
 
     class Meta:
-        verbose_name = "价目表"
-        verbose_name_plural = "价目表"
+        verbose_name = _("价目表")
+        verbose_name_plural = _("价目表")
         ordering = ["fee_type", "key"]
         constraints = [
             models.UniqueConstraint(fields=["fee_type", "key"], name="feerule_type_key_unique"),
@@ -59,7 +60,9 @@ class FeeRule(models.Model):
         rule = cls.objects.filter(fee_type=fee_type, key=key).first()
         if rule is None:
             raise FeeRuleMissing(
-                f"价目表缺行：{fee_type} 档位={key or '（空）'} —— 请先在后台「价目表」补配置再出账"
+                _("价目表缺行：{} 档位={} —— 请先在后台「价目表」补配置再出账").format(
+                    fee_type, key or "（空）"
+                )
             )
         return rule.monthly_amount
 
@@ -87,34 +90,34 @@ class MonthlyBill(StaffFkMixin, models.Model):
     staff_fk_fields = (("settled_by", "settled_by_emp"),)
 
     class Status(models.TextChoices):
-        PENDING = "pending", "待缴费"
-        PAID = "paid", "已缴费"
+        PENDING = "pending", _("待缴费")
+        PAID = "paid", _("已缴费")
 
     resident = models.ForeignKey(
-        "residents.Resident", on_delete=models.CASCADE, related_name="bills", verbose_name="老人"
+        "residents.Resident", on_delete=models.CASCADE, related_name="bills", verbose_name=_("老人")
     )
-    month = models.CharField(max_length=7, verbose_name="账期")
-    bed_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="床位费")
+    month = models.CharField(max_length=7, verbose_name=_("账期"))
+    bed_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name=_("床位费"))
     nursing_fee = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0, verbose_name="护理费"
+        max_digits=10, decimal_places=2, default=0, verbose_name=_("护理费")
     )
-    meal_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="餐费")
-    total = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="合计")
+    meal_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name=_("餐费"))
+    total = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name=_("合计"))
     status = models.CharField(
-        max_length=10, choices=Status.choices, default=Status.PENDING, verbose_name="状态"
+        max_length=10, choices=Status.choices, default=Status.PENDING, verbose_name=_("状态")
     )
-    settled_at = models.DateTimeField(null=True, blank=True, verbose_name="核销时间")
-    settled_by = models.CharField(max_length=30, blank=True, verbose_name="核销人")
+    settled_at = models.DateTimeField(null=True, blank=True, verbose_name=_("核销时间"))
+    settled_by = models.CharField(max_length=30, blank=True, verbose_name=_("核销人"))
     settled_by_emp = models.ForeignKey(
         "staff.Employee", on_delete=models.SET_NULL, null=True, blank=True,
-        related_name="settled_bills", verbose_name="核销人档案",
+        related_name="settled_bills", verbose_name=_("核销人档案"),
     )
-    note = models.CharField(max_length=200, blank=True, verbose_name="备注（减免等）")
+    note = models.CharField(max_length=200, blank=True, verbose_name=_("备注（减免等）"))
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "应收月账单"
+        verbose_name = _("应收月账单")
         verbose_name_plural = verbose_name
         ordering = ["-month", "resident__name"]
         unique_together = [("resident", "month")]

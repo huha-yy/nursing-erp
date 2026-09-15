@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin
 from import_export.admin import ImportExportModelAdmin
 
@@ -13,13 +14,13 @@ class InventoryItemAdmin(ModelAdmin, ImportExportModelAdmin):
     list_per_page = 30
     actions = ["restock_to_safety"]
 
-    @admin.display(description="库存状态", ordering="quantity")
+    @admin.display(description=_("库存状态"), ordering="quantity")
     def low_stock_badge(self, obj):
         if obj.is_low_stock:
-            return f"⚠️ 不足 (仅剩{obj.quantity}{obj.unit})"
-        return "✅ 充足"
+            return _("⚠️ 不足 (仅剩{}{})").format(obj.quantity, obj.unit)
+        return _("✅ 充足")
 
-    @admin.action(description="补货至安全库存")
+    @admin.action(description=_("补货至安全库存"))
     def restock_to_safety(self, request, queryset):
         for item in queryset:
             if item.is_low_stock:
@@ -57,11 +58,11 @@ class MaintenanceOrderAdmin(ModelAdmin):
     autocomplete_fields = ["reported_by_emp"]
     actions = ["mark_in_progress", "mark_done"]
 
-    @admin.action(description="标记为维修中")
+    @admin.action(description=_("标记为维修中"))
     def mark_in_progress(self, request, queryset):
         queryset.filter(status="pending").update(status="in_progress")
 
-    @admin.action(description="标记为已完成")
+    @admin.action(description=_("标记为已完成"))
     def mark_done(self, request, queryset):
         from django.utils import timezone
         queryset.filter(status__in=["pending", "in_progress"]).update(
@@ -77,7 +78,7 @@ class InspectionAdmin(ModelAdmin, ImportExportModelAdmin):
     date_hierarchy = "date"
     autocomplete_fields = ["inspector_emp"]
 
-    @admin.display(description="备注")
+    @admin.display(description=_("备注"))
     def note_short(self, obj):
         return obj.note[:40] + "…" if len(obj.note) > 40 else obj.note
 
@@ -91,11 +92,11 @@ class ApprovalAdmin(ModelAdmin):
     autocomplete_fields = ["applicant_emp"]
     actions = ["approve_selected", "reject_selected"]
 
-    @admin.action(description="批量通过")
+    @admin.action(description=_("批量通过"))
     def approve_selected(self, request, queryset):
         queryset.filter(status="pending").update(status="approved")
 
-    @admin.action(description="批量驳回")
+    @admin.action(description=_("批量驳回"))
     def reject_selected(self, request, queryset):
         queryset.filter(status="pending").update(status="rejected")
 

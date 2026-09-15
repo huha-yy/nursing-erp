@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.utils.translation import gettext_lazy as _
 from import_export.admin import ImportExportModelAdmin
 from unfold.admin import ModelAdmin
 
@@ -28,7 +29,7 @@ class RoomAdmin(BuildingScopeMixin, ModelAdmin, ImportExportModelAdmin):
     list_filter = ["floor__building", "floor"]
     search_fields = ["number", "floor__name", "floor__building__name"]
 
-    @admin.display(description="楼栋", ordering="floor__building__name")
+    @admin.display(description=_("楼栋"), ordering="floor__building__name")
     def building_name(self, obj):
         return obj.floor.building.name
 
@@ -50,7 +51,7 @@ class BedAdmin(BuildingScopeMixin, ModelAdmin, ImportExportModelAdmin):
             .prefetch_related("occupant")
         )
 
-    @admin.display(description="在住老人")
+    @admin.display(description=_("在住老人"))
     def occupant_name(self, obj):
         occupant = obj.occupant.first()  # prefetch 缓存
         return occupant.name if occupant else "—"

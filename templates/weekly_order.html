@@ -1,16 +1,16 @@
-{% extends "base_light.html" %}{% block nav_weekly %}{% endblock %}
+{% extends "base_light.html" %}{% block nav_weekly %}{% endblock %}{% load i18n %}
 
 {% block content %}
 <div class="wrap">
   <div class="title">
-    <span class="material-symbols-outlined">calendar_month</span> 周选点餐
-    <span class="sub" id="hint">选择老人后开始点餐</span>
-    <span id="hintToggle" style="display:none;cursor:pointer;color:var(--blue);font-size:13px;margin-left:8px" onclick="document.getElementById('hintToggle').style.display='none';document.getElementById('searchArea').style.display='block';document.getElementById('hint').style.display='inline'">← 更换老人</span></div>
+    <span class="material-symbols-outlined">calendar_month</span> {% translate "周选点餐" %}
+    <span class="sub" id="hint">{% translate "选择老人后开始点餐" %}</span>
+    <span id="hintToggle" style="display:none;cursor:pointer;color:var(--blue);font-size:13px;margin-left:8px" onclick="document.getElementById('hintToggle').style.display='none';document.getElementById('searchArea').style.display='block';document.getElementById('hint').style.display='inline'">{% translate "← 更换老人" %}</span></div>
 
   <div id="searchArea">
-  <input class="inp" type="text" id="q" placeholder="搜索老人姓名..." autocomplete="off" autofocus>
+  <input class="inp" type="text" id="q" placeholder="{% translate "搜索老人姓名…" %}" autocomplete="off" autofocus>
   <div id="list" style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
-    <div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">search</span></div><p>输入姓名搜索老人</p></div>
+    <div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">search</span></div><p>{% translate "输入姓名搜索老人" %}</p></div>
   </div>
   </div>
 
@@ -19,7 +19,7 @@
     <div class="c" style="padding:16px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
       <div style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px">
         <span class="material-symbols-outlined" style="color:var(--blue)">today</span>
-        <span>选餐周:</span>
+        <span>{% translate "选餐周:" %}</span>
         <input type="date" class="inp" id="weekStart" style="width:auto;padding:6px 10px;font-size:13px">
       </div>
       <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
@@ -33,15 +33,46 @@
 
     <!-- Submit bar -->
     <div class="c" id="submitBar" style="display:none;padding:16px 20px;display:flex;align-items:center;gap:12px">
-      <div style="flex:1;font-size:14px;font-weight:600" id="submitSummary">尚未选择任何菜品</div>
+      <div style="flex:1;font-size:14px;font-weight:600" id="submitSummary">{% translate "尚未选择任何菜品" %}</div>
       <button class="submit" id="go" disabled onclick="submitAll()" style="width:auto;padding:12px 28px;font-size:14px">
-        <span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px">description</span>提交整周点餐
+        <span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px">description</span>{% translate "提交整周点餐" %}
       </button>
     </div>
   </div>
 </div>
 
 <script>
+var TZ = {
+  noMatch: '{% translate "未找到匹配的老人" %}',
+  roomSuffix: '{% translate "室" %}',
+  prevPage: '{% translate "上一页" %}',
+  nextPage: '{% translate "下一页" %}',
+  pageInfo: '{% translate "第 {}/{} 页（共 {} 人）" %}',
+  selected: '{% translate "已选：{} · {}" %}',
+  loadingMenu: '{% translate "加载菜单中…" %}',
+  weekNoMenu: '{% translate "该周暂无菜单，请先在管理后台录入" %}',
+  mealsConfigured: '{% translate "{} 餐已配置" %}',
+  dayNoMenu: '{% translate "{}暂无菜单配置" %}',
+  dishesAvailable: '{% translate "{} 道可选" %}',
+  dishesSelected: '{% translate "已选 {} 道" %}',
+  noDishSelected: '{% translate "尚未选择任何菜品" %}',
+  summarySelected: '{% translate "已选 {} 餐 · {} 道菜" %}',
+  pickAtLeastOne: '{% translate "请至少选择一餐" %}',
+  submitting: '{% translate "提交中…" %}',
+  weekSuccess: '{% translate "已为 {} 提交整周点餐 · {} 餐，即将跳转…" %}',
+  submitFail: '{% translate "提交失败" %}',
+  networkError: '{% translate "网络错误" %}',
+  submitWeek: '{% translate "提交整周点餐" %}'
+};
+var DAY_LABELS = {
+  '周一': '{% translate "周一" %}', '周二': '{% translate "周二" %}', '周三': '{% translate "周三" %}',
+  '周四': '{% translate "周四" %}', '周五': '{% translate "周五" %}', '周六': '{% translate "周六" %}',
+  '周日': '{% translate "周日" %}'
+};
+function trfmt(tpl) {
+  var vals = Array.prototype.slice.call(arguments, 1), i = 0;
+  return tpl.replace(/\{\}/g, function () { return vals[i++]; });
+}
 var sr=null, choices={}, allResidents=[], currentPage=1, pageSize=9;
 function init(){var d=new Date();d.setDate(d.getDate()+((5-d.getDay()+7)%7));document.getElementById('weekStart').value=d.toISOString().slice(0,10);loadAllResidents()}
 init();document.getElementById('weekStart').addEventListener('change',function(){
@@ -68,16 +99,16 @@ function renderResidents(all){
   var total=all.length, pages=Math.ceil(total/pageSize);
   var start=(currentPage-1)*pageSize, items=all.slice(start,start+pageSize);
   var l=document.getElementById('list');
-  if(!items.length){l.innerHTML='<div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">sentiment_dissatisfied</span></div><p>未找到匹配的老人</p></div>';return}
+  if(!items.length){l.innerHTML='<div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">sentiment_dissatisfied</span></div><p>'+TZ.noMatch+'</p></div>';return}
   var html='';
   items.forEach(function(r){html+='<div class="rc" data-id="'+r.id+'" onclick="sel('+r.id+',\''+r.name+'\',\''+r.room+'\')">'+
-    '<div class="av">'+r.name.charAt(0)+'</div><div class="inf"><div class="n">'+r.name+' · '+r.room+'室</div>'+
+    '<div class="av">'+r.name.charAt(0)+'</div><div class="inf"><div class="n">'+r.name+' · '+r.room+TZ.roomSuffix+'</div>'+
     '<div class="m">'+r.care_level+' | '+r.building+r.floor+'</div></div><div class="ck"></div></div>'});
   if(pages>1){
     html+='<div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:8px;font-size:14px">';
-    html+='<button class="btn" style="padding:6px 12px;font-size:13px" onclick="currentPage=Math.max(1,currentPage-1);renderResidents(all);return false"'+(currentPage<=1?' disabled':'')+'>上一页</button>';
-    html+='<span style="color:var(--ink3)">第 '+currentPage+'/'+pages+' 页（共 '+total+' 人）</span>';
-    html+='<button class="btn" style="padding:6px 12px;font-size:13px" onclick="currentPage=Math.min(pages,currentPage+1);renderResidents(all);return false"'+(currentPage>=pages?' disabled':'')+'>下一页</button>';
+    html+='<button class="btn" style="padding:6px 12px;font-size:13px" onclick="currentPage=Math.max(1,currentPage-1);renderResidents(all);return false"'+(currentPage<=1?' disabled':'')+'>'+TZ.prevPage+'</button>';
+    html+='<span style="color:var(--ink3)">'+trfmt(TZ.pageInfo,currentPage,pages,total)+'</span>';
+    html+='<button class="btn" style="padding:6px 12px;font-size:13px" onclick="currentPage=Math.min(pages,currentPage+1);renderResidents(all);return false"'+(currentPage>=pages?' disabled':'')+'>'+TZ.nextPage+'</button>';
     html+='</div>';
   }
   l.innerHTML=html;
@@ -85,7 +116,7 @@ function renderResidents(all){
 
 function sel(id,name,room){sr={id:id,name:name,room:room};
   document.querySelectorAll('.rc').forEach(function(c){c.classList.remove('sel')});document.querySelector('[data-id="'+id+'"]').classList.add('sel');
-  document.getElementById('hint').textContent='已选：'+name+' · '+room+'室';
+  document.getElementById('hint').textContent=trfmt(TZ.selected,name,room+' '+TZ.roomSuffix);
   document.getElementById('hintToggle').style.display='inline';
   document.getElementById('searchArea').style.display='none';
   document.getElementById('act').style.display='block';loadMenu();
@@ -94,12 +125,12 @@ function sel(id,name,room){sr={id:id,name:name,room:room};
 function loadMenu(){
   var friday=document.getElementById('weekStart').value;
   var d=new Date(friday);d.setDate(d.getDate()+3);var ws=d.toISOString().slice(0,10);
-  document.getElementById('week').innerHTML='<div class="empty"><p>加载菜单中…</p></div>';
+  document.getElementById('week').innerHTML='<div class="empty"><p>'+TZ.loadingMenu+'</p></div>';
   fetch('/api/week-menu/?week_start='+ws).then(function(r){return r.json()}).then(function(data){
-    if(!data.length){document.getElementById('week').innerHTML='<div class="empty"><div class="ic"><span class="material-symbols-outlined">inbox</span></div><p>该周暂无菜单，请先在管理后台录入</p></div>';return}
+    if(!data.length){document.getElementById('week').innerHTML='<div class="empty"><div class="ic"><span class="material-symbols-outlined">inbox</span></div><p>'+TZ.weekNoMenu+'</p></div>';return}
     window._weekData = data; window._currentDay = '周一';
     renderDay('周一');
-    document.getElementById('status').textContent=data.length+' 餐已配置';
+    document.getElementById('status').textContent=trfmt(TZ.mealsConfigured,data.length);
     updateSummary();
   });
 }
@@ -116,21 +147,21 @@ function renderDay(day){
     var active = d===day;
     var hasSelection = false;
     meals.forEach(function(mt){var k=d+'|'+mt;if(choices[k]&&choices[k].length>0)hasSelection=true;});
-    html+='<button class="btn'+(active?' sel':'')+'" style="padding:10px 16px;font-size:14px;min-width:52px;position:relative" onclick="renderDay(\''+d+'\')">'+d+
+    html+='<button class="btn'+(active?' sel':'')+'" style="padding:10px 16px;font-size:14px;min-width:52px;position:relative" onclick="renderDay(\''+d+'\')">'+DAY_LABELS[d]+
       (hasSelection?'<span style="position:absolute;top:3px;right:3px;width:8px;height:8px;border-radius:50%;background:var(--blue)"></span>':'')+
       '</button>';
   });
   html+='</div>';
 
   if(!dayItems.length){
-    html+='<div class="empty" style="padding:28px"><p>'+day+'暂无菜单配置</p></div>';
+    html+='<div class="empty" style="padding:28px"><p>'+trfmt(TZ.dayNoMenu,DAY_LABELS[day])+'</p></div>';
   } else {
     dayItems.forEach(function(m){
       var selectedCount = choices[day+'|'+m.meal_type] ? choices[day+'|'+m.meal_type].length : 0;
       html+='<div class="c" style="margin-bottom:14px">';
       html+='<div class="c-h"><span class="material-symbols-outlined">'+(mealIcons[m.meal_type]||'restaurant')+'</span> '+m.meal_type;
       html+='<span style="margin-left:auto;font-size:12px;font-weight:400;color:var(--ink3)">'+
-        m.dishes.length+' 道可选'+(selectedCount>0?' · <span style="color:var(--blue);font-weight:600">已选 '+selectedCount+' 道</span>':'')+'</span></div>';
+        trfmt(TZ.dishesAvailable,m.dishes.length)+(selectedCount>0?' · <span style="color:var(--blue);font-weight:600">'+trfmt(TZ.dishesSelected,selectedCount)+'</span>':'')+'</span></div>';
       html+='<div style="display:flex;flex-wrap:wrap;gap:8px">';
       m.dishes.forEach(function(dish){
         var key=day+'_'+m.meal_type+'_'+dish.id;
@@ -146,8 +177,8 @@ function renderDay(day){
   // Bottom nav
   var idx = days.indexOf(day);
   html+='<div style="display:flex;justify-content:space-between;margin-top:20px">';
-  html+='<button class="btn" style="padding:10px 16px;font-size:14px"'+(idx<=0?' disabled':'')+' onclick="renderDay(\''+days[idx-1]+'\')"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">chevron_left</span> '+ (idx>0?days[idx-1]:'') +'</button>';
-  html+='<button class="btn" style="padding:10px 16px;font-size:14px"'+(idx>=6?' disabled':'')+' onclick="renderDay(\''+days[idx+1]+'\')">'+ (idx<6?days[idx+1]:'') +' <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">chevron_right</span></button>';
+  html+='<button class="btn" style="padding:10px 16px;font-size:14px"'+(idx<=0?' disabled':'')+' onclick="renderDay(\''+days[idx-1]+'\')"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">chevron_left</span> '+ (idx>0?DAY_LABELS[days[idx-1]]:'') +'</button>';
+  html+='<button class="btn" style="padding:10px 16px;font-size:14px"'+(idx>=6?' disabled':'')+' onclick="renderDay(\''+days[idx+1]+'\')">'+ (idx<6?DAY_LABELS[days[idx+1]]:'') +' <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">chevron_right</span></button>';
   html+='</div>';
 
   document.getElementById('week').innerHTML=html;
@@ -171,8 +202,8 @@ function updateSummary(){
     var k=d+'|'+mt; if(choices[k]&&choices[k].length>0){totalMeals++; totalDishes+=choices[k].length;}
   });});
   var el = document.getElementById('submitSummary');
-  if(totalMeals===0){el.textContent='尚未选择任何菜品'}else{
-    el.innerHTML='已选 <span style="color:var(--blue)">'+totalMeals+'</span> 餐 · <span style="color:var(--blue)">'+totalDishes+'</span> 道菜';
+  if(totalMeals===0){el.textContent=TZ.noDishSelected}else{
+    el.innerHTML=trfmt(TZ.summarySelected,'<span style="color:var(--blue)">'+totalMeals+'</span>','<span style="color:var(--blue)">'+totalDishes+'</span>');
   }
 }
 
@@ -189,11 +220,11 @@ function submitAll(){
       }
     });
   });
-  if(!payload.length){toast('请至少选择一餐','#e05555');return}
-  b.disabled=true;b.textContent='提交中…';
+  if(!payload.length){toast(TZ.pickAtLeastOne,'#e05555');return}
+  b.disabled=true;b.textContent=TZ.submitting;
   fetch('/api/meal-orders/batch/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
-    .then(function(r){return r.json()}).then(function(d){if(d.status==='created'){toast('<span class="material-symbols-outlined">check_circle</span> 已为 '+sr.name+' 提交整周点餐 · '+d.count+' 餐，即将跳转…','#3ca07a');setTimeout(function(){window.location.href='/admin/meals/mealorder/';},1500)}else{toast('提交失败','#e05555')}})
-    .catch(function(){toast('网络错误','#e05555')}).finally(function(){b.disabled=false;b.textContent='<span class="material-symbols-outlined">description</span> 提交整周点餐'});
+    .then(function(r){return r.json()}).then(function(d){if(d.status==='created'){toast('<span class="material-symbols-outlined">check_circle</span> '+trfmt(TZ.weekSuccess,sr.name,d.count),'#3ca07a');setTimeout(function(){window.location.href='/admin/meals/mealorder/';},1500)}else{toast(TZ.submitFail,'#e05555')}})
+    .catch(function(){toast(TZ.networkError,'#e05555')}).finally(function(){b.disabled=false;b.textContent='<span class="material-symbols-outlined">description</span> '+TZ.submitWeek});
 }
 </script>
 {% endblock %}

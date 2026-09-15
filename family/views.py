@@ -12,6 +12,7 @@ from django.contrib.auth import authenticate, login, logout, update_session_auth
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.views import redirect_to_login
 from django.shortcuts import redirect, render
+from django.utils.translation import gettext as _n
 from django.views.decorators.http import require_http_methods
 
 from .models import FamilyMember
@@ -52,7 +53,7 @@ def family_login(request):
         if user is not None:
             member = FamilyMember.objects.filter(user=user, is_active=True).first()
         if member is None:
-            error = "手机号或密码错误，或该账号不是家属账号"
+            error = _n("手机号或密码错误，或该账号不是家属账号")
         else:
             login(request, user)
             nxt = request.POST.get("next") or request.GET.get("next")
@@ -95,7 +96,7 @@ def family_password(request):
             form.save()
             update_session_auth_hash(request, form.user)
             return redirect("/family/password/?changed=1")
-        error = form.errors.get("__all__", ["请检查填写项"])[0]
+        error = form.errors.get("__all__", [_n("请检查填写项")])[0]
         ctx = {"form": form, "error": error, "member": member}
         return render(request, "family_password.html", ctx)
     form = PasswordChangeForm(request.user)

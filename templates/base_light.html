@@ -1,11 +1,11 @@
-{% load static %}<!DOCTYPE html>
+{% load i18n static %}<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="{{ page_title }}">
-<title>{{ page_title }} — 养老院管理系统</title>
+<title>{{ page_title }} — {% translate "养老院管理系统" %}</title>
 <link href="{% static 'unfold/fonts/inter/styles.css' %}" rel="stylesheet">
 <link href="{% static 'unfold/fonts/material-symbols/styles.css' %}" rel="stylesheet">
 <style>
@@ -111,24 +111,24 @@ tbody tr:last-child td{border-bottom:none}
 </head>
 <body>
 <div class="topbar">
-  <a href="/admin/" class="logo">养老院管理系统</a>
+  <a href="/admin/" class="logo">{% translate "养老院管理系统" %}</a>
   <div class="navs">
     <a href="/quick-log/" class="{% block nav_quick %}{% endblock %}">
-      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">edit_note</span>记录</a>
+      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">edit_note</span>{% translate "记录" context "nav" %}</a>
     <a href="/weekly-order/" class="{% block nav_weekly %}{% endblock %}">
-      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">calendar_month</span>周选</a>
+      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">calendar_month</span>{% translate "周选" context "nav" %}</a>
     <a href="/beds/" class="{% block nav_beds %}{% endblock %}">
-      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">bed</span>床位</a>
+      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">bed</span>{% translate "床位" context "nav" %}</a>
     <a href="/assessments/" class="{% block nav_assess %}{% endblock %}">
-      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">fact_check</span>评估</a>
+      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">fact_check</span>{% translate "评估" context "nav" %}</a>
     <a href="/kitchen/" class="{% block nav_kitchen %}{% endblock %}">
-      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">restaurant</span>食堂</a>
+      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">restaurant</span>{% translate "食堂" context "nav" %}</a>
     <a href="/billing/" class="{% block nav_finance %}{% endblock %}">
-      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">receipt_long</span>财务</a>
+      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">receipt_long</span>{% translate "财务" context "nav" %}</a>
     <a href="/menu-ocr/" class="{% block nav_menu_ocr %}{% endblock %}">
       <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">photo_camera</span>OCR</a>
     <a href="/admin/">
-      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">settings</span>管理</a>
+      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">settings</span>{% translate "管理" context "nav" %}</a>
   </div>
 </div>
 {% block content %}{% endblock %}

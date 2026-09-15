@@ -1,26 +1,27 @@
 {% extends "base_light.html" %}
+{% load i18n %}
 {% block nav_beds %}on{% endblock %}
 {% block content %}
 <div class="wrap">
-  <div class="title">床位看板 <span class="sub">入住率总览</span></div>
+  <div class="title">{% translate "床位看板" %} <span class="sub">{% translate "入住率总览" %}</span></div>
 
   <div class="stats">
-    <div class="stat"><div class="num">{{ stats.total.total }}</div><div class="lbl">总床位</div></div>
-    <div class="stat"><div class="num">{{ stats.total.occupied }}</div><div class="lbl">在住</div></div>
-    <div class="stat"><div class="num">{{ stats.total.free }}</div><div class="lbl">空闲</div></div>
-    <div class="stat"><div class="num">{{ stats.total.maintenance }}</div><div class="lbl">维修</div></div>
+    <div class="stat"><div class="num">{{ stats.total.total }}</div><div class="lbl">{% translate "总床位" %}</div></div>
+    <div class="stat"><div class="num">{{ stats.total.occupied }}</div><div class="lbl">{% translate "在住" %}</div></div>
+    <div class="stat"><div class="num">{{ stats.total.free }}</div><div class="lbl">{% translate "空闲" %}</div></div>
+    <div class="stat"><div class="num">{{ stats.total.maintenance }}</div><div class="lbl">{% translate "维修" %}</div></div>
     <div class="stat{% if stats.total.rate < 0.5 %} -warn{% endif %}">
-      <div class="num">{% widthratio stats.total.rate 1 100 %}%</div><div class="lbl">入住率</div>
+      <div class="num">{% widthratio stats.total.rate 1 100 %}%</div><div class="lbl">{% translate "入住率" %}</div>
     </div>
   </div>
 
   {% if stats.buildings %}
   <div class="c">
     <div class="c-h">
-      <span class="material-symbols-outlined" style="font-size:18px">domain</span>按楼栋
+      <span class="material-symbols-outlined" style="font-size:18px">domain</span>{% translate "按楼栋" %}
     </div>
     <table>
-      <thead><tr><th>楼栋</th><th>总床位</th><th>在住</th><th>空闲</th><th>维修</th><th>停用</th><th>入住率</th></tr></thead>
+      <thead><tr><th>{% translate "楼栋" %}</th><th>{% translate "总床位" %}</th><th>{% translate "在住" %}</th><th>{% translate "空闲" %}</th><th>{% translate "维修" %}</th><th>{% translate "停用" %}</th><th>{% translate "入住率" %}</th></tr></thead>
       <tbody>
         {% for b in stats.buildings %}
         <tr>
@@ -42,7 +43,7 @@
   {% else %}
   <div class="c"><div class="empty">
     <div class="ic">🛏️</div>
-    <p>床位台账为空 — 请先在管理后台维护楼栋/楼层/房间/床位，或运行回填命令 backfill_beds</p>
+    <p>{% translate "床位台账为空 — 请先在管理后台维护楼栋/楼层/房间/床位，或运行回填命令 backfill_beds" %}</p>
   </div></div>
   {% endif %}
 </div>

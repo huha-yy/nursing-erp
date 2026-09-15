@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.contrib.admin.models import LogEntry
+from django.utils.translation import gettext_lazy as _
 from import_export.admin import ExportActionModelAdmin
 
 from .models import OperationLog
@@ -20,7 +21,7 @@ class OperationLogAdmin(ExportActionModelAdmin):
     date_hierarchy = "created_at"
     list_per_page = 50
 
-    @admin.display(description="身份", ordering="actor_type")
+    @admin.display(description=_("身份"), ordering="actor_type")
     def actor_badge(self, obj):
         return obj.get_actor_type_display()
 

@@ -1,11 +1,12 @@
-{% load static %}<!DOCTYPE html>
+{% load static %}
+{% load i18n %}<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="{{ page_title }}">
-<title>{{ page_title }} — 家属服务</title>
+<title>{{ page_title }} — {% translate "家属服务" %}</title>
 <link href="{% static 'unfold/fonts/inter/styles.css' %}" rel="stylesheet">
 <link href="{% static 'unfold/fonts/material-symbols/styles.css' %}" rel="stylesheet">
 <style>
@@ -106,20 +107,20 @@ tbody tr:last-child td{border-bottom:none}
 <body>
 {# 家属端专用顶栏：绝不出现 /admin/ 与任何员工页链接（数据边界的一部分） #}
 <div class="topbar">
-  <a href="/family/" class="logo">家属服务 · 养老院</a>
+  <a href="/family/" class="logo">{% translate "家属服务" %} · {% translate "养老院" %}</a>
   <div class="navs">
     <a href="/family/" class="{% block nav_home %}{% endblock %}">
-      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">home</span>首页</a>
+      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">home</span>{% translate "首页" %}</a>
     <a href="/family/care/" class="{% block nav_care %}{% endblock %}">
-      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">favorite</span>照护</a>
+      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">favorite</span>{% translate "照护" %}</a>
     <a href="/family/order/" class="{% block nav_order %}{% endblock %}">
-      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">restaurant</span>点餐</a>
+      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">restaurant</span>{% translate "点餐" %}</a>
     <a href="/family/billing/" class="{% block nav_bill %}{% endblock %}">
-      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">receipt_long</span>账单</a>
+      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">receipt_long</span>{% translate "账单" %}</a>
     <a href="/family/password/" class="{% block nav_pw %}{% endblock %}">
-      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">lock</span>改密码</a>
+      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">lock</span>{% translate "改密码" %}</a>
     <a href="/family/logout/">
-      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">logout</span>退出</a>
+      <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">logout</span>{% translate "退出" %}</a>
   </div>
 </div>
 {% block content %}{% endblock %}
