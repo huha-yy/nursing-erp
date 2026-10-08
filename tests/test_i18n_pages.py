@@ -139,3 +139,23 @@ def test_admin_filter_data_values_translated(db):
     assert "家属代点餐" in op
     us = c.get("/admin/auth/user/").content.decode()
     assert "医务组" in us
+
+
+def test_admin_group_list_translated(db):
+    """en 下 /admin/auth/group/ 行名（Group.__str__）显示层翻译。"""
+    from django.contrib.auth.models import Group
+
+    Group.objects.get_or_create(name="医务组")
+    Group.objects.get_or_create(name="院办管理组")
+    User.objects.create_superuser("grp_admin", "a@a.com", "pw")
+    c = Client()
+    assert c.login(username="grp_admin", password="pw")
+
+    c.cookies["django_language"] = "en"
+    page = c.get("/admin/auth/group/").content.decode()
+    assert "Medical Group" in page and "Administration Group" in page
+    assert "医务组" not in page
+
+    c.cookies["django_language"] = "zh-hans"
+    page = c.get("/admin/auth/group/").content.decode()
+    assert "医务组" in page

@@ -104,3 +104,10 @@
   demo_lang 中间件读到生产 marker=en 会把无 cookie 的测试请求全部强制
   英文，marker=en 期间 test_i18n_pages zh 用例 7 连挂（本次首跑才发现）。
   pytest 25 绿 + makemigrations --check 零迁移。
+
+### 追记 2（同日）：/admin/auth/group/ 组列表行名翻译
+- 组列表行名走 `Group.__str__`（= name 原值）——urls.py 运行时补
+  `Group.__str__ = gettext(name)`（显示层翻译，数据行不动；用户详情页
+  组 chip 等所有 `__str__` 显示点一并覆盖）。词条沿用上轮 po。
+- test_i18n_pages 追加组列表用例，39 绿（含 test_groups/test_sidebar_perms
+  回归确认——组名翻译不影响权限判断）。

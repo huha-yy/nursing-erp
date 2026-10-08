@@ -59,6 +59,18 @@ UserAdmin.list_filter = tuple(
     for f in UserAdmin.list_filter
 )
 
+
+# 组对象名的显示层翻译（组列表页行名、用户详情页组 chip 等都走 __str__）。
+# 数据行不动（权限判断/种子迁移按中文名建组），显示按请求语言翻——
+# msgid=中文名，词条已在 locale/en po。
+def _group_str(self):
+    from django.utils.translation import gettext
+
+    return gettext(self.name)
+
+
+Group.__str__ = _group_str
+
 # Phase 1-A API routers
 from assessments.api import router as assessments_router
 from beds.api import router as beds_router
