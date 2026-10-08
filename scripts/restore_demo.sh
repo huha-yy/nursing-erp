@@ -12,7 +12,7 @@
 #   6. 验证：服务活着 + 今日有餐 + 演示位干净
 #
 # 用法：
-#   ./scripts/restore_demo.sh                 # 覆盖到 2026-09-30
+#   ./scripts/restore_demo.sh                 # 覆盖到 2026-12-31
 #   ./scripts/restore_demo.sh 2026-10-31      # 换覆盖截止日（演示季延长时）
 #
 # 注意：只重置 ERP 业务动态层；档案层（老人/员工/床位/账号/绑定）刻意不动，
@@ -21,7 +21,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-COVER=${1:-2026-09-30}
+COVER=${1:-2026-12-31}
 STAMP=$(date +%Y%m%d-%H%M%S)
 
 echo "== 1/6 备份当前库 -> db.sqlite3.bak-$STAMP"

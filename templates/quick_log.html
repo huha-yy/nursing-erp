@@ -38,6 +38,11 @@ var TZ = {
   submitLog: '{% translate "提交记录" %}',
   hintStart: '{% translate "选择老人后开始记录" %}'
 };
+// 护理等级显示映射（DB 枚举值不动，键恒为中文；显示层翻译）
+var CARE_LABELS = {
+  '自理': '{% translate "自理" %}', '半护': '{% translate "半护" %}',
+  '全护': '{% translate "全护" %}', '失智': '{% translate "失智" %}'
+};
 function trfmt(tpl) {
   var vals = Array.prototype.slice.call(arguments, 1), i = 0;
   return tpl.replace(/\{\}/g, function () { return vals[i++]; });
@@ -61,7 +66,7 @@ function search(q){
     var items=d.items||d,l=document.getElementById('list');if(!items.length){l.innerHTML='<div class="empty"><div class="ic"><span class="material-symbols-outlined" style="font-size:40px">sentiment_dissatisfied</span></div><p>'+TZ.noMatch+'</p></div>';return}
     l.innerHTML=items.map(function(r){return'<div class="rc" data-id="'+r.id+'" onclick="sel('+r.id+',\''+r.name+'\',\''+r.room+'\')">'+
       '<div class="av">'+r.name.charAt(0)+'</div><div class="inf"><div class="n">'+r.name+' · '+r.room+TZ.roomSuffix+'</div>'+
-      '<div class="m">'+r.care_level+' | '+(r.diagnosis||TZ.noHistory)+' | '+r.building+r.floor+'</div></div><div class="ck"></div></div>'}).join('');
+      '<div class="m">'+(CARE_LABELS[r.care_level]||r.care_level)+' | '+(r.diagnosis||TZ.noHistory)+' | '+r.building+' '+r.floor+'</div></div><div class="ck"></div></div>'}).join('');
   });
 }
 function sel(id,name,room){sr={id:id,name:name,room:room};

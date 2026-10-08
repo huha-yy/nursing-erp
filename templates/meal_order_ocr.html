@@ -70,6 +70,11 @@ var DAY_LABELS = {
   '周日': '{% translate "周日" %}'
 };
 var MEAL_LABELS = { '早餐': '{% translate "早餐" %}', '午餐': '{% translate "午餐" %}', '晚餐': '{% translate "晚餐" %}' };
+// 护理等级显示映射（DB 枚举值不动，键恒为中文；显示层翻译）
+var CARE_LABELS = {
+  '自理': '{% translate "自理" %}', '半护': '{% translate "半护" %}',
+  '全护': '{% translate "全护" %}', '失智': '{% translate "失智" %}'
+};
 function trfmt(tpl) {
   var vals = Array.prototype.slice.call(arguments, 1), i = 0;
   return tpl.replace(/\{\}/g, function () { return vals[i++]; });
@@ -104,7 +109,7 @@ function renderResidents(all){
   var html='';
   items.forEach(function(r){html+='<div class="rc" data-id="'+r.id+'" onclick="sel('+r.id+',\''+r.name+'\',\''+r.room+'\')">'+
     '<div class="av">'+r.name.charAt(0)+'</div><div class="inf"><div class="n">'+r.name+' · '+r.room+TZ.roomSuffix+'</div>'+
-    '<div class="m">'+r.care_level+' | '+r.building+r.floor+'</div></div><div class="ck"></div></div>'});
+    '<div class="m">'+(CARE_LABELS[r.care_level]||r.care_level)+' | '+r.building+' '+r.floor+'</div></div><div class="ck"></div></div>'});
   if(pages>1){
     html+='<div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:8px;font-size:14px">';
     html+='<button class="btn" style="padding:6px 12px;font-size:13px" onclick="currentPage=Math.max(1,currentPage-1);renderResidents(all);return false"'+(currentPage<=1?' disabled':'')+'>'+TZ.prevPage+'</button>';

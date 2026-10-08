@@ -24,7 +24,7 @@
 <div class="lc-wrap">
   <div class="title">
     <span class="material-symbols-outlined" style="color:var(--blue)">badge</span> {% blocktrans with name=resident.name %}{{ name }} 生命周期档案{% endblocktrans %}
-    <span class="sub">{{ resident.get_gender_display }} · {% blocktrans with age=resident.age %}{{ age }}岁{% endblocktrans %} · {{ resident.get_care_level_display }}</span>
+    <span class="sub">{% translate resident.get_gender_display %} · {% blocktrans with age=resident.age %}{{ age }}岁{% endblocktrans %} · {% translate resident.get_care_level_display %}</span>
   </div>
 
   <!-- 基本信息 -->

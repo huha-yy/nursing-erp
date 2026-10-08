@@ -17,7 +17,7 @@
   <div class="c" style="padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
     <div style="font-size:20px;font-weight:700">{{ resident.name }}</div>
     <span style="color:var(--ink3);font-size:14px">{{ resident.building }} {{ resident.room }}</span>
-    <span class="b b-ok">{{ resident.get_care_level_display }}</span>
+    <span class="b b-ok">{% translate resident.get_care_level_display %}</span>
     {% if last %}
     <a href="/assessments/{{ last.id }}/" style="color:var(--ink3);font-size:13px;text-decoration:none">{% blocktrans with d=last.assess_date|date:"Y-m-d" t=last.total_score g=last.grade %}上次评估 {{ d }} · {{ t }}分·{{ g }}级{% endblocktrans %} ›</a>
     {% else %}

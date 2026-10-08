@@ -208,7 +208,7 @@ function renderOrders(){
   el.innerHTML='<table><thead><tr><th>'+TZ.thDate+'</th><th>'+TZ.thMealType+'</th><th>'+TZ.thResident+'</th><th>'+TZ.thDishes+'</th><th>'+TZ.thStatus+'</th><th>'+TZ.thOperator+'</th><th></th></tr></thead><tbody>'+
     ordersData.map(function(o){
       var cancellable=['ordered','modified','preparing'].indexOf(o.status)>=0&&o.date>=today;
-      return '<tr><td>'+esc(o.date)+'</td><td>'+esc(o.meal_type)+'</td><td>'+esc(o.resident_name)+'</td>'+
+      return '<tr><td>'+esc(o.date)+'</td><td>'+esc(MEAL_LABELS[o.meal_type]||o.meal_type)+'</td><td>'+esc(o.resident_name)+'</td>'+
         '<td>'+esc(o.dishes.map(function(d){return d.name}).join('、'))+(o.special_requests?('<br><span style="font-size:12px;color:var(--ink3)">'+esc(o.special_requests)+'</span>'):'')+'</td>'+
         '<td><span class="b '+(cls[o.status]||'b-dim')+'">'+esc(o.status_display)+'</span></td>'+
         '<td style="font-size:12px;color:var(--ink3)">'+esc(o.ordered_by||TZ.byHome)+'</td>'+

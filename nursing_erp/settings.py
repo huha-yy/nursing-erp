@@ -57,6 +57,9 @@ MIDDLEWARE = [
     # i18n：语言由 cookie(LANGUAGE_COOKIE_NAME) → Accept-Language → LANGUAGE_CODE 决定，
     # 须在 SessionMiddleware 之后、AuditMiddleware 之前
     "django.middleware.locale.LocaleMiddleware",
+    # 演示态语言缺省（nursing_erp/demo_lang.py）：无语言 cookie 时跟随
+    # ai-nursing-home/logs/demo_lang 标记（switch_demo_lang.sh 写入）
+    "nursing_erp.demo_lang.DemoLangDefaultMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",

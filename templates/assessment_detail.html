@@ -11,7 +11,7 @@
   <div class="c" style="padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
     <div style="font-size:20px;font-weight:700">{{ a.resident.name }}</div>
     <span style="color:var(--ink3);font-size:14px">{{ a.resident.building }} {{ a.resident.room }}</span>
-    <span class="b b-ok">{{ a.resident.get_care_level_display }}</span>
+    <span class="b b-ok">{% translate a.resident.get_care_level_display %}</span>
     {% if a.status == "confirmed" %}
     <span class="b b-ok">{% blocktrans with lvl=a.final_level %}已定级 · {{ lvl }}{% endblocktrans %}</span>
     {% else %}

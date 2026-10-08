@@ -69,6 +69,15 @@ var DAY_LABELS = {
   '周四': '{% translate "周四" %}', '周五': '{% translate "周五" %}', '周六': '{% translate "周六" %}',
   '周日': '{% translate "周日" %}'
 };
+// 餐次显示映射（DB 枚举值不动，键恒为中文；显示层翻译）
+var MEAL_LABELS = {
+  '早餐': '{% translate "早餐" %}', '午餐': '{% translate "午餐" %}', '晚餐': '{% translate "晚餐" %}'
+};
+// 护理等级显示映射（同上）
+var CARE_LABELS = {
+  '自理': '{% translate "自理" %}', '半护': '{% translate "半护" %}',
+  '全护': '{% translate "全护" %}', '失智': '{% translate "失智" %}'
+};
 function trfmt(tpl) {
   var vals = Array.prototype.slice.call(arguments, 1), i = 0;
   return tpl.replace(/\{\}/g, function () { return vals[i++]; });
@@ -103,7 +112,7 @@ function renderResidents(all){
   var html='';
   items.forEach(function(r){html+='<div class="rc" data-id="'+r.id+'" onclick="sel('+r.id+',\''+r.name+'\',\''+r.room+'\')">'+
     '<div class="av">'+r.name.charAt(0)+'</div><div class="inf"><div class="n">'+r.name+' · '+r.room+TZ.roomSuffix+'</div>'+
-    '<div class="m">'+r.care_level+' | '+r.building+r.floor+'</div></div><div class="ck"></div></div>'});
+    '<div class="m">'+(CARE_LABELS[r.care_level]||r.care_level)+' | '+r.building+' '+r.floor+'</div></div><div class="ck"></div></div>'});
   if(pages>1){
     html+='<div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:8px;font-size:14px">';
     html+='<button class="btn" style="padding:6px 12px;font-size:13px" onclick="currentPage=Math.max(1,currentPage-1);renderResidents(all);return false"'+(currentPage<=1?' disabled':'')+'>'+TZ.prevPage+'</button>';
@@ -159,7 +168,7 @@ function renderDay(day){
     dayItems.forEach(function(m){
       var selectedCount = choices[day+'|'+m.meal_type] ? choices[day+'|'+m.meal_type].length : 0;
       html+='<div class="c" style="margin-bottom:14px">';
-      html+='<div class="c-h"><span class="material-symbols-outlined">'+(mealIcons[m.meal_type]||'restaurant')+'</span> '+m.meal_type;
+      html+='<div class="c-h"><span class="material-symbols-outlined">'+(mealIcons[m.meal_type]||'restaurant')+'</span> '+(MEAL_LABELS[m.meal_type]||m.meal_type);
       html+='<span style="margin-left:auto;font-size:12px;font-weight:400;color:var(--ink3)">'+
         trfmt(TZ.dishesAvailable,m.dishes.length)+(selectedCount>0?' · <span style="color:var(--blue);font-weight:600">'+trfmt(TZ.dishesSelected,selectedCount)+'</span>':'')+'</span></div>';
       html+='<div style="display:flex;flex-wrap:wrap;gap:8px">';

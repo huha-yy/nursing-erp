@@ -407,9 +407,10 @@ def resident_lifecycle(request, resident_id):
     for o in resident.assessments.all():
         add(o.assess_date, "评估", "📋",
             _n("能力评估 %(score)s分·%(grade)s") % {
-                "score": o.total_score, "grade": Assessment.GRADE_LABELS[o.grade]},
+                "score": o.total_score,
+                "grade": _n(Assessment.GRADE_LABELS[o.grade])},
             _n("评估员 %(a1)s/%(a2)s") % {"a1": o.assessor1, "a2": o.assessor2}
-            + (_n("·定级 %s") % o.final_level if o.final_level else _n("·待定级")))
+            + (_n("·定级 %s") % _n(o.final_level) if o.final_level else _n("·待定级")))
 
     for o in resident.transfers.all():
         add(o.transfer_date, "转区", "🚚",

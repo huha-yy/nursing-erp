@@ -209,12 +209,18 @@ class Assessment(StaffFkMixin, models.Model):
             resident.care_level = target
             resident.save(update_fields=["care_level"])  # 走 save()：床位串缓存顺带对齐
 
-            summary = (
-                f"入住评估定级：总分 {self.total_score}（{self.GRADE_LABELS[self.grade]}）"
-                f"·建议 {self.suggested_level}·评估员 {self.assessor1}/{self.assessor2}"
-            )
+            # P5 双语收口：summary 走 gettext（rebuild --lang en 时种入即英文），
+            # 档位/等级枚举值一并翻译（中文串即 msgid）
+            summary = _(
+                "入住评估定级：总分 %(score)s（%(grade)s）·建议 %(sug)s·评估员 %(a1)s/%(a2)s"
+            ) % {
+                "score": self.total_score,
+                "grade": _(self.GRADE_LABELS[self.grade]),
+                "sug": _(self.suggested_level),
+                "a1": self.assessor1, "a2": self.assessor2,
+            }
             if reason.strip():
-                summary += f"·{reason.strip()}"
+                summary += _("·%(reason)s") % {"reason": reason.strip()}
             CareLevelChange.objects.create(
                 resident=resident, from_level=old_level, to_level=target,
                 change_date=self.assess_date, reason=summary,

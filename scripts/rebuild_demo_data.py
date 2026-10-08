@@ -143,6 +143,13 @@ def _parse_lang() -> str:
 
 LANG = _parse_lang()
 
+# P5 残留收口（2026-10-08）：en 模式激活翻译，让 models 层经 gettext 拼出的
+# 持久化自由文本（如 Assessment.confirm 的定级 summary）在种入时即英文；
+# zh 模式显式回 zh-hans，避免宿主机 locale 干扰。
+from django.utils import translation as _dj_translation  # noqa: E402
+
+_dj_translation.activate("en" if LANG == "en" else "zh-hans")
+
 # 人名 zh→en：老人 36 + 员工 41 + 家属联系人 36（唯一字符串；员工"刘主任"×2
 # 同名同译）。en 模式 overlay 正向用，zh 模式反向改回——双向都必须一一对应。
 NAME_ZH_EN = {
@@ -279,6 +286,40 @@ FLOOR_ZH_EN = {"1层": "Floor 1", "2层": "Floor 2", "3层": "Floor 3"}
 assert len(set(FLOOR_ZH_EN.values())) == len(FLOOR_ZH_EN), \
     "FLOOR_ZH_EN en 值有重复，反向映射不可逆"
 
+# 诊断词条 zh→en（2026-10-08 补 P5 漏网）：resident.diagnosis 是逗号拼多词的
+# 自由文本，按词条级映射保持可逆；同义词对刻意给不同英文（高血脂≠高脂血症
+# 的串），否则 en→zh 反向覆盖会串档。
+DIAGNOSIS_ZH_EN = {
+    "高血压": "Hypertension", "糖尿病": "Diabetes", "糖尿病足": "Diabetic foot",
+    "骨质疏松": "Osteoporosis", "腰椎间盘突出": "Lumbar disc herniation",
+    "冠心病": "Coronary heart disease", "高血脂": "Hyperlipidemia",
+    "高脂血症": "Dyslipidemia", "脑卒中后遗症": "Post-stroke sequelae",
+    "右侧偏瘫": "Right hemiplegia", "左侧偏瘫": "Left hemiplegia",
+    "阿尔茨海默": "Alzheimer's disease", "慢支": "Chronic bronchitis",
+    "类风湿关节炎": "Rheumatoid arthritis", "老年性痴呆": "Senile dementia",
+    "脑萎缩": "Brain atrophy", "慢性胃炎": "Chronic gastritis",
+    "前列腺增生": "Prostatic hyperplasia", "夜尿增多": "Nocturia",
+    "帕金森病": "Parkinson's disease", "便秘": "Constipation",
+    "视网膜病变": "Retinopathy", "吞咽困难": "Dysphagia",
+    "高尿酸血症": "Hyperuricemia", "慢阻肺": "COPD",
+    "大小便失禁": "Incontinence", "心律失常": "Arrhythmia", "痛风": "Gout",
+    "失语症": "Aphasia", "轻度认知障碍": "Mild cognitive impairment",
+    "周围神经病变": "Peripheral neuropathy", "心功能不全": "Cardiac dysfunction",
+    "抑郁": "Depression", "脑外伤后遗症": "Post-traumatic brain injury",
+    "心衰": "Heart failure", "肾功能不全": "Renal insufficiency",
+    "白内障术后": "Post-cataract surgery", "肺气肿": "Emphysema",
+}
+assert len(set(DIAGNOSIS_ZH_EN.values())) == len(DIAGNOSIS_ZH_EN), \
+    "DIAGNOSIS_ZH_EN en 值有重复，反向映射不可逆"
+
+
+def _diag_overlay(text: str) -> str:
+    """诊断字段按词条级换语（逗号分隔多词，en 值无逗号保证可逆）。"""
+    if not text:
+        return text
+    m = DIAGNOSIS_ZH_EN if LANG == "en" else {v: k for k, v in DIAGNOSIS_ZH_EN.items()}
+    return ",".join(m.get(t.strip(), t.strip()) for t in text.split(","))
+
 
 def tr(text: str) -> str:
     """人名逐串翻译（en 模式命中串表才替换；zh 原样返回）。"""
@@ -310,9 +351,10 @@ def overlay_archive() -> None:
     for r in Resident.objects.order_by("id"):
         new = name_map.get(r.name, r.name)
         contact = name_map.get(r.contact_name, r.contact_name) if r.contact_name else r.contact_name
-        if new != r.name or contact != r.contact_name:
-            r.name, r.contact_name = new, contact
-            r.save(update_fields=["name", "contact_name"])
+        new_diag = _diag_overlay(r.diagnosis)
+        if new != r.name or contact != r.contact_name or new_diag != r.diagnosis:
+            r.name, r.contact_name, r.diagnosis = new, contact, new_diag
+            r.save(update_fields=["name", "contact_name", "diagnosis"])
             n_r += 1
         if r.contact_phone:
             fam = FamilyMember.objects.filter(phone=r.contact_phone).first()

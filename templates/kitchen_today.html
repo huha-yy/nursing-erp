@@ -18,7 +18,7 @@
   <div class="c">
     <div class="c-h">
       <span class="material-symbols-outlined" style="font-size:20px">{% if meal.key == '早餐' %}wb_sunny{% elif meal.key == '午餐' %}wb_sunny{% else %}bedtime{% endif %}</span>
-      {{ meal.key }}
+      {% translate meal.key %}
       <div class="cnt">{{ meal.orders|length }}<span> {% translate "份" %}</span></div>
     </div>
 

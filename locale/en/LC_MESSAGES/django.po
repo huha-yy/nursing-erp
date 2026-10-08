@@ -2269,3 +2269,25 @@ msgstr "Male"
 
 msgid "女"
 msgstr "Female"
+
+msgid "入住评估定级：总分 %(score)s（%(grade)s）·建议 %(sug)s·评估员 %(a1)s/%(a2)s"
+msgstr "Admission assessment graded: total %(score)s (%(grade)s) · suggested %(sug)s · assessors %(a1)s/%(a2)s"
+
+msgid "·%(reason)s"
+msgstr " · %(reason)s"
+
+msgid "0级 能力完好"
+msgstr "Grade 0 intact"
+
+msgid "1级 轻度受损"
+msgstr "Grade 1 mildly impaired"
+
+msgid "2级 中度受损"
+msgstr "Grade 2 moderately impaired"
+
+msgid "3级 重度受损"
+msgstr "Grade 3 severely impaired"
+
+msgid "4级 完全丧失"
+msgstr "Grade 4 completely lost"
+
