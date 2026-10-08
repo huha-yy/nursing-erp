@@ -103,7 +103,7 @@ function block(r){
   html+=r.meal_orders_7d.length?('<table><thead><tr><th>'+TZ.thDate+'</th><th>'+TZ.thMealType+'</th><th>'+TZ.thDishes+'</th><th>'+TZ.thStatus+'</th></tr></thead><tbody>'+
     r.meal_orders_7d.map(function(o){
       var cls=o.status==='cancelled'?'b-dim':(o.status==='active'?'b-ok':'b-warn');
-      return '<tr><td>'+esc(o.date)+'</td><td>'+esc(o.meal_type)+'</td><td>'+esc(o.dishes.map(function(d){return d.name}).join('、'))+'</td><td><span class="b '+cls+'">'+esc(o.status_display)+'</span></td></tr>';
+      return '<tr><td>'+esc(o.date)+'</td><td>'+esc(o.meal_type_display||o.meal_type)+'</td><td>'+esc(o.dishes.map(function(d){return d.name}).join('、'))+'</td><td><span class="b '+cls+'">'+esc(o.status_display)+'</span></td></tr>';
     }).join('')+'</tbody></table>')
     :'<div class="empty" style="padding:20px"><p>'+TZ.noMeals7d+'</p></div>';
   html+='</div>';

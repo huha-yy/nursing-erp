@@ -57,7 +57,7 @@ fetch('/api/family/overview/').then(function(r){return r.json()}).then(function(
       ? trfmt(TZ.latestActivity,esc(r.recent_logs[0].log_date),esc(r.recent_logs[0].category_display),esc(r.recent_logs[0].detail).slice(0,40))
       : TZ.noLog;
     var mealLine=(r.today_meals&&r.today_meals.length)
-      ? trfmt(TZ.todayMeals,r.today_meals.length,r.today_meals.map(function(m){return esc(m.meal_type)}).join('、'))
+      ? trfmt(TZ.todayMeals,r.today_meals.length,r.today_meals.map(function(m){return esc(m.meal_type_display||m.meal_type)}).join('、'))
       : TZ.noMeal;
     html+='<div class="rc" style="align-items:flex-start;cursor:default">'+
       '<div class="av">'+esc(r.name.charAt(0))+'</div>'+

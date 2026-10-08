@@ -96,6 +96,11 @@ def _attribution(fm: FamilyMember, resident_id: int) -> str:
     return f"家属-{fm.name}（{rel}）"
 
 
+def _tn(s: str) -> str:
+    """枚举中文值 → 当前语言（中文串即 msgid）。gettext 空串陷阱：'' 直返。"""
+    return _n(s) if s else s
+
+
 def _assessment_summary(a: Assessment | None) -> dict | None:
     if a is None:
         return None
@@ -104,9 +109,9 @@ def _assessment_summary(a: Assessment | None) -> dict | None:
         "assess_date": str(a.assess_date),
         "total_score": a.total_score,
         "grade": a.grade,
-        "grade_display": Assessment.GRADE_LABELS.get(a.grade, ""),
+        "grade_display": _tn(Assessment.GRADE_LABELS.get(a.grade, "")),
         "suggested_level": a.suggested_level,
-        "final_level": a.final_level,  # 待定级时为空串
+        "final_level": _tn(a.final_level),  # 待定级时为空串
         "status": a.status,
         "status_display": a.get_status_display(),
     }

@@ -261,6 +261,8 @@ def _format_order(o: MealOrder) -> dict:
         "room": o.resident.room,
         "date": str(o.date),
         "meal_type": o.meal_type,
+        # 展示用翻译列：meal_type 原值是排序/防重/点餐回传的键，不能动
+        "meal_type_display": _n(o.meal_type),
         "dishes": [{"id": d.id, "name": d.name, "category": d.category}
                    for d in o.dishes.all()],
         "special_requests": o.special_requests,

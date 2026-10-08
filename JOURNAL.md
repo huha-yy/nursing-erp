@@ -134,3 +134,23 @@
 
 - 宣传页英文截图带出：库存状态 "⚠️ Low (only 28pack left)" 缺空格——
   en po msgstr "Low (only {}{} left)" 补空格 + msgfmt 重编译 + 重启。
+
+### 追记5（2026-10-08 · 家属端照护摘要英文枚举值）
+
+- **bug**：/family/care/1/ en 态三处中文数据值——评估行 "3级 重度受损"、
+  定级 "全护"、点餐桌 "午餐/早餐/晚餐"。根因：值来自 DB 中文枚举，
+  家属 API 直出未过 gettext（po 里翻译早就有，只是没包 `_n()`）。
+- **修法**（display-only，逻辑键不动）：
+  1. `family/api.py _assessment_summary`：grade_display/final_level 过
+     `_tn()`（= `_n(s) if s else s`，gettext 空串陷阱直返）；
+  2. `meals/api.py _format_order`：新增 `meal_type_display` 列——
+     meal_type 原值是排序/防重/点餐回传的键（family_order.js `day|type`
+     choices key + POST payload），**不能翻译原值**；
+  3. family_care/family_home 模板显示列切 `meal_type_display||meal_type`
+     （family_order 本就有 MEAL_LABELS 映射，未动）。
+- 验证：throwaway pytest（en care/overview 两端点断言 Grade 3 severely
+  impaired / Full Care / Lunch + zh 回退原串，用后即删）；test_family 46 +
+  test_meals/test_i18n_pages 27 绿；playwright 实机 en 页全英文
+  （"2026-10-01 · Grade 3 severely impaired (80 pts) · Graded Full Care"）。
+- LocaleMiddleware 坑备忘：测试里 translation.activate 后打请求会被
+  middleware 重置回默认语言——API en 断言用 `HTTP_ACCEPT_LANGUAGE="en"`。
