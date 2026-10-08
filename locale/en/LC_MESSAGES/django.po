@@ -2291,3 +2291,83 @@ msgstr "Grade 3 severely impaired"
 msgid "4级 完全丧失"
 msgstr "Grade 4 completely lost"
 
+
+# ── admin 显示层翻译：操作动作（record() 埋点 + 中间件路径表，closed vocab）──
+msgid "家属代点餐"
+msgstr "Family-ordered meal"
+
+msgid "家属退餐"
+msgstr "Family meal cancellation"
+
+msgid "批量点餐"
+msgstr "Batch meal ordering"
+
+msgid "点餐下单"
+msgstr "Meal order placed"
+
+msgid "护理日志录入"
+msgstr "Nursing log entry"
+
+msgid "评估定级确认"
+msgstr "Assessment grading confirmed"
+
+msgid "账单核销"
+msgstr "Bill settled"
+
+msgid "账单生成"
+msgstr "Bills generated"
+
+msgid "异常上报"
+msgstr "Incident reported"
+
+msgid "异常处理"
+msgstr "Incident handled"
+
+msgid "点餐OCR识别"
+msgstr "Meal order OCR"
+
+msgid "菜单OCR识别"
+msgstr "Menu OCR"
+
+msgid "点餐接口"
+msgstr "Meal order API"
+
+msgid "健康记录录入"
+msgstr "Health record entry"
+
+msgid "护理日志接口"
+msgstr "Nursing log API"
+
+msgid "评估接口"
+msgstr "Assessment API"
+
+msgid "账单接口"
+msgstr "Billing API"
+
+msgid "异常上报接口"
+msgstr "Incident report API"
+
+msgid "家属端接口"
+msgstr "Family portal API"
+
+msgid "接口写操作"
+msgstr "API write"
+
+# ── admin 显示层翻译：用户组名（种子数据行，数据不动）──
+msgid "院办管理组"
+msgstr "Administration Group"
+
+msgid "护理组"
+msgstr "Nursing Group"
+
+msgid "医务组"
+msgstr "Medical Group"
+
+msgid "财务组"
+msgstr "Finance Group"
+
+msgid "总务组"
+msgstr "Logistics Group"
+
+msgid "安保组"
+msgstr "Security Group"

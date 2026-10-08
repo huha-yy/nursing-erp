@@ -13,6 +13,18 @@ django.setup()
 
 
 @pytest.fixture(autouse=True)
+def _isolate_demo_lang_marker(monkeypatch):
+    """测试与生产 demo_lang marker 隔离。
+
+    DemoLangDefaultMiddleware 读 DEMO_LANG_FILE（默认指向 ai 仓
+    logs/demo_lang）：英文演示态时 marker=en，无 cookie 的测试请求会被
+    强制激活 en，连锁打破 zh 断言（2026-10-08 踩过：marker=en 期间
+    test_i18n_pages zh 用例 7 连挂）。测试一律视 marker 不存在。
+    """
+    monkeypatch.setenv("DEMO_LANG_FILE", "/nonexistent-demo-lang-marker")
+
+
+@pytest.fixture(autouse=True)
 def _reset_translation():
     """每用例后清掉线程级激活语言。
 

@@ -46,6 +46,19 @@ User._meta.verbose_name = User._meta.verbose_name_plural = _("用户账号")
 Group._meta.verbose_name = Group._meta.verbose_name_plural = _("用户组")
 LogEntry._meta.verbose_name = LogEntry._meta.verbose_name_plural = _("后台变更日志")
 
+# auth User 的 groups 筛选下拉显示的是 Group.name 数据值（种子中文行）——
+# 换显示层翻译筛选器（同 auditlog.action 口径：数据不动，显示翻译）。
+# 注册发生在 auth app ready（先于本文件），但 list_filter 每请求经类属性
+# 查询，运行时替换生效。
+from django.contrib.auth.admin import UserAdmin  # noqa: E402
+
+from nursing_erp.admin_filters import TranslatedRelatedFieldListFilter  # noqa: E402
+
+UserAdmin.list_filter = tuple(
+    ("groups", TranslatedRelatedFieldListFilter) if f == "groups" else f
+    for f in UserAdmin.list_filter
+)
+
 # Phase 1-A API routers
 from assessments.api import router as assessments_router
 from beds.api import router as beds_router

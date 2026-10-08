@@ -102,3 +102,40 @@ def test_lifecycle_page_render_zh_and_en(staff_client):
     staff_client.cookies["django_language"] = "zh-hans"
     resp = staff_client.get(f"/resident/{r_empty.id}/lifecycle/")
     assert "暂无记录".encode() in resp.content
+
+
+# ── admin 筛选器数据值显示层翻译（2026-10-08：OperationLog.action / User.groups）──
+
+def test_admin_filter_data_values_translated(db):
+    """en 下 admin 筛选下拉的 DB 数据值（动作/组名）经 gettext 显示英文，
+    zh 下保持中文原值（数据本身不动）。"""
+    from django.contrib.auth.models import Group
+    from auditlog.models import OperationLog
+
+    Group.objects.get_or_create(name="医务组")
+    Group.objects.get_or_create(name="护理组")
+    OperationLog.objects.create(
+        actor_type="staff", actor_name="张三", action="家属代点餐",
+        method="POST", path="/api/x", status_code=200,
+    )
+    OperationLog.objects.create(
+        actor_type="family", actor_name="李四", action="点餐OCR识别",
+        method="POST", path="/api/y", status_code=200,
+    )
+    User.objects.create_superuser("flt_admin", "a@a.com", "pw")
+    c = Client()
+    assert c.login(username="flt_admin", password="pw")
+
+    c.cookies["django_language"] = "en"
+    op = c.get("/admin/auditlog/operationlog/").content.decode()
+    assert "Family-ordered meal" in op and "Meal order OCR" in op
+    assert "家属代点餐" not in op and "点餐OCR识别" not in op
+    us = c.get("/admin/auth/user/").content.decode()
+    assert "Medical Group" in us and "Nursing Group" in us
+    assert "医务组" not in us
+
+    c.cookies["django_language"] = "zh-hans"
+    op = c.get("/admin/auditlog/operationlog/").content.decode()
+    assert "家属代点餐" in op
+    us = c.get("/admin/auth/user/").content.decode()
+    assert "医务组" in us

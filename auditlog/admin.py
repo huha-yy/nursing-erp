@@ -1,7 +1,9 @@
 from django.contrib import admin
 from django.contrib.admin.models import LogEntry
-from django.utils.translation import gettext_lazy as _
+from django.utils.translation import gettext, gettext_lazy as _
 from import_export.admin import ExportActionModelAdmin
+
+from nursing_erp.admin_filters import TranslatedAllValuesFieldListFilter
 
 from .models import OperationLog
 
@@ -12,11 +14,15 @@ class OperationLogAdmin(ExportActionModelAdmin):
 
     ExportActionModelAdmin 提供 changelist 勾选导出 CSV/Excel（import_export
     已装）；字段全 readonly，审计日志不容手改。
+    action 是自由文本（record() 埋点 + 中间件路径表，值恒中文）：筛选下拉与
+    列表列都走显示层 gettext 翻译（closed vocab 收录在 locale/en po）。
     """
 
-    list_display = ("created_at", "actor_name", "actor_badge", "action",
+    list_display = ("created_at", "actor_name", "actor_badge", "action_badge",
                     "target", "status_code", "path")
-    list_filter = ("actor_type", "action", "created_at")
+    list_filter = ("actor_type",
+                   ("action", TranslatedAllValuesFieldListFilter),
+                   "created_at")
     search_fields = ("actor_name", "target", "detail", "path")
     date_hierarchy = "created_at"
     list_per_page = 50
@@ -24,6 +30,10 @@ class OperationLogAdmin(ExportActionModelAdmin):
     @admin.display(description=_("身份"), ordering="actor_type")
     def actor_badge(self, obj):
         return obj.get_actor_type_display()
+
+    @admin.display(description=_("动作"), ordering="action")
+    def action_badge(self, obj):
+        return gettext(obj.action)
 
     def has_add_permission(self, request):
         return False

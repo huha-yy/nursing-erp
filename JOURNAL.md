@@ -85,3 +85,22 @@
 
 **当前生产 = 英文演示态**。切回：`bash scripts/switch_demo_lang.sh zh`
 （AI 仓），切后楼长/院长需重新登录。
+
+### 追记（同日）：admin 筛选器数据值翻译（action / groups 两处漏网）
+- **现象**：en 下 /admin/auditlog/operationlog/ 的 "By Action" 与
+  /admin/auth/user/ 的 "By groups" 下拉仍中文。
+- **根因**：两组都是 **DB 数据值**非模板文案——OperationLog.action 是自由
+  文本（record() 埋点 12 个词 + 中间件路径表 11 个词，写入恒中文），
+  Group.name 是种子数据行。模板侧无法插手，须在 ListFilter.choices()
+  显示层 gettext（与「枚举值不动」同口径）。
+- **修复**：`nursing_erp/admin_filters.py` 两个筛选器子类（只翻
+  `isinstance(display, str)`——Django 自产 "All" 是 lazy proxy，再翻会把
+  zh「全部」卡死）；auditlog admin 换 action 筛选器 + 列表列 action_badge
+  翻译；urls.py 运行时替换 UserAdmin.list_filter 的 groups 项；
+  OperationLog.__str__ 的 action 也走 gettext（admin 勾选框 title 用它）。
+  en po 收录 27 词条（动作 closed vocab + 6 组名）。
+- **测试**：test_i18n_pages 新增 admin 筛选用例（en 英/zh 中双向）。
+- **顺手修的真回归**：conftest 加 `_isolate_demo_lang_marker`（autouse）——
+  demo_lang 中间件读到生产 marker=en 会把无 cookie 的测试请求全部强制
+  英文，marker=en 期间 test_i18n_pages zh 用例 7 连挂（本次首跑才发现）。
+  pytest 25 绿 + makemigrations --check 零迁移。

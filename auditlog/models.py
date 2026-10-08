@@ -47,4 +47,10 @@ class OperationLog(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.actor_name} {self.action} {self.target} {self.created_at:%m-%d %H:%M}"
+        # action 是 closed vocab（record() 埋点 + 中间件路径表），显示层翻译
+        from django.utils.translation import gettext
+
+        return (
+            f"{self.actor_name} {gettext(self.action)} "
+            f"{self.target} {self.created_at:%m-%d %H:%M}"
+        )
