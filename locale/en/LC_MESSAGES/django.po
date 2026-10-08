@@ -1190,7 +1190,7 @@ msgid "库存状态"
 msgstr "Stock status"
 
 msgid "⚠️ 不足 (仅剩{}{})"
-msgstr "⚠️ Low (only {}{} left)"
+msgstr "⚠️ Low (only {} {} left)"
 
 msgid "✅ 充足"
 msgstr "✅ Sufficient"

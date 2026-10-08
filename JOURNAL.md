@@ -129,3 +129,8 @@
   - 线上已清：停服 DELETE 两表（备份 /tmp/audit-tables-bak-20261008.sql）。
 - **测试**：test_auditlog 追加 en 写入侧用例（action="Incident reported"、
   target 英文括号）；全套 259 绿。
+
+## 2026-10-08 追记4 · 库存预警英文缺空格
+
+- 宣传页英文截图带出：库存状态 "⚠️ Low (only 28pack left)" 缺空格——
+  en po msgstr "Low (only {}{} left)" 补空格 + msgfmt 重编译 + 重启。
