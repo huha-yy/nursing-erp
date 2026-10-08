@@ -269,3 +269,24 @@ def test_admin_pages_render_for_superuser(client):
     resp = client.get("/admin/admin/logentry/")
     assert resp.status_code == 200
     assert "改了一条" in resp.content.decode()
+
+
+@pytest.mark.django_db
+def test_record_write_side_language_follows_request(client):
+    """record() 写入侧跟请求语言（en 下 action/target/detail 落英文格式串）。
+
+    2026-10-08：target/detail 格式串走 gettext（中文即 msgid），en 请求产
+    英文行——审计页 en 演示不再出现中文 target。
+    """
+    r = _resident()
+    client.cookies["django_language"] = "en"
+    resp = client.post("/api/incidents/", data={
+        "resident_id": r.id, "category": "fall", "severity": "warning",
+        "description": "fell in corridor",
+    }, content_type="application/json")
+    assert resp.status_code == 200
+
+    row = OperationLog.objects.get()
+    assert row.action == "Incident reported"
+    assert r.name in row.target and "Fall" in row.target
+    assert row.target.count("（") == 0  # 格式串已换英文括号

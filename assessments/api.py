@@ -180,9 +180,14 @@ def confirm_assessment(request, assessment_id: int, payload: ConfirmIn | None = 
         )
     except ValueError as exc:
         raise HttpError(400, str(exc)) from exc
-    record(request, action="评估定级确认",
-           target=f"{a.resident.name}（{a.resident.building}{a.resident.room}）→ "
-                  f"{payload.final_level or a.suggested_level}",
-           detail=f"总分 {a.total_score} · {payload.reason or '无备注'}",
+    record(request, action=_n("评估定级确认"),
+           target=_n("%(name)s（%(bld)s %(room)s）→ %(level)s") % {
+               "name": a.resident.name, "bld": a.resident.building,
+               "room": a.resident.room,
+               "level": _n(payload.final_level or a.suggested_level),
+           },
+           detail=_n("总分 %(score)s · %(reason)s") % {
+               "score": a.total_score, "reason": payload.reason or _n("无备注"),
+           },
            target_model="assessments.Assessment", target_id=a.id)
     return _assessment_out(a)

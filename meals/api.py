@@ -135,8 +135,11 @@ def create_meal_order(request, payload: MealOrderIn):
     )
     order.dishes.set(payload.dish_ids)
     r = Resident.objects.filter(pk=payload.resident_id).first()
-    record(request, action="点餐下单",
-           target=f"{r.name}（{r.building}{r.room}）{payload.date} {payload.meal_type}" if r else "",
+    record(request, action=_n("点餐下单"),
+           target=_n("%(name)s（%(bld)s %(room)s）%(date)s %(meal)s") % {
+               "name": r.name, "bld": r.building, "room": r.room,
+               "date": payload.date, "meal": _n(payload.meal_type),
+           } if r else "",
            detail=payload.special_requests[:200] or "", target_model="meals.MealOrder",
            target_id=order.id)
     return {"id": order.id, "status": "created"}
@@ -174,9 +177,13 @@ def create_meal_orders_batch(request, payload: list[MealOrderIn]):
         created += 1
     names = list(Resident.objects.filter(
         id__in={i.resident_id for i in payload}).values_list("name", flat=True)[:5])
-    record(request, action="批量点餐",
-           target=f"{created} 单（{'、'.join(names)}{'等' if len(names) == 5 else ''}）",
-           detail=f"归属：{payload[0].ordered_by or '-'}", target_model="meals.MealOrder")
+    record(request, action=_n("批量点餐"),
+           target=_n("%(n)s 单（%(names)s）") % {
+               "n": created,
+               "names": "、".join(names) + (_n("等") if len(names) == 5 else ""),
+           },
+           detail=_n("归属：%(by)s") % {"by": payload[0].ordered_by or "-"},
+           target_model="meals.MealOrder")
     return {"status": "created", "count": created}
 
 
@@ -193,10 +200,14 @@ def cancel_meal_order(request, order_id: int, reason: str = ""):
             _n("无权操作 {} 的订单（当前范围：{}）").format(order.resident.building, scope),
         )
     order.cancel(reason)
-    record(request, action="退餐",
-           target=f"{order.resident.name}（{order.resident.building}{order.resident.room}）"
-                  f"{order.date} {order.meal_type}",
-           detail=f"原因：{reason or '未填'}", target_model="meals.MealOrder",
+    record(request, action=_n("退餐"),
+           target=_n("%(name)s（%(bld)s %(room)s）%(date)s %(meal)s") % {
+               "name": order.resident.name, "bld": order.resident.building,
+               "room": order.resident.room,
+               "date": order.date, "meal": _n(order.meal_type),
+           },
+           detail=_n("原因：%(reason)s") % {"reason": reason or _n("未填")},
+           target_model="meals.MealOrder",
            target_id=order.id)
     return {"id": order.id, "status": "cancelled"}
 

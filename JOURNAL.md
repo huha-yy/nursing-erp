@@ -111,3 +111,21 @@
   组 chip 等所有 `__str__` 显示点一并覆盖）。词条沿用上轮 po。
 - test_i18n_pages 追加组列表用例，39 绿（含 test_groups/test_sidebar_perms
   回归确认——组名翻译不影响权限判断）。
+
+### 追记 3（同日）：审计日志写入侧 i18n + 切语言清空两审计表
+- **现象**：en 下 OperationLog「Target」列与 LogEntry「object_repr」仍中文
+  （"王丽华 代 张国栋 …早餐"、"医用胶带 (9卷)"）。
+- **根因两层**：①现存 58+2 行全是 rebuild 前中文时代的陈货——rebuild 的
+  清空清单不含两审计表，跨语言切换后旧文案快照成了杂音；②运行期 record()
+  的 target/detail 格式串硬编码中文，新写的行也恒中文。
+- **修复**：
+  - rebuild_demo_data.py 清空清单 + OperationLog + LogEntry（语言切换/
+    重灌即清，审计行由运行期按当前语言重新积累）；
+  - 13 个 record() 调用点（meals 3 / family 2 / incidents 3 / assessments 1 /
+    billing 3 / residents 1）target/detail 全部改 gettext 格式串
+    （中文即 msgid），枚举值（餐次/护理档/类别 display）同随请求语言；
+    en po +23 词条。楼栋-房号拼接顺带加空格（en "Building 1""101" 会粘成
+    "Building 1101"）。
+  - 线上已清：停服 DELETE 两表（备份 /tmp/audit-tables-bak-20261008.sql）。
+- **测试**：test_auditlog 追加 en 写入侧用例（action="Incident reported"、
+  target 英文括号）；全套 259 绿。

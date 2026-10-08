@@ -73,9 +73,12 @@ def handle_incident(request, incident_id: int, payload: HandleIn = None):
     resident_for_write(request, incident.resident_id)
 
     if incident.handled:
-        record(request, action="异常处理",
-               target=f"{incident.resident.name} · {incident.get_category_display()}",
-               detail="重复标记（幂等命中，未改写首次处理人）",
+        record(request, action=_n("异常处理"),
+               target=_n("%(name)s · %(cat)s") % {
+                   "name": incident.resident.name,
+                   "cat": incident.get_category_display(),
+               },
+               detail=_n("重复标记（幂等命中，未改写首次处理人）"),
                target_model="incidents.IncidentReport", target_id=incident.id,
                actor_name=((payload.operator if payload else "") or ""))
         return {"id": incident.id, "status": "already_handled"}
@@ -84,9 +87,12 @@ def handle_incident(request, incident_id: int, payload: HandleIn = None):
     incident.handled_by = ((payload.operator if payload else "") or "")[:30]
     incident.handled_at = timezone.now()
     incident.save(update_fields=["handled", "handled_by", "handled_at"])
-    record(request, action="异常处理",
-           target=f"{incident.resident.name}（{incident.resident.building}{incident.resident.room}）"
-                  f"· {incident.get_category_display()}",
+    record(request, action=_n("异常处理"),
+           target=_n("%(name)s（%(bld)s %(room)s）· %(cat)s") % {
+               "name": incident.resident.name, "bld": incident.resident.building,
+               "room": incident.resident.room,
+               "cat": incident.get_category_display(),
+           },
            detail=incident.description[:200],
            target_model="incidents.IncidentReport", target_id=incident.id,
            actor_name=incident.handled_by)  # 署名经 dl-control 转发：台账查到记员工，查不到记 AI
@@ -110,8 +116,10 @@ def create_incident(request, payload: IncidentIn):
     )
     cat = dict(IncidentReport.Category.choices).get(payload.category, payload.category)
     sev = dict(IncidentReport.Severity.choices).get(payload.severity, payload.severity)
-    record(request, action="异常上报",
-           target=f"{r.name}（{r.building}{r.room}）· {cat}",
+    record(request, action=_n("异常上报"),
+           target=_n("%(name)s（%(bld)s %(room)s）· %(cat)s") % {
+               "name": r.name, "bld": r.building, "room": r.room, "cat": cat,
+           },
            detail=f"[{sev}] {payload.description[:200]}",
            target_model="incidents.IncidentReport", target_id=incident.id)
     return {"id": incident.id, "status": "created", "severity": payload.severity}

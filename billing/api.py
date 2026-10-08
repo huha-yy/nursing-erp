@@ -156,10 +156,12 @@ def generate_bills(
     if not _MONTH_RE.match(month or ""):
         raise HttpError(400, _n("month 格式须为 YYYY-MM，收到：{!r}").format(month))
     rv = generate_month_bills(month, resident_id=resident_id, building=building or None)
-    record(request, action="账单生成",
-           target=f"{month}{' · ' + building if building else ''}"
-                  f"{' · 指定老人' if resident_id else ''}",
-           detail=f"出账 {rv['generated']} 单（含刷新），已核销跳过 {rv['skipped_paid']} 单",
+    record(request, action=_n("账单生成"),
+           target=month + (f" · {building}" if building else "")
+                  + (_n(" · 指定老人") if resident_id else ""),
+           detail=_n("出账 %(g)s 单（含刷新），已核销跳过 %(s)s 单") % {
+               "g": rv["generated"], "s": rv["skipped_paid"],
+           },
            target_model="billing.MonthlyBill")
     return rv
 
@@ -172,12 +174,15 @@ def settle_bill(request, bill_id: int, payload: SettleIn | None = None):
     operator = _operator_name(request, payload.settled_by)
     already = bill.status == MonthlyBill.Status.PAID
     bill.settle(operator=operator, note=payload.note)
-    record(request, action="账单核销",
-           target=f"{bill.resident.name}（{bill.resident.building}{bill.resident.room}）"
-                  f"{bill.month} ¥{bill.total}",
-           detail=(f"重复核销（幂等命中） · 经手人：{bill.settled_by}"
-                   if already else f"经手人：{operator}"
-                   + (f" · 备注：{payload.note}" if payload.note else "")),
+    record(request, action=_n("账单核销"),
+           target=_n("%(name)s（%(bld)s %(room)s）%(month)s ¥%(total)s") % {
+               "name": bill.resident.name, "bld": bill.resident.building,
+               "room": bill.resident.room, "month": bill.month,
+               "total": bill.total,
+           },
+           detail=(_n("重复核销（幂等命中） · 经手人：%(by)s") % {"by": bill.settled_by}
+                   if already else _n("经手人：%(by)s") % {"by": operator}
+                   + (_n(" · 备注：%(note)s") % {"note": payload.note} if payload.note else "")),
            target_model="billing.MonthlyBill", target_id=bill.id,
            actor_name=operator)  # 署名可能经 dl-control 转发：台账查到记员工，查不到记 AI
     return _bill_out(bill)
@@ -190,9 +195,13 @@ def unsettle_bill(request, bill_id: int):
     was_paid = bill.status == MonthlyBill.Status.PAID
     prev_by = bill.settled_by
     bill.unsettle()
-    record(request, action="撤销核销",
-           target=f"{bill.resident.name}（{bill.resident.building}{bill.resident.room}）"
-                  f"{bill.month} ¥{bill.total}",
-           detail=(f"原核销人：{prev_by}" if was_paid else "重复撤销（幂等命中，本就是待收）"),
+    record(request, action=_n("撤销核销"),
+           target=_n("%(name)s（%(bld)s %(room)s）%(month)s ¥%(total)s") % {
+               "name": bill.resident.name, "bld": bill.resident.building,
+               "room": bill.resident.room, "month": bill.month,
+               "total": bill.total,
+           },
+           detail=(_n("原核销人：%(by)s") % {"by": prev_by}
+                   if was_paid else _n("重复撤销（幂等命中，本就是待收）")),
            target_model="billing.MonthlyBill", target_id=bill.id)
     return _bill_out(bill)

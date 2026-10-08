@@ -2371,3 +2371,73 @@ msgstr "Logistics Group"
 
 msgid "安保组"
 msgstr "Security Group"
+
+# ── 审计日志 record() 写入侧格式串（按请求语言落库）──
+msgid "%(name)s（%(bld)s %(room)s）%(date)s %(meal)s"
+msgstr "%(name)s (%(bld)s %(room)s) %(date)s %(meal)s"
+
+msgid "%(name)s（%(bld)s %(room)s）· %(cat)s"
+msgstr "%(name)s (%(bld)s %(room)s) · %(cat)s"
+
+msgid "%(name)s（%(bld)s %(room)s）→ %(level)s"
+msgstr "%(name)s (%(bld)s %(room)s) → %(level)s"
+
+msgid "%(name)s（%(bld)s %(room)s）%(month)s ¥%(total)s"
+msgstr "%(name)s (%(bld)s %(room)s) %(month)s ¥%(total)s"
+
+msgid "%(name)s · %(cat)s"
+msgstr "%(name)s · %(cat)s"
+
+msgid "%(who)s 代 %(name)s %(date)s %(meal)s"
+msgstr "%(who)s for %(name)s, %(date)s %(meal)s"
+
+msgid "%(n)s 单（%(names)s）"
+msgstr "%(n)s orders (%(names)s)"
+
+msgid "归属：%(by)s"
+msgstr "Attributed to: %(by)s"
+
+msgid "原因：%(reason)s"
+msgstr "Reason: %(reason)s"
+
+msgid "经手人：%(by)s"
+msgstr "Handled by: %(by)s"
+
+msgid "重复核销（幂等命中） · 经手人：%(by)s"
+msgstr "Duplicate settlement (idempotent hit) · handled by: %(by)s"
+
+msgid " · 备注：%(note)s"
+msgstr " · note: %(note)s"
+
+msgid "原核销人：%(by)s"
+msgstr "Originally settled by: %(by)s"
+
+msgid "重复撤销（幂等命中，本就是待收）"
+msgstr "Duplicate unsettle (idempotent hit, bill already pending)"
+
+msgid "重复标记（幂等命中，未改写首次处理人）"
+msgstr "Duplicate mark (idempotent hit, first handler kept)"
+
+msgid "总分 %(score)s · %(reason)s"
+msgstr "Total score %(score)s · %(reason)s"
+
+msgid "出账 %(g)s 单（含刷新），已核销跳过 %(s)s 单"
+msgstr "%(g)s bills generated (incl. refresh), %(s)s already-paid bills skipped"
+
+msgid " · 指定老人"
+msgstr " · specific resident"
+
+msgid "等"
+msgstr " etc."
+
+msgid "未填"
+msgstr "not given"
+
+msgid "家属代退"
+msgstr "Family cancellation"
+
+msgid "无备注"
+msgstr "no note"
+
+msgid "（无明细）"
+msgstr "(no detail)"

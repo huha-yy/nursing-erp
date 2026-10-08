@@ -944,6 +944,12 @@ def main() -> None:
 
     with transaction.atomic():
         # ── 1. 清空动态层（ORM delete 走级联，M2M/日志一并清）─────
+        # 审计两表一并清（2026-10-08）：历史行是切换语言前的旧文案快照
+        # （action/target/object_repr 按写入时语言落库），跨语言演示时是
+        # 杂音；清后由运行期 record()/后台操作按当前语言重新积累。
+        from auditlog.models import OperationLog  # noqa: E402
+        from django.contrib.admin.models import LogEntry  # noqa: E402
+
         for model in (
             MealOrder, MealFinance, WeekMenu, MonthlyBill,
             NursingLog, HealthRecord, MedicationRecord, ResidentRoutine,
@@ -951,7 +957,7 @@ def main() -> None:
             CareLevelChange, TransferRecord, DischargeRecord,
             Task, Attendance, Schedule, Performance,
             StockIn, StockOut, MaintenanceOrder, Inspection, Approval,
-            IncidentReport,
+            IncidentReport, OperationLog, LogEntry,
         ):
             n, _ = model.objects.all().delete()
             if n:

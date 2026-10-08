@@ -1,6 +1,7 @@
 from datetime import date, datetime
 from typing import List, Optional
 
+from django.utils.translation import gettext as _n
 from ninja import Query, Router, Schema
 from ninja.pagination import PageNumberPagination, paginate
 
@@ -135,10 +136,12 @@ def create_nursing_log(request, payload: NursingLogIn):
         detail=payload.detail,
         staff_name=payload.staff_name,
     )
-    record(request, action="护理日志录入",
-           target=f"{r.name}（{r.building}{r.room}）{log_date} "
-                  f"{dict(NursingLog.Category.choices).get(payload.category, payload.category)}",
-           detail=payload.detail[:200] or "（无明细）",
+    record(request, action=_n("护理日志录入"),
+           target=_n("%(name)s（%(bld)s %(room)s）%(date)s %(cat)s") % {
+               "name": r.name, "bld": r.building, "room": r.room, "date": log_date,
+               "cat": dict(NursingLog.Category.choices).get(payload.category, payload.category),
+           },
+           detail=payload.detail[:200] or _n("（无明细）"),
            target_model="residents.NursingLog", target_id=log.id)
     return {"id": log.id, "status": "created", "log_date": str(log_date)}
 

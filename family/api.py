@@ -391,8 +391,11 @@ def family_meal_batch(request, payload: list[FamilyMealOrderIn]):
             created += 1
     names = list(Resident.objects.filter(
         id__in={i.resident_id for i in payload}).values_list("name", flat=True)[:5])
-    record(request, action="家属代点餐",
-           target=f"{created} 单（{'、'.join(names)}{'等' if len(names) == 5 else ''}）",
+    record(request, action=_n("家属代点餐"),
+           target=_n("%(n)s 单（%(names)s）") % {
+               "n": created,
+               "names": "、".join(names) + (_n("等") if len(names) == 5 else ""),
+           },
            target_model="meals.MealOrder")
     return {"status": "created", "count": created}
 
@@ -402,9 +405,13 @@ def family_meal_cancel(request, order_id: int, payload: CancelIn | None = None):
     """家属代退 — 走真实 cancel() 留痕，changed_by 落家属归属串。"""
     fm = request.auth
     order = _order_for_write(fm, order_id)
-    reason = (payload.reason if payload else "") or "家属代退"
+    reason = (payload.reason if payload else "") or _n("家属代退")
     order.cancel(reason, operator=_attribution(fm, order.resident_id))
-    record(request, action="家属退餐",
-           target=f"{fm.name} 代 {order.resident.name} {order.date} {order.meal_type}",
-           detail=f"原因：{reason}", target_model="meals.MealOrder", target_id=order.id)
+    record(request, action=_n("家属退餐"),
+           target=_n("%(who)s 代 %(name)s %(date)s %(meal)s") % {
+               "who": fm.name, "name": order.resident.name,
+               "date": order.date, "meal": _n(order.meal_type),
+           },
+           detail=_n("原因：%(reason)s") % {"reason": reason},
+           target_model="meals.MealOrder", target_id=order.id)
     return {"id": order.id, "status": "cancelled"}
