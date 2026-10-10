@@ -14,7 +14,7 @@ msgid "系统管理"
 msgstr "System Management"
 
 msgid "后台变更日志"
-msgstr "Backend Change Log"
+msgstr "Backend Change Logs"
 
 msgid "用户账号"
 msgstr "User Accounts"
@@ -34,7 +34,7 @@ msgid "AI 院长助手"
 msgstr "AI Director Assistant"
 
 msgid "打开 AI Chat"
-msgstr "Open AI Chat"
+msgstr "AI Chat"
 
 msgid "快速记录"
 msgstr "Quick Log"
@@ -208,7 +208,7 @@ msgid "家属账号"
 msgstr "Family Accounts"
 
 msgid "绑定台账"
-msgstr "Binding Records"
+msgstr "Linkage Records"
 
 msgid "审计留痕"
 msgstr "Audit Trail"
@@ -243,7 +243,7 @@ msgid "不合格"
 msgstr "Fail"
 
 msgid "与老人关系"
-msgstr "Relation to Resident"
+msgstr "Relationship to Resident"
 
 msgid "严重程度"
 msgstr "Severity"
@@ -888,7 +888,7 @@ msgid "经办人档案"
 msgstr "Handler Profile"
 
 msgid "绑定时间"
-msgstr "Bound At"
+msgstr "Linked At"
 
 msgid "结束日期"
 msgstr "End Date"
@@ -1829,7 +1829,7 @@ msgid "待定级 · 建议 %(lvl)s"
 msgstr "Pending grading · suggested %(lvl)s"
 
 msgid "菜单 OCR 录入"
-msgstr "Menu OCR entry"
+msgstr "Menu OCR Entry"
 
 msgid "拍照识别每周菜单"
 msgstr "Photograph the weekly menu for recognition"
@@ -2191,7 +2191,7 @@ msgstr "Records"
 
 msgctxt "nav"
 msgid "周选"
-msgstr "Weekly Order"
+msgstr "Weekly Orders"
 
 msgctxt "nav"
 msgid "床位"
@@ -2290,6 +2290,32 @@ msgstr "Grade 3 severely impaired"
 
 msgid "4级 完全丧失"
 msgstr "Grade 4 completely lost"
+
+# -- 2026-10-10 评审反馈修复：等级映射档位（GradeLevelMap.GRADE_CHOICES） --
+msgid "0级"
+msgstr "Level 0"
+
+msgid "1级"
+msgstr "Level 1"
+
+msgid "2级"
+msgstr "Level 2"
+
+msgid "3级"
+msgstr "Level 3"
+
+msgid "4级"
+msgstr "Level 4"
+
+# -- 2026-10-10 评审反馈修复：床位位置室/床后缀（beds/models） --
+msgid "%(floor)s %(room)s室"
+msgstr "%(floor)s Room %(room)s"
+
+msgid "%(room)s-%(bed)s床"
+msgstr "%(room)s Bed %(bed)s"
+
+msgid "%(building)s %(floor)s %(room)s室 %(bed)s床"
+msgstr "%(building)s %(floor)s Room %(room)s Bed %(bed)s"
 
 
 # ── admin 显示层翻译：操作动作（record() 埋点 + 中间件路径表，closed vocab）──

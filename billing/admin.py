@@ -1,5 +1,5 @@
 from django.contrib import admin
-from django.utils.translation import gettext_lazy as _
+from django.utils.translation import gettext, gettext_lazy as _
 from import_export.admin import ImportExportModelAdmin
 from unfold.admin import ModelAdmin
 from unfold.decorators import action
@@ -11,12 +11,18 @@ from .models import FeeRule, MonthlyBill
 
 @admin.register(FeeRule)
 class FeeRuleAdmin(ModelAdmin, ImportExportModelAdmin):
-    list_display = ["fee_type_display", "key", "monthly_amount"]
+    list_display = ["fee_type_display", "key_display", "monthly_amount"]
     list_filter = ["fee_type"]
 
     @admin.display(description=_("费用类型"), ordering="fee_type")
     def fee_type_display(self, obj):
         return obj.get_fee_type_display()
+
+    @admin.display(description=_("档位"), ordering="key")
+    def key_display(self, obj):
+        """档位 key 存中文护理等级原值（出账逻辑键，不可译存储）——
+        显示层过 gettext（2026-10-10 评审反馈：Fee Rules 页 Tier 列混杂中文）"""
+        return gettext(obj.key) if obj.key else "-"
 
 
 @admin.register(MonthlyBill)

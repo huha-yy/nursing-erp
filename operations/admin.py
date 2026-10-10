@@ -6,6 +6,16 @@ from import_export.admin import ImportExportModelAdmin
 from .models import InventoryItem, StockIn, StockOut, MaintenanceOrder, Inspection, Approval
 
 
+def _plural_unit(quantity: int, unit: str) -> str:
+    """英文单位按数量复数化（2026-10-10 评审反馈：only 28 pack → packs）。
+    中文单位/不可数单位（pcs、each）不变。"""
+    if quantity == 1 or not unit or not unit.isascii() or unit in ("pcs", "each"):
+        return unit
+    if unit.endswith(("s", "x", "ch", "sh")):
+        return unit + "es"
+    return unit + "s"
+
+
 @admin.register(InventoryItem)
 class InventoryItemAdmin(ModelAdmin, ImportExportModelAdmin):
     list_display = ["name", "category", "quantity", "unit", "safety_stock", "low_stock_badge"]
@@ -17,7 +27,8 @@ class InventoryItemAdmin(ModelAdmin, ImportExportModelAdmin):
     @admin.display(description=_("库存状态"), ordering="quantity")
     def low_stock_badge(self, obj):
         if obj.is_low_stock:
-            return _("⚠️ 不足 (仅剩{}{})").format(obj.quantity, obj.unit)
+            return _("⚠️ 不足 (仅剩{}{})").format(
+                obj.quantity, _plural_unit(obj.quantity, obj.unit))
         return _("✅ 充足")
 
     @admin.action(description=_("补货至安全库存"))

@@ -59,7 +59,9 @@ class Room(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.floor} {self.number}室"
+        return _("%(floor)s %(room)s室") % {
+            "floor": self.floor, "room": self.number,
+        }
 
 
 class Bed(models.Model):
@@ -93,9 +95,16 @@ class Bed(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.room}-{self.number}床"
+        return _("%(room)s-%(bed)s床") % {"room": self.room, "bed": self.number}
 
     @property
     def full_location(self) -> str:
+        # 室/床后缀走 gettext（中文串即 msgid）——2026-10-10 评审反馈：
+        # Beds 页 "Building 1 Floor 1 101室 1床" 混杂中文
         room = self.room
-        return f"{room.floor.building.name} {room.floor.name} {room.number}室 {self.number}床"
+        return _("%(building)s %(floor)s %(room)s室 %(bed)s床") % {
+            "building": room.floor.building.name,
+            "floor": room.floor.name,
+            "room": room.number,
+            "bed": self.number,
+        }

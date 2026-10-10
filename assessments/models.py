@@ -60,7 +60,9 @@ class GradeLevelMap(models.Model):
     """能力等级→护理档映射 — 院内政策，后台可改（仿 FeeRule）。
     种子不含「失智」：失智无法由分数推出，只能定级时人工改判并填原因。"""
 
-    GRADE_CHOICES = [(i, f"{i}级") for i in range(5)]
+    # 档位标签走 gettext（中文串即 msgid）：GradeLevelMap 后台「0级」列
+    # en 态译 Level 0（2026-10-10 评审反馈：等级映射页混杂中文）
+    GRADE_CHOICES = [(i, _(f"{i}级")) for i in range(5)]
 
     grade = models.PositiveSmallIntegerField(
         choices=GRADE_CHOICES, unique=True, verbose_name=_("能力等级")
@@ -102,9 +104,11 @@ class Assessment(StaffFkMixin, models.Model):
         DRAFT = "draft", _("待定级")
         CONFIRMED = "confirmed", _("已定级")
 
+    # 国标等级标签走 gettext（中文串即 msgid）：admin 列表/详情/角标预览
+    # 统一译（2026-10-10 评审反馈：评估列表混杂中文"3级 重度受损"）
     GRADE_LABELS = {
-        0: "0级 能力完好", 1: "1级 轻度受损", 2: "2级 中度受损",
-        3: "3级 重度受损", 4: "4级 完全丧失",
+        0: _("0级 能力完好"), 1: _("1级 轻度受损"), 2: _("2级 中度受损"),
+        3: _("3级 重度受损"), 4: _("4级 完全丧失"),
     }
     # GB/T 42195-2022 分段常量（国标口径，非院内配置）：总分越高越受损
     BANDS = ((0, 20, 0), (21, 45, 1), (46, 65, 2), (66, 90, 3), (91, 100, 4))

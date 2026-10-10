@@ -154,3 +154,33 @@
   （"2026-10-01 · Grade 3 severely impaired (80 pts) · Graded Full Care"）。
 - LocaleMiddleware 坑备忘：测试里 translation.activate 后打请求会被
   middleware 重置回默认语言——API en 断言用 `HTTP_ACCEPT_LANGUAGE="en"`。
+
+## 2026-10-10 · 评审反馈落地（姚文龙 9 条，PDF 会话记录）
+
+英文产品交付外部格式人员评审，9 条意见全部修复（po msgstr +
+显示层 gettext + 复数化 + 词边界截断）：
+
+1. **Relation to Resident → Relationship to Resident**（po）
+2. **Backend Change Log → Backend Change Logs**（po，与 Operation Logs 对齐）
+3. **Open AI Chat → AI Chat**（po，open 冗余且与 OpenAI 撞名）
+4. **bind 歧义 → Linkage Records / Bound At → Linked At**（po）
+5. **混杂中文**：
+   - GradeLevelMap.GRADE_CHOICES `f"{i}级"` 无 gettext → 包 _() +
+     po "0级".."4级"→"Level 0..4"（makemigrations --check 零迁移）
+   - Assessment.GRADE_LABELS 裸 dict → 包 _()（admin/api/views 全链路跟随）
+   - FeeRule.key 档位列（全护等中文原值是出账逻辑键不可译存储）→
+     billing/admin key_display 显示层 gettext
+   - Bed.__str__/full_location `101室 1床` → `%(...)s室` 格式串 gettext +
+     po 三条（en: "Room 101 Bed 1"）
+6. **库存 Low 预警单位复数**：operations/admin `_plural_unit()`
+   （qty>1 且 ASCII 单词且非 pcs/each → +s/-es；中文单位不动）
+7. **Weekly Order → Weekly Orders**（po msgctxt nav）
+8. **Menu OCR entry → Menu OCR Entry**（po）
+9. **chat 会话标题词边界截断**（ai 仓 main.py `_chat_title()`）：
+   >20 字符且切断 ASCII 单词时回退上一空格 + "…"，
+   "Which supplies are l" → "Which supplies are…"；中文无空格不受影响。
+   8 处 message[:20] 调用点统一替换；存量旧标题不回填。
+
+验证：throwaway pytest 8/8（admin 侧栏/绑定表列/等级映射/评估列表/
+价目档位/床位位置/库存复数/轻量页导航+OCR 标题，跑完即删）；
+ERP 259 全绿；mo 已 compilemessages；nursing-erp.service 已重启。
